@@ -160,6 +160,33 @@ export const authAPI = {
   },
 };
 
+export const profileAPI = {
+  // Get user profile with courses and reviews
+  getProfile: async () => {
+    const response = await api.get("/profile");
+    return response.data;
+  },
+
+  // Get all available courses
+  getAllCourses: async () => {
+    const response = await api.get("/profile/courses");
+    return response.data;
+  },
+
+  // Update user profile
+  updateProfile: async (profileData) => {
+    const response = await api.put("/profile", {
+      name: profileData.name,
+      email: profileData.email,
+      department: profileData.department,
+      semester: profileData.semester ? parseInt(profileData.semester) : null,
+      bio: profileData.bio,
+      courses: profileData.courses || [],
+    });
+    return response.data;
+  },
+};
+
 export const apiRequest = {
   get: async (url, config = {}) => {
     const response = await api.get(url, config);

@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Header from "@/components/header"
+import { profileAPI } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,35 +13,131 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Textarea } from "@/components/ui/textarea"
 import { Edit, Plus, X, Star } from "lucide-react"
 
+interface Course {
+  id: number
+  course_code: string
+  course_name: string
+  department: string
+  credit_hours: number
+  description: string
+  difficulty: string
+  course_type: string
+}
+
 export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState("")
   const [profile, setProfile] = useState({
-    name: "Alex Johnson",
-    email: "alex.johnson@university.edu",
-    semester: "6",
-    department: "Computer Science",
-    bio: "Passionate about machine learning and software development. Always looking for study partners for advanced algorithms and data structures.",
-    courses: ["Advanced Algorithms", "Machine Learning", "Database Systems", "Software Engineering"],
-    completedCourses: [
-      { name: "Data Structures", rating: 5, review: "Excellent course with practical applications" },
-      { name: "Web Development", rating: 4, review: "Great introduction to modern web technologies" },
-    ],
+    name: "",
+    email: "",
+    semester: "",
+    department: "",
+    bio: "",
+    courses: [] as string[],
+    completedCourses: [] as Array<{ name: string; rating: number; review: string }>,
   })
 
-  const [newCourse, setNewCourse] = useState("")
+  const [availableCourses, setAvailableCourses] = useState<Course[]>([])
+  const [selectedCourse, setSelectedCourse] = useState("")
+  const [loadingCourses, setLoadingCourses] = useState(false)
 
-  const handleSave = () => {
-    setIsEditing(false)
-    // Save profile logic here
+  // Load profile data and available courses on component mount
+  useEffect(() => {
+    loadProfile()
+    loadAvailableCourses()
+  }, [])
+
+  const loadProfile = async () => {
+    try {
+      setLoading(true)
+      setError("")
+      const response = await profileAPI.getProfile()
+
+      if (response.success) {
+        const profileData = response.data.profile
+        setProfile({
+          name: profileData.name || "",
+          email: profileData.email || "",
+          semester: profileData.semester?.toString() || "",
+          department: profileData.department || "",
+          bio: profileData.bio || "",
+          courses: profileData.courses || [],
+          completedCourses: profileData.completedCourses || [],
+        })
+      } else {
+        setError("Failed to load profile")
+      }
+    } catch (err) {
+      console.error("Error loading profile:", err)
+      setError("Failed to load profile. Please try again.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleSave = async () => {
+    try {
+      setSaving(true)
+      setError("")
+
+      const response = await profileAPI.updateProfile(profile)
+
+      if (response.success) {
+        // Update local state with the response data
+        const updatedProfile = response.data.profile
+        setProfile({
+          name: updatedProfile.name || "",
+          email: updatedProfile.email || "",
+          semester: updatedProfile.semester?.toString() || "",
+          department: updatedProfile.department || "",
+          bio: updatedProfile.bio || "",
+          courses: updatedProfile.courses || [],
+          completedCourses: updatedProfile.completedCourses || [],
+        })
+        setIsEditing(false)
+      } else {
+        setError("Failed to update profile")
+      }
+    } catch (err) {
+      console.error("Error updating profile:", err)
+      setError("Failed to update profile. Please try again.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const loadAvailableCourses = async () => {
+    try {
+      setLoadingCourses(true)
+      console.log("Loading available courses...")
+      const response = await profileAPI.getAllCourses()
+      console.log("Courses response:", response)
+
+      if (response.success) {
+        console.log("Available courses:", response.data.courses)
+        setAvailableCourses(response.data.courses)
+      } else {
+        console.error("Failed to load courses:", response)
+      }
+    } catch (err) {
+      console.error("Error loading courses:", err)
+    } finally {
+      setLoadingCourses(false)
+    }
   }
 
   const addCourse = () => {
-    if (newCourse.trim()) {
-      setProfile((prev) => ({
-        ...prev,
-        courses: [...prev.courses, newCourse.trim()],
-      }))
-      setNewCourse("")
+    if (selectedCourse.trim()) {
+      // Check if course is already added
+      if (!profile.courses.includes(selectedCourse)) {
+        setProfile((prev) => ({
+          ...prev,
+          courses: [...prev.courses, selectedCourse],
+        }))
+      }
+      setSelectedCourse("")
     }
   }
 
@@ -51,9 +148,48 @@ export default function ProfilePage() {
     }))
   }
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="flex items-center justify-center h-64">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+              <p className="mt-4 text-gray-600">Loading profile...</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
+
+      {error && (
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <div className="flex">
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">Error</h3>
+                <div className="mt-2 text-sm text-red-700">
+                  <p>{error}</p>
+                </div>
+                <div className="mt-4">
+                  <button
+                    onClick={loadProfile}
+                    className="bg-red-100 px-3 py-2 rounded-md text-sm font-medium text-red-800 hover:bg-red-200"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
@@ -131,13 +267,35 @@ export default function ProfilePage() {
 
                 {isEditing && (
                   <div className="flex gap-2">
-                    <Input
-                      value={newCourse}
-                      onChange={(e) => setNewCourse(e.target.value)}
-                      placeholder="Add a course..."
-                      onKeyPress={(e) => e.key === "Enter" && addCourse()}
-                    />
-                    <Button onClick={addCourse} size="sm">
+                    <Select
+                      value={selectedCourse}
+                      onValueChange={setSelectedCourse}
+                      disabled={loadingCourses}
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder={loadingCourses ? "Loading courses..." : "Select a course to add..."} />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white border border-gray-200 shadow-lg">
+                        {availableCourses
+                          .filter(course => {
+                            const isNotEnrolled = !profile.courses.includes(course.course_code);
+                            console.log(`Course ${course.course_code}: enrolled=${!isNotEnrolled}, showing=${isNotEnrolled}`);
+                            return isNotEnrolled;
+                          })
+                          .map((course) => (
+                            <SelectItem key={course.id} value={course.course_code}>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{course.course_code}</span>
+                                <span className="text-sm text-gray-500">{course.course_name}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        {availableCourses.length === 0 && (
+                          <div className="p-2 text-sm text-gray-500">No courses available</div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <Button onClick={addCourse} size="sm" disabled={!selectedCourse || loadingCourses}>
                       <Plus className="w-4 h-4" />
                     </Button>
                   </div>
@@ -209,7 +367,7 @@ export default function ProfilePage() {
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-white border border-gray-200 shadow-lg">
                           {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
                             <SelectItem key={sem} value={sem.toString()}>
                               {sem}
@@ -228,7 +386,7 @@ export default function ProfilePage() {
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-white border border-gray-200 shadow-lg">
                           <SelectItem value="Computer Science">Computer Science</SelectItem>
                           <SelectItem value="Electrical Engineering">Electrical Engineering</SelectItem>
                           <SelectItem value="Mechanical Engineering">Mechanical Engineering</SelectItem>
@@ -243,11 +401,19 @@ export default function ProfilePage() {
                   </div>
 
                   <div className="flex justify-end space-x-2 pt-4">
-                    <Button variant="outline" onClick={() => setIsEditing(false)}>
+                    <Button
+                      variant="outline"
+                      onClick={() => setIsEditing(false)}
+                      disabled={saving}
+                    >
                       Cancel
                     </Button>
-                    <Button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700">
-                      Save Changes
+                    <Button
+                      onClick={handleSave}
+                      className="bg-blue-600 hover:bg-blue-700"
+                      disabled={saving}
+                    >
+                      {saving ? "Saving..." : "Save Changes"}
                     </Button>
                   </div>
                 </CardContent>
