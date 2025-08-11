@@ -1,4 +1,3 @@
-
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -27,10 +26,11 @@ app.use(express.urlencoded({ extended: true }));
 
 // Import routes
 const authRoutes = require("./routes/auth");
+const notesRoutes = require("./routes/notes");
 
 // Use routes
 app.use("/api/auth", authRoutes);
-
+app.use("/api/notes", notesRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({

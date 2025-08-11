@@ -160,6 +160,83 @@ export const authAPI = {
   },
 };
 
+export const notesAPI = {
+  // Upload notes
+  upload: async (formData) => {
+    const response = await api.post("/notes/upload", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  },
+
+  // Get all notes with filters
+  getAllNotes: async (filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.course) params.append("course", filters.course);
+    if (filters.search) params.append("search", filters.search);
+    if (filters.visibility) params.append("visibility", filters.visibility);
+    if (filters.limit) params.append("limit", filters.limit.toString());
+    if (filters.offset) params.append("offset", filters.offset.toString());
+
+    const response = await api.get(`/notes?${params.toString()}`);
+    return response.data;
+  },
+
+  // Get note by ID
+  getNoteById: async (id) => {
+    const response = await api.get(`/notes/${id}`);
+    return response.data;
+  },
+
+  // Get notes by user
+  getUserNotes: async (userId, filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.course) params.append("course", filters.course);
+    if (filters.search) params.append("search", filters.search);
+    if (filters.limit) params.append("limit", filters.limit.toString());
+    if (filters.offset) params.append("offset", filters.offset.toString());
+
+    const response = await api.get(
+      `/notes/user/${userId}?${params.toString()}`
+    );
+    return response.data;
+  },
+
+  // Update note
+  updateNote: async (id, noteData) => {
+    const response = await api.put(`/notes/${id}`, noteData);
+    return response.data;
+  },
+
+  // Delete note
+  deleteNote: async (id) => {
+    const response = await api.delete(`/notes/${id}`);
+    return response.data;
+  },
+
+  // Download note file
+  downloadNote: async (id) => {
+    const response = await api.get(`/notes/${id}/download`, {
+      responseType: "blob",
+    });
+    return response;
+  },
+
+  // Like/Unlike note
+  toggleLike: async (id) => {
+    const response = await api.post(`/notes/${id}/like`);
+    return response.data;
+  },
+
+  // Get courses list
+  getCourses: async () => {
+    const response = await api.get("/notes/courses");
+    return response.data;
+  },
+};
+
 export const apiRequest = {
   get: async (url, config = {}) => {
     const response = await api.get(url, config);
