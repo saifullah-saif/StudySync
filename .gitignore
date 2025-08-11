@@ -9,6 +9,7 @@ server/node_modules/
 /.next/
 /out/
 
+client/.next/
 # production
 /build
 
