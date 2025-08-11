@@ -5,53 +5,7 @@ import { Wifi, Monitor, Coffee } from "lucide-react"
 import Link from "next/link"
 
 export default function LibraryPage() {
-  const rooms = [
-    {
-      id: 1,
-      name: "Study Room A1",
-      floor: 1,
-      capacity: 4,
-      features: ["Whiteboard", "WiFi", "Power Outlets"],
-      availability: "available",
-      nextAvailable: null,
-    },
-    {
-      id: 2,
-      name: "Study Room A2",
-      floor: 1,
-      capacity: 6,
-      features: ["Whiteboard", "WiFi", "Monitor", "Power Outlets"],
-      availability: "occupied",
-      nextAvailable: "2:00 PM",
-    },
-    {
-      id: 3,
-      name: "Group Study B1",
-      floor: 2,
-      capacity: 8,
-      features: ["Whiteboard", "WiFi", "Monitor", "Coffee Machine"],
-      availability: "available",
-      nextAvailable: null,
-    },
-    {
-      id: 4,
-      name: "Silent Study C1",
-      floor: 3,
-      capacity: 2,
-      features: ["WiFi", "Power Outlets"],
-      availability: "reserved",
-      nextAvailable: "4:00 PM",
-    },
-  ]
-
-  const seats = [
-    { id: 1, section: "A", number: 1, status: "available", floor: 1 },
-    { id: 2, section: "A", number: 2, status: "occupied", floor: 1 },
-    { id: 3, section: "A", number: 3, status: "reserved", floor: 1 },
-    { id: 4, section: "B", number: 1, status: "available", floor: 2 },
-    { id: 5, section: "B", number: 2, status: "available", floor: 2 },
-    { id: 6, section: "C", number: 1, status: "occupied", floor: 3 },
-  ]
+  
 
   const getFeatureIcon = (feature: string) => {
     switch (feature) {
@@ -98,7 +52,7 @@ export default function LibraryPage() {
           <div
             className="absolute inset-0 bg-cover bg-center"
             style={{
-              backgroundImage: `url('https://hebbkx1anhila5yf.public.blob.vercel-storage.com/home1.jpg-oQhj3NWcHKnsAYk79n7yx0csiJKyjQ.jpeg')`,
+              backgroundImage: `url('https://bracuexpress.com/wp-content/uploads/2024/07/Screenshot_20240715_151414_Maps-800x445.jpg')`,
             }}
           >
             <div className="absolute inset-0 bg-black/40"></div>

@@ -7,7 +7,7 @@ app.use(cookieParser());
 
 app.use(
   cors({
-    origin: [process.env.CLIENT_URL, process.env.SERVER_URL],
+    origin: [process.env.CLIENT_URL, process.env.SERVER_URL, "http://localhost:3001", "http://localhost:3000"],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
     // exposedHeaders: ["Content-Length", "Content-Type"],
@@ -17,6 +17,10 @@ app.use(
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Routes
+const libraryRoomsRouter = require("./routes/libraryRoomsRoutes");
+app.use("/api/library-rooms", libraryRoomsRouter);
 
 const port = process.env.PORT || 5000;
 

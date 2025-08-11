@@ -11,28 +11,76 @@ interface RoomLayoutProps {
   mode: "view" | "book"
   selectedSeats?: string[]
   onSeatClick?: (seatId: string) => void
+  capacity?: number
+  roomCode?: string
 }
 
-export function RoomLayout({ mode, selectedSeats = [], onSeatClick }: RoomLayoutProps) {
-  const seats: Seat[] = [
-    // Top row
-    { id: "09A01G-01", x: 100, y: 50, status: "available" },
-    { id: "09A01G-02", x: 150, y: 50, status: "booked" },
-    { id: "09A01G-03", x: 200, y: 50, status: "booked" },
-    { id: "09A01G-04", x: 250, y: 50, status: "available" },
-    { id: "09A01G-05", x: 300, y: 50, status: "available" },
+export function RoomLayout({ mode, selectedSeats = [], onSeatClick, capacity = 12, roomCode = "ROOM" }: RoomLayoutProps) {
+  // Determine room type from room code or name
+  const getRoomTypeFromCode = (code: string): string => {
+    const codeUpper = code.toUpperCase()
+    if (codeUpper.includes('C') || codeUpper.includes('CONF')) return 'conference'
+    if (codeUpper.includes('S') || codeUpper.includes('STUDY')) return 'study'
+    if (codeUpper.includes('M') || codeUpper.includes('MEET')) return 'meeting'
+    return 'conference' // default
+  }
 
-    // Right side
-    { id: "09A01G-06", x: 350, y: 100, status: "available" },
-    { id: "09A01G-07", x: 350, y: 150, status: "available" },
+  // Generate seats based on the layout shown in the image
+  const generateSeats = (totalSeats: number): Seat[] => {
+    const seats: Seat[] = []
 
-    // Bottom row
-    { id: "09A01G-08", x: 100, y: 200, status: "available" },
-    { id: "09A01G-09", x: 150, y: 200, status: "available" },
-    { id: "09A01G-10", x: 200, y: 200, status: "booked" },
-    { id: "09A01G-11", x: 250, y: 200, status: "booked" },
-    { id: "09A01G-12", x: 300, y: 200, status: "available" },
-  ]
+    // Layout based on the provided image: seats around a central table
+    const centerX = 200
+    const centerY = 100
+    const tableWidth = 140
+    const tableHeight = 60
+
+    // Define seat positions around the table like in the image
+    const positions: { x: number, y: number }[] = []
+
+    // Top row (5 seats)
+    for (let i = 0; i < 5; i++) {
+      positions.push({
+        x: centerX - tableWidth/2 + (i * tableWidth/4),
+        y: centerY - tableHeight/2 - 30
+      })
+    }
+
+    // Right side (2 seats)
+    positions.push({
+      x: centerX + tableWidth/2 + 30,
+      y: centerY - 15
+    })
+    positions.push({
+      x: centerX + tableWidth/2 + 30,
+      y: centerY + 15
+    })
+
+    // Bottom row (5 seats)
+    for (let i = 0; i < 5; i++) {
+      positions.push({
+        x: centerX - tableWidth/2 + (i * tableWidth/4),
+        y: centerY + tableHeight/2 + 30
+      })
+    }
+
+    // Use only the number of seats needed, up to the capacity
+    for (let i = 0; i < Math.min(totalSeats, positions.length); i++) {
+      const seatNumber = String(i + 1).padStart(2, '0')
+      const isBooked = Math.random() < 0.25
+
+      seats.push({
+        id: `${roomCode}-${seatNumber}`,
+        x: positions[i].x,
+        y: positions[i].y,
+        status: isBooked ? "booked" : "available"
+      })
+    }
+
+    return seats
+  }
+
+  const seats = generateSeats(capacity)
 
   const getSeatColor = (seat: Seat) => {
     if (mode === "book" && selectedSeats.includes(seat.id)) {
@@ -65,12 +113,12 @@ export function RoomLayout({ mode, selectedSeats = [], onSeatClick }: RoomLayout
   }
 
   return (
-    <div className="w-full h-80 bg-gray-50 rounded-lg border-2 border-gray-200 relative overflow-hidden">
-      <svg width="100%" height="100%" viewBox="0 0 400 250" className="absolute inset-0">
-        {/* Central table/projector area */}
-        <rect x="175" y="100" width="50" height="50" fill="#E5E7EB" stroke="#9CA3AF" strokeWidth="2" rx="4" />
-        <text x="200" y="130" textAnchor="middle" className="text-xs fill-gray-600">
-          Projector
+    <div className="w-full h-64 bg-gray-50 rounded-lg border-2 border-gray-200 relative overflow-hidden">
+      <svg width="100%" height="100%" viewBox="0 0 400 200" className="absolute inset-0">
+        {/* Central Table */}
+        <rect x="130" y="70" width="140" height="60" fill="#8B5CF6" stroke="#374151" strokeWidth="2" rx="8" />
+        <text x="200" y="105" textAnchor="middle" className="text-xs fill-white font-medium">
+          Table
         </text>
 
         {/* Seats */}
