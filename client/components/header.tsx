@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { AuthModals } from "@/components/auth-modals"
+import { useAuth } from "@/contexts/auth-context"
 
 const navigation = [
   { name: "Home", href: "/" },
@@ -24,29 +25,12 @@ const navigation = [
 
 export default function Header() {
   const pathname = usePathname()
+  const { user, logout } = useAuth()
   const [isSignInOpen, setIsSignInOpen] = useState(false)
   const [isSignUpOpen, setIsSignUpOpen] = useState(false)
-  const [isLoggedIn, setIsLoggedIn] = useState(true) // Set to true to simulate logged in state
 
-  // Simulate user data when logged in
-  const userData = {
-    name: "Alex Johnson",
-    email: "alex.johnson@university.edu",
-    avatar: "/placeholder.svg?height=32&width=32",
-  }
-
-  const handleSignOut = () => {
-    setIsLoggedIn(false)
-  }
-
-  const handleSignIn = () => {
-    setIsLoggedIn(true)
-    setIsSignInOpen(false)
-  }
-
-  const handleSignUp = () => {
-    setIsLoggedIn(true)
-    setIsSignUpOpen(false)
+  const handleSignOut = async () => {
+    await logout()
   }
 
   return (
@@ -90,11 +74,11 @@ export default function Header() {
                   align="end"
                   className="w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700"
                 >
-                  {isLoggedIn ? (
+                  {user ? (
                     <>
                       <div className="px-2 py-1.5">
-                        <p className="text-sm font-medium">{userData.name}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{userData.email}</p>
+                        <p className="text-sm font-medium">{user.name}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
                       </div>
                       <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />
                       <DropdownMenuItem asChild className="hover:bg-gray-100 dark:hover:bg-gray-700">
@@ -143,8 +127,6 @@ export default function Header() {
         setIsSignInOpen={setIsSignInOpen}
         isSignUpOpen={isSignUpOpen}
         setIsSignUpOpen={setIsSignUpOpen}
-        onSignIn={handleSignIn}
-        onSignUp={handleSignUp}
       />
     </>
   )

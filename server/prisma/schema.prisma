@@ -528,6 +528,7 @@ model users {
   bio                                                   String?
   cgpa                                                  Float?
   created_at                                            DateTime?           @default(now()) @db.Timestamp(6)
+  updated_at                                            DateTime?           @default(now()) @db.Timestamptz(6)
   audio_content                                         audio_content[]
   audio_playlists                                       audio_playlists[]
   brainrot_sessions                                     brainrot_sessions[]

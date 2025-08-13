@@ -11,14 +11,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Eye, EyeOff, Upload } from "lucide-react"
+import { useAuth, type User } from "@/contexts/auth-context"
 
 interface AuthModalsProps {
   isSignInOpen: boolean
   setIsSignInOpen: (open: boolean) => void
   isSignUpOpen: boolean
   setIsSignUpOpen: (open: boolean) => void
-  onSignIn?: () => void
-  onSignUp?: () => void
 }
 
 export function AuthModals({
@@ -26,11 +25,20 @@ export function AuthModals({
   setIsSignInOpen,
   isSignUpOpen,
   setIsSignUpOpen,
-  onSignIn,
-  onSignUp,
 }: AuthModalsProps) {
+  const { login, register, loading: authLoading } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
   const [signUpStep, setSignUpStep] = useState(1)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState("")
+  
+  // Sign in form data
+  const [signInData, setSignInData] = useState({
+    email: "",
+    password: "",
+  })
+  
+  // Sign up form data - aligned with users table schema
   const [signUpData, setSignUpData] = useState({
     firstName: "",
     lastName: "",
@@ -54,16 +62,64 @@ export function AuthModals({
     }
   }
 
-  const handleSignUpComplete = () => {
-    // Handle sign up completion
-    console.log("Sign up completed:", signUpData)
-    onSignUp?.()
-    setSignUpStep(1)
+  const handleSignUpComplete = async () => {
+    try {
+      setLoading(true)
+      setError("")
+      
+      const userData = {
+        name: `${signUpData.firstName} ${signUpData.lastName}`.trim(),
+        email: signUpData.email,
+        password: signUpData.password,
+        department: signUpData.department,
+        semester: signUpData.semester ? parseInt(signUpData.semester) : null,
+        bio: signUpData.bio || null,
+      }
+
+      const result = await register(userData)
+      
+      if (result.success && result.user) {
+        setSignUpStep(1)
+        setSignUpData({
+          firstName: "",
+          lastName: "",
+          email: "",
+          password: "",
+          department: "",
+          semester: "",
+          bio: "",
+          profilePicture: null,
+        })
+        setIsSignUpOpen(false)
+      } else {
+        setError(result.message || "Registration failed")
+      }
+    } catch (error: any) {
+      setError("Registration failed")
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleSignInSubmit = (e: React.FormEvent) => {
+  const handleSignInSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    onSignIn?.()
+    try {
+      setLoading(true)
+      setError("")
+      
+      const result = await login(signInData)
+      
+      if (result.success && result.user) {
+        setSignInData({ email: "", password: "" })
+        setIsSignInOpen(false)
+      } else {
+        setError(result.message || "Login failed")
+      }
+    } catch (error: any) {
+      setError("Login failed")
+    } finally {
+      setLoading(false)
+    }
   }
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -87,6 +143,11 @@ export function AuthModals({
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSignInSubmit} className="space-y-4">
+            {error && (
+              <div className="p-3 text-sm text-red-600 bg-red-100 rounded-md">
+                {error}
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="signin-email" className="text-gray-700 dark:text-gray-300">
                 Email
@@ -94,8 +155,11 @@ export function AuthModals({
               <Input
                 id="signin-email"
                 type="email"
+                value={signInData.email}
+                onChange={(e) => setSignInData({ ...signInData, email: e.target.value })}
                 placeholder="Enter your email"
                 className="bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                required
               />
             </div>
             <div className="space-y-2">
@@ -106,8 +170,11 @@ export function AuthModals({
                 <Input
                   id="signin-password"
                   type={showPassword ? "text" : "password"}
+                  value={signInData.password}
+                  onChange={(e) => setSignInData({ ...signInData, password: e.target.value })}
                   placeholder="Enter your password"
                   className="pr-10 bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                  required
                 />
                 <Button
                   type="button"
@@ -120,8 +187,12 @@ export function AuthModals({
                 </Button>
               </div>
             </div>
-            <Button type="submit" className="w-full bg-blue-600 hover:bg-blue-700">
-              Sign In
+            <Button 
+              type="submit" 
+              className="w-full bg-blue-600 hover:bg-blue-700"
+              disabled={loading || authLoading}
+            >
+              {loading || authLoading ? "Signing In..." : "Sign In"}
             </Button>
             <div className="text-center">
               <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -131,6 +202,7 @@ export function AuthModals({
                   onClick={() => {
                     setIsSignInOpen(false)
                     setIsSignUpOpen(true)
+                    setError("")
                   }}
                   className="text-blue-600 hover:underline font-medium"
                 >
@@ -159,6 +231,12 @@ export function AuthModals({
           </DialogHeader>
 
           <div className="space-y-4">
+            {error && (
+              <div className="p-3 text-sm text-red-600 bg-red-100 rounded-md">
+                {error}
+              </div>
+            )}
+            
             {/* Step 1: Name */}
             {signUpStep === 1 && (
               <>
@@ -172,6 +250,7 @@ export function AuthModals({
                     onChange={(e) => setSignUpData({ ...signUpData, firstName: e.target.value })}
                     placeholder="Enter your first name"
                     className="bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                    required
                   />
                 </div>
                 <div className="space-y-2">
@@ -184,6 +263,7 @@ export function AuthModals({
                     onChange={(e) => setSignUpData({ ...signUpData, lastName: e.target.value })}
                     placeholder="Enter your last name"
                     className="bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                    required
                   />
                 </div>
               </>
@@ -204,14 +284,14 @@ export function AuthModals({
                       <SelectValue placeholder="Select your department" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="cs">Computer Science</SelectItem>
-                      <SelectItem value="ee">Electrical Engineering</SelectItem>
-                      <SelectItem value="me">Mechanical Engineering</SelectItem>
-                      <SelectItem value="ce">Civil Engineering</SelectItem>
-                      <SelectItem value="math">Mathematics</SelectItem>
-                      <SelectItem value="physics">Physics</SelectItem>
-                      <SelectItem value="chemistry">Chemistry</SelectItem>
-                      <SelectItem value="biology">Biology</SelectItem>
+                      <SelectItem value="Computer Science">Computer Science</SelectItem>
+                      <SelectItem value="Electrical Engineering">Electrical Engineering</SelectItem>
+                      <SelectItem value="Mechanical Engineering">Mechanical Engineering</SelectItem>
+                      <SelectItem value="Civil Engineering">Civil Engineering</SelectItem>
+                      <SelectItem value="Mathematics">Mathematics</SelectItem>
+                      <SelectItem value="Physics">Physics</SelectItem>
+                      <SelectItem value="Chemistry">Chemistry</SelectItem>
+                      <SelectItem value="Biology">Biology</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -253,6 +333,7 @@ export function AuthModals({
                     onChange={(e) => setSignUpData({ ...signUpData, email: e.target.value })}
                     placeholder="Enter your email"
                     className="bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                    required
                   />
                 </div>
                 <div className="space-y-2">
@@ -267,6 +348,7 @@ export function AuthModals({
                       onChange={(e) => setSignUpData({ ...signUpData, password: e.target.value })}
                       placeholder="Create a password"
                       className="pr-10 bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600"
+                      required
                     />
                     <Button
                       type="button"
@@ -295,6 +377,7 @@ export function AuthModals({
                   placeholder="Tell others about yourself, your interests, and study goals..."
                   className="min-h-[120px] bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600"
                 />
+                <p className="text-xs text-gray-500 dark:text-gray-400">Optional - you can skip this step</p>
               </div>
             )}
 
@@ -334,18 +417,26 @@ export function AuthModals({
             {/* Navigation Buttons */}
             <div className="flex justify-between pt-4">
               {signUpStep > 1 && (
-                <Button variant="outline" onClick={handleSignUpBack}>
+                <Button variant="outline" onClick={handleSignUpBack} disabled={loading || authLoading}>
                   Back
                 </Button>
               )}
               <div className="ml-auto">
                 {signUpStep < 5 ? (
-                  <Button onClick={handleSignUpNext} className="bg-blue-600 hover:bg-blue-700">
+                  <Button 
+                    onClick={handleSignUpNext} 
+                    className="bg-blue-600 hover:bg-blue-700"
+                    disabled={loading || authLoading}
+                  >
                     Next
                   </Button>
                 ) : (
-                  <Button onClick={handleSignUpComplete} className="bg-blue-600 hover:bg-blue-700">
-                    Complete Sign Up
+                  <Button 
+                    onClick={handleSignUpComplete} 
+                    className="bg-blue-600 hover:bg-blue-700"
+                    disabled={loading || authLoading}
+                  >
+                    {loading || authLoading ? "Creating Account..." : "Complete Sign Up"}
                   </Button>
                 )}
               </div>
@@ -360,6 +451,7 @@ export function AuthModals({
                     onClick={() => {
                       setIsSignUpOpen(false)
                       setIsSignInOpen(true)
+                      setError("")
                     }}
                     className="text-blue-600 hover:underline font-medium"
                   >
