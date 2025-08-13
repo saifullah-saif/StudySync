@@ -434,6 +434,7 @@ export default function BrowseRoomsPage() {
                         mode="view"
                         capacity={selectedRoom.capacity || 12}
                         roomCode={formatRoomNumber(selectedRoom) || "ROOM"}
+                        roomId={selectedRoom.id}
                       />
                     </div>
                   </div>

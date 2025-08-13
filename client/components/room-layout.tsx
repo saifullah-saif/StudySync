@@ -1,10 +1,17 @@
 "use client"
 
+import { useEffect, useState } from 'react'
+import { useSeats, type Seat as DatabaseSeat } from '@/hooks/useSeats'
+
 interface Seat {
   id: string
   x: number
   y: number
   status: "available" | "booked" | "occupied" | "selected"
+  seatNumber: string
+  hasComputer?: boolean
+  hasPowerOutlet?: boolean
+  isAccessible?: boolean
 }
 
 interface RoomLayoutProps {
@@ -13,9 +20,13 @@ interface RoomLayoutProps {
   onSeatClick?: (seatId: string) => void
   capacity?: number
   roomCode?: string
+  roomId?: number
 }
 
-export function RoomLayout({ mode, selectedSeats = [], onSeatClick, capacity = 12, roomCode = "ROOM" }: RoomLayoutProps) {
+export function RoomLayout({ mode, selectedSeats = [], onSeatClick, capacity = 12, roomCode = "ROOM", roomId }: RoomLayoutProps) {
+  const { seats: databaseSeats, loading, error, reserveSeat } = useSeats(roomId || null)
+  const [seats, setSeats] = useState<Seat[]>([])
+
   // Determine room type from room code or name
   const getRoomTypeFromCode = (code: string): string => {
     const codeUpper = code.toUpperCase()
@@ -25,77 +36,58 @@ export function RoomLayout({ mode, selectedSeats = [], onSeatClick, capacity = 1
     return 'conference' // default
   }
 
-  // Generate seats based on the layout shown in the image
-  const generateSeats = (totalSeats: number): Seat[] => {
-    const seats: Seat[] = []
+  // Convert database seats to layout seats
+  const convertDatabaseSeatsToLayout = (dbSeats: DatabaseSeat[]): Seat[] => {
+    return dbSeats.map(dbSeat => {
+      const hasActiveReservation = dbSeat.reservations && dbSeat.reservations.length > 0
+      let status: "available" | "booked" | "occupied" | "selected" = "available"
 
-    // Layout based on the provided image: seats around a central table
-    const centerX = 200
-    const centerY = 100
-    const tableWidth = 140
-    const tableHeight = 60
+      if (hasActiveReservation) {
+        const reservation = dbSeat.reservations[0]
+        status = reservation.status === 'occupied' ? 'occupied' : 'booked'
+      }
 
-    // Define seat positions around the table like in the image
-    const positions: { x: number, y: number }[] = []
-
-    // Top row (5 seats)
-    for (let i = 0; i < 5; i++) {
-      positions.push({
-        x: centerX - tableWidth/2 + (i * tableWidth/4),
-        y: centerY - tableHeight/2 - 30
-      })
-    }
-
-    // Right side (2 seats)
-    positions.push({
-      x: centerX + tableWidth/2 + 30,
-      y: centerY - 15
+      return {
+        id: `${roomCode}-${dbSeat.seat_number}`,
+        x: Number(dbSeat.position_x) || 0,
+        y: Number(dbSeat.position_y) || 0,
+        status,
+        seatNumber: dbSeat.seat_number.slice(-2), // Only show last 2 digits
+        hasComputer: dbSeat.has_computer,
+        hasPowerOutlet: dbSeat.has_power_outlet,
+        isAccessible: dbSeat.is_accessible
+      }
     })
-    positions.push({
-      x: centerX + tableWidth/2 + 30,
-      y: centerY + 15
-    })
-
-    // Bottom row (5 seats)
-    for (let i = 0; i < 5; i++) {
-      positions.push({
-        x: centerX - tableWidth/2 + (i * tableWidth/4),
-        y: centerY + tableHeight/2 + 30
-      })
-    }
-
-    // Use only the number of seats needed, up to the capacity
-    for (let i = 0; i < Math.min(totalSeats, positions.length); i++) {
-      const seatNumber = String(i + 1).padStart(2, '0')
-      const isBooked = Math.random() < 0.25
-
-      seats.push({
-        id: `${roomCode}-${seatNumber}`,
-        x: positions[i].x,
-        y: positions[i].y,
-        status: isBooked ? "booked" : "available"
-      })
-    }
-
-    return seats
   }
 
-  const seats = generateSeats(capacity)
+  // Update seats when database data changes
+  useEffect(() => {
+    if (databaseSeats && databaseSeats.length > 0) {
+      setSeats(convertDatabaseSeatsToLayout(databaseSeats))
+    } else {
+      setSeats([]) // Only show database seats
+    }
+  }, [databaseSeats, roomCode])
 
   const getSeatColor = (seat: Seat) => {
     if (mode === "book" && selectedSeats.includes(seat.id)) {
       return "#3B82F6" // Blue for selected
     }
 
+    // If seat is not accessible, show as red
+    if (seat.isAccessible === false) {
+      return "#EF4444" // Red for non-accessible
+    }
+
     switch (seat.status) {
       case "available":
-        return "#F3F4F6" // Light gray
+        return "#10B981" // Green for available
       case "booked":
-        return "#3B82F6" // Blue
+        return "#F59E0B" // Orange for booked
       case "occupied":
-        return "#EF4444" // Red
+        return "#EF4444" // Red for occupied
       default:
-        return "#F3F4F6"
+        return "#6B7280" // Gray for neutral
     }
   }
 
@@ -106,9 +98,31 @@ export function RoomLayout({ mode, selectedSeats = [], onSeatClick, capacity = 1
     return "#D1D5DB" // Gray border
   }
 
-  const handleSeatClick = (seat: Seat) => {
+  const handleSeatClick = async (seat: Seat) => {
+    // Don't allow interaction with non-accessible seats
+    if (seat.isAccessible === false) {
+      alert('This seat is not accessible.')
+      return
+    }
+
     if (mode === "book" && onSeatClick && (seat.status === "available" || selectedSeats.includes(seat.id))) {
       onSeatClick(seat.id)
+    } else if (mode === "view" && seat.status === "available" && roomId) {
+      // Quick reservation for 2 hours from now
+      try {
+        const startTime = new Date()
+        const endTime = new Date(startTime.getTime() + 2 * 60 * 60 * 1000) // 2 hours
+
+        await reserveSeat(
+          parseInt(seat.seatNumber),
+          startTime,
+          endTime,
+          'Quick reservation'
+        )
+      } catch (err) {
+        console.error('Failed to reserve seat:', err)
+        alert('Failed to reserve seat. Please try again.')
+      }
     }
   }
 
@@ -124,25 +138,93 @@ export function RoomLayout({ mode, selectedSeats = [], onSeatClick, capacity = 1
         {/* Seats */}
         {seats.map((seat) => (
           <g key={seat.id}>
+            {/* Main seat rectangle - bigger size */}
             <rect
-              x={seat.x - 15}
-              y={seat.y - 10}
-              width="30"
-              height="20"
+              x={seat.x - 25}
+              y={seat.y - 15}
+              width="50"
+              height="30"
               fill={getSeatColor(seat)}
               stroke={getSeatStroke(seat)}
               strokeWidth={mode === "book" && selectedSeats.includes(seat.id) ? "3" : "2"}
-              rx="3"
+              rx="6"
               className={
-                mode === "book" && (seat.status === "available" || selectedSeats.includes(seat.id))
+                (mode === "book" && (seat.status === "available" || selectedSeats.includes(seat.id))) ||
+                (mode === "view" && seat.status === "available" && seat.isAccessible !== false)
                   ? "cursor-pointer hover:opacity-80"
                   : ""
               }
               onClick={() => handleSeatClick(seat)}
             />
-            <text x={seat.x} y={seat.y + 2} textAnchor="middle" className="text-xs fill-gray-700 pointer-events-none">
-              {seat.id.split("-")[1]}
+
+            {/* Seat number */}
+            <text
+              x={seat.x}
+              y={seat.y + 3}
+              textAnchor="middle"
+              className="text-sm font-bold fill-white pointer-events-none"
+              style={{ fontSize: '12px' }}
+            >
+              {seat.seatNumber}
             </text>
+
+            {/* Computer icon - desktop monitor */}
+            {seat.hasComputer && (
+              <g className="pointer-events-none">
+                {/* Monitor screen */}
+                <rect
+                  x={seat.x - 8}
+                  y={seat.y - 35}
+                  width="16"
+                  height="12"
+                  fill="#374151"
+                  stroke="#1F2937"
+                  strokeWidth="1"
+                  rx="2"
+                />
+                {/* Monitor stand */}
+                <rect
+                  x={seat.x - 2}
+                  y={seat.y - 23}
+                  width="4"
+                  height="6"
+                  fill="#374151"
+                />
+                {/* Monitor base */}
+                <rect
+                  x={seat.x - 6}
+                  y={seat.y - 17}
+                  width="12"
+                  height="2"
+                  fill="#374151"
+                  rx="1"
+                />
+              </g>
+            )}
+
+            {/* Power outlet icon - electricity symbol */}
+            {seat.hasPowerOutlet && (
+              <g className="pointer-events-none">
+                {/* Outlet background */}
+                <rect
+                  x={seat.x + 15}
+                  y={seat.y - 35}
+                  width="12"
+                  height="12"
+                  fill="#FBBF24"
+                  stroke="#F59E0B"
+                  strokeWidth="1"
+                  rx="2"
+                />
+                {/* Lightning bolt */}
+                <path
+                  d={`M${seat.x + 19} ${seat.y - 32} L${seat.x + 22} ${seat.y - 29} L${seat.x + 20} ${seat.y - 29} L${seat.x + 23} ${seat.y - 26} L${seat.x + 20} ${seat.y - 26} L${seat.x + 22} ${seat.y - 24}`}
+                  fill="#FFFFFF"
+                  stroke="#FFFFFF"
+                  strokeWidth="0.5"
+                />
+              </g>
+            )}
           </g>
         ))}
       </svg>
