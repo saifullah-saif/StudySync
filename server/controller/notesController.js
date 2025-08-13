@@ -193,11 +193,31 @@ class NotesController {
       const { title, description, visibility } = req.body;
       const userId = req.user.id;
 
-      const updatedNote = await this.notesService.updateNote(id, userId, {
-        title: title?.trim(),
-        description: description?.trim(),
-        visibility,
-      });
+      // Validate visibility field
+      if (
+        visibility &&
+        !["public", "private", "course_only"].includes(visibility)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Invalid visibility value. Must be 'public', 'private', or 'course_only'",
+          error: "INVALID_VISIBILITY",
+        });
+      }
+
+      // Only pass the specific fields we want to update
+      const updateData = {};
+      if (title !== undefined) updateData.title = title?.trim();
+      if (description !== undefined)
+        updateData.description = description?.trim();
+      if (visibility !== undefined) updateData.visibility = visibility;
+
+      const updatedNote = await this.notesService.updateNote(
+        id,
+        userId,
+        updateData
+      );
 
       res.json({
         success: true,

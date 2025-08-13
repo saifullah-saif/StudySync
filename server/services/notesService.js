@@ -413,7 +413,7 @@ class NotesService {
   // Update note
   async updateNote(id, userId, updateData) {
     try {
-      // First check if note exists and user has permission
+     
       const existingNote = await this.prisma.notes.findUnique({
         where: { id: parseInt(id) },
       });
@@ -426,17 +426,34 @@ class NotesService {
         throw new Error("Access denied");
       }
 
-      // Filter out undefined values
-      const filteredData = Object.fromEntries(
-        Object.entries(updateData).filter(([_, value]) => value !== undefined)
-      );
+      
+      const dataToUpdate = {};
+
+      
+      if (updateData.title !== undefined && updateData.title !== null) {
+        dataToUpdate.title = updateData.title;
+      }
+
+      if (
+        updateData.description !== undefined &&
+        updateData.description !== null
+      ) {
+        dataToUpdate.description = updateData.description;
+      }
+
+      if (
+        updateData.visibility !== undefined &&
+        updateData.visibility !== null
+      ) {
+        dataToUpdate.visibility = updateData.visibility;
+      }
+
+      
+      dataToUpdate.last_modified = new Date();
 
       const updatedNote = await this.prisma.notes.update({
         where: { id: parseInt(id) },
-        data: {
-          ...filteredData,
-          last_modified: new Date(),
-        },
+        data: dataToUpdate,
         include: {
           users: {
             select: {
