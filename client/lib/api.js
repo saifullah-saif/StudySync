@@ -22,10 +22,6 @@ api.interceptors.request.use(
   }
 );
 
-<<<<<<< HEAD
-// Response interceptor to handle session validation
-=======
->>>>>>> 071c8bc76e44b114887e25af0ee6f99703d6348a
 api.interceptors.response.use(
   (response) => {
     return response;
@@ -84,8 +80,6 @@ api.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-<<<<<<< HEAD
-=======
 
 export const authAPI = {
   // Register - updated for users table schema
@@ -266,4 +260,3 @@ export const apiRequest = {
 };
 
 export default api;
->>>>>>> 071c8bc76e44b114887e25af0ee6f99703d6348a
