@@ -198,6 +198,49 @@ export const buddyAPI = {
     const response = await api.get(`/buddies?${params.toString()}`);
     return response.data;
   },
+
+  // Create a new connection request (study invite or mentoring request)
+  createConnection: async (addresseeId, requestType) => {
+    const response = await api.post('/buddies/connections', {
+      addresseeId,
+      requestType
+    });
+    return response.data;
+  },
+
+  // Get pending connection requests
+  getPendingConnections: async () => {
+    const response = await api.get('/buddies/connections');
+    return response.data;
+  },
+
+  // Get pending invitations (alias for getPendingConnections)
+  getPendingInvitations: async () => {
+    const response = await api.get('/buddies/invitations');
+    return response.data;
+  },
+
+  // Get accepted connections
+  getAcceptedConnections: async () => {
+    const response = await api.get('/buddies/connections/accepted');
+    return response.data;
+  },
+
+  // Respond to invitation (accept or reject)
+  respondToInvitation: async (invitationId, response) => {
+    const apiResponse = await api.put(`/buddies/invitations/${invitationId}/respond`, {
+      response
+    });
+    return apiResponse.data;
+  },
+
+  // Update connection status (accept or reject)
+  updateConnectionStatus: async (connectionId, status) => {
+    const response = await api.put(`/buddies/connections/${connectionId}`, {
+      status
+    });
+    return response.data;
+  },
 };
 
 export const apiRequest = {
