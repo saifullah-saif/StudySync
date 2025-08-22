@@ -33,13 +33,6 @@ class ProfileController {
       const userId = req.user.id; // From JWT middleware
       const updateData = req.body;
 
-      console.log("Profile update request:", {
-        userId,
-        updateData,
-        userInfo: req.user,
-        courses: updateData.courses
-      });
-
       // Validate user ID
       if (!userId) {
         return res.status(401).json({
@@ -63,16 +56,7 @@ class ProfileController {
         });
       }
 
-      // Log courses data specifically
-      if (updateData.courses) {
-        console.log("Courses to update:", updateData.courses);
-        console.log("Courses array length:", updateData.courses.length);
-        console.log("Courses type:", typeof updateData.courses);
-      }
-
       const updatedProfile = await profileService.updateUserProfile(userId, updateData);
-
-      console.log("Profile updated successfully:", updatedProfile);
 
       res.status(200).json({
         success: true,
@@ -80,8 +64,7 @@ class ProfileController {
         data: { profile: updatedProfile },
       });
     } catch (error) {
-      console.error("Update profile error - Full error:", error);
-      console.error("Error stack:", error.stack);
+      console.error("Update profile error:", error.message);
 
       // Handle specific Prisma errors
       if (error.code === 'P2002') {
@@ -118,41 +101,6 @@ class ProfileController {
         message: "Failed to update profile",
         error: error.message,
         details: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      });
-    }
-  }
-
-  // Simple update profile without courses (for debugging)
-  static async updateProfileSimple(req, res) {
-    try {
-      const userId = req.user.id;
-      const { name, email, department, semester, bio } = req.body;
-
-      console.log("Simple profile update:", { userId, name, email, department, semester, bio });
-
-      // Direct Prisma update without service layer
-      const updatedUser = await prisma.users.update({
-        where: { id: userId },
-        data: {
-          ...(name && { name }),
-          ...(email && { email }),
-          ...(department && { department }),
-          ...(semester && { semester: parseInt(semester) }),
-          ...(bio !== undefined && { bio }),
-        },
-      });
-
-      res.json({
-        success: true,
-        message: "Profile updated successfully",
-        data: { profile: updatedUser },
-      });
-    } catch (error) {
-      console.error("Simple update error:", error);
-      res.status(500).json({
-        success: false,
-        message: "Update failed",
-        error: error.message,
       });
     }
   }

@@ -36,11 +36,13 @@ export default function ProfilePage() {
     department: "",
     bio: "",
     courses: [] as string[],
+    previousCourses: [] as string[],
     completedCourses: [] as Array<{ name: string; rating: number; review: string }>,
   })
 
   const [availableCourses, setAvailableCourses] = useState<Course[]>([])
   const [selectedCourse, setSelectedCourse] = useState("")
+  const [selectedPreviousCourse, setSelectedPreviousCourse] = useState("")
   const [loadingCourses, setLoadingCourses] = useState(false)
 
   // Load profile data and available courses on component mount
@@ -64,6 +66,7 @@ export default function ProfilePage() {
           department: profileData.department || "",
           bio: profileData.bio || "",
           courses: profileData.courses || [],
+          previousCourses: profileData.previousCourses || [],
           completedCourses: profileData.completedCourses || [],
         })
       } else {
@@ -82,28 +85,11 @@ export default function ProfilePage() {
       setSaving(true)
       setError("")
 
-      console.log("About to save profile with courses:", profile.courses);
-      console.log("Full profile data:", profile);
-
-      // Debug: Check authentication first
-      try {
-        const authCheck = await profileAPI.getProfile();
-        console.log("Auth check successful:", authCheck);
-      } catch (authError) {
-        console.error("Authentication failed:", authError);
-        setError("Please log in again and try.");
-        setSaving(false);
-        return;
-      }
-
       const response = await profileAPI.updateProfile(profile)
-
-      console.log("Update response:", response);
 
       if (response.success) {
         // Update local state with the response data
         const updatedProfile = response.data.profile
-        console.log("Updated profile from server:", updatedProfile);
         setProfile({
           name: updatedProfile.name || "",
           email: updatedProfile.email || "",
@@ -111,6 +97,7 @@ export default function ProfilePage() {
           department: updatedProfile.department || "",
           bio: updatedProfile.bio || "",
           courses: updatedProfile.courses || [],
+          previousCourses: updatedProfile.previousCourses || [],
           completedCourses: updatedProfile.completedCourses || [],
         })
         setIsEditing(false)
@@ -119,8 +106,7 @@ export default function ProfilePage() {
       }
     } catch (err: any) {
       console.error("Error updating profile:", err)
-      console.error("Error details:", err.response?.data);
-      setError(`Failed to update profile: ${err.response?.data?.message || err.message}`)
+      setError("Failed to update profile. Please try again.")
     } finally {
       setSaving(false)
     }
@@ -129,12 +115,9 @@ export default function ProfilePage() {
   const loadAvailableCourses = async () => {
     try {
       setLoadingCourses(true)
-      console.log("Loading available courses...")
       const response = await profileAPI.getAllCourses()
-      console.log("Courses response:", response)
 
       if (response.success) {
-        console.log("Available courses:", response.data.courses)
         setAvailableCourses(response.data.courses)
       } else {
         console.error("Failed to load courses:", response)
@@ -163,6 +146,26 @@ export default function ProfilePage() {
     setProfile((prev) => ({
       ...prev,
       courses: prev.courses.filter((_, i) => i !== index),
+    }))
+  }
+
+  const addPreviousCourse = () => {
+    if (selectedPreviousCourse.trim()) {
+      // Check if course is already added
+      if (!profile.previousCourses.includes(selectedPreviousCourse)) {
+        setProfile((prev) => ({
+          ...prev,
+          previousCourses: [...prev.previousCourses, selectedPreviousCourse],
+        }))
+      }
+      setSelectedPreviousCourse("")
+    }
+  }
+
+  const removePreviousCourse = (index: number) => {
+    setProfile((prev) => ({
+      ...prev,
+      previousCourses: prev.previousCourses.filter((_, i) => i !== index),
     }))
   }
 
@@ -272,7 +275,7 @@ export default function ProfilePage() {
               <CardContent>
                 <div className="flex flex-wrap gap-2 mb-4">
                   {profile.courses.map((course, index) => (
-                    <Badge key={index} variant="secondary" className="text-sm py-1 px-3">
+                    <Badge key={index} variant="outline" className="text-sm py-1 px-3 border-gray-200 text-gray-900">
                       {course}
                       {isEditing && (
                         <button onClick={() => removeCourse(index)} className="ml-2 text-gray-500 hover:text-red-500">
@@ -296,8 +299,8 @@ export default function ProfilePage() {
                       <SelectContent className="bg-white border border-gray-200 shadow-lg">
                         {availableCourses
                           .filter(course => {
-                            const isNotEnrolled = !profile.courses.includes(course.course_code);
-                            console.log(`Course ${course.course_code}: enrolled=${!isNotEnrolled}, showing=${isNotEnrolled}`);
+                            const isNotEnrolled = !profile.courses.includes(course.course_code) && 
+                                                  !profile.previousCourses.includes(course.course_code);
                             return isNotEnrolled;
                           })
                           .map((course) => (
@@ -314,6 +317,64 @@ export default function ProfilePage() {
                       </SelectContent>
                     </Select>
                     <Button onClick={addCourse} size="sm" disabled={!selectedCourse || loadingCourses}>
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Previous Courses */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Previous Courses</CardTitle>
+                <CardDescription>Courses you have completed</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {profile.previousCourses.map((course, index) => (
+                    <Badge key={index} variant="outline" className="text-sm py-1 px-3 border-gray-200 text-gray-900">
+                      {course}
+                      {isEditing && (
+                        <button onClick={() => removePreviousCourse(index)} className="ml-2 text-gray-500 hover:text-red-500">
+                          <X className="w-3 h-3" />
+                        </button>
+                      )}
+                    </Badge>
+                  ))}
+                </div>
+
+                {isEditing && (
+                  <div className="flex gap-2">
+                    <Select
+                      value={selectedPreviousCourse}
+                      onValueChange={setSelectedPreviousCourse}
+                      disabled={loadingCourses}
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder={loadingCourses ? "Loading courses..." : "Select a completed course to add..."} />
+                      </SelectTrigger>
+                      <SelectContent className="bg-white border border-gray-200 shadow-lg">
+                        {availableCourses
+                          .filter(course => {
+                            const isNotEnrolled = !profile.courses.includes(course.course_code) && 
+                                                  !profile.previousCourses.includes(course.course_code);
+                            return isNotEnrolled;
+                          })
+                          .map((course) => (
+                            <SelectItem key={course.id} value={course.course_code}>
+                              <div className="flex flex-col">
+                                <span className="font-medium">{course.course_code}</span>
+                                <span className="text-sm text-gray-500">{course.course_name}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        {availableCourses.length === 0 && (
+                          <div className="p-2 text-sm text-gray-500">No courses available</div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    <Button onClick={addPreviousCourse} size="sm" disabled={!selectedPreviousCourse || loadingCourses}>
                       <Plus className="w-4 h-4" />
                     </Button>
                   </div>

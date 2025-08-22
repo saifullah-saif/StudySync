@@ -28,10 +28,12 @@ app.use(express.urlencoded({ extended: true }));
 // Import routes
 const authRoutes = require("./routes/auth");
 const profileRoutes = require("./routes/profiles");
+const buddyRoutes = require("./routes/buddies");
 
 // Use routes
 app.use("/api/auth", authRoutes);
 app.use("/api/profile", profileRoutes);
+app.use("/api/buddies", buddyRoutes);
 
 
 app.get("/api/health", (req, res) => {

@@ -182,7 +182,20 @@ export const profileAPI = {
       semester: profileData.semester ? parseInt(profileData.semester) : null,
       bio: profileData.bio,
       courses: profileData.courses || [],
+      previousCourses: profileData.previousCourses || [],
     });
+    return response.data;
+  },
+};
+
+export const buddyAPI = {
+  // Get study buddies (peers or mentors)
+  getBuddies: async (type = 'peers', searchQuery = '') => {
+    const params = new URLSearchParams({ type });
+    if (searchQuery && searchQuery.trim()) {
+      params.append('search', searchQuery.trim());
+    }
+    const response = await api.get(`/buddies?${params.toString()}`);
     return response.data;
   },
 };

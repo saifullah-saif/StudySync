@@ -50,6 +50,22 @@ class ProfileService {
         },
       });
 
+      // Get previous courses (completed)
+      const previousCourses = await prisma.user_courses.findMany({
+        where: {
+          user_id: userId,
+          is_completed: true,
+        },
+        include: {
+          courses: {
+            select: {
+              course_name: true,
+              course_code: true,
+            },
+          },
+        },
+      });
+
       // Get completed courses with reviews
       const completedCoursesWithReviews = await prisma.course_reviews.findMany({
         where: {
@@ -68,6 +84,9 @@ class ProfileService {
       // Format current courses - return course codes instead of names
       const courses = currentCourses.map((uc) => uc.courses.course_code);
 
+      // Format previous courses - return course codes
+      const previousCourseCodes = previousCourses.map((uc) => uc.courses.course_code);
+
       // Format completed courses with reviews - use course codes
       const completedCourses = completedCoursesWithReviews.map((review) => ({
         name: review.courses.course_code,
@@ -78,6 +97,7 @@ class ProfileService {
       return {
         ...user,
         courses,
+        previousCourses: previousCourseCodes,
         completedCourses,
       };
     } catch (error) {
@@ -89,9 +109,7 @@ class ProfileService {
   // Update user profile
   async updateUserProfile(userId, updateData) {
     try {
-      console.log("ProfileService: updateUserProfile called with:", { userId, updateData });
-
-      const { name, email, department, semester, bio, courses } = updateData;
+      const { name, email, department, semester, bio, courses, previousCourses } = updateData;
 
       // Validate userId
       if (!userId || typeof userId !== 'number') {
@@ -108,8 +126,6 @@ class ProfileService {
         throw new Error(`User not found with ID: ${userId}`);
       }
 
-      console.log("User exists, proceeding with update");
-
       // Prepare update data - only include fields that are provided
       const updateFields = {};
       if (name !== undefined && name !== null) updateFields.name = name;
@@ -122,8 +138,6 @@ class ProfileService {
         }
       }
       if (bio !== undefined) updateFields.bio = bio; // Allow null/empty bio
-
-      console.log("Update fields prepared:", updateFields);
 
       // Update user basic information
       let updatedUser;
@@ -139,13 +153,10 @@ class ProfileService {
         `;
 
         const values = [userId, ...Object.values(updateFields)];
-        console.log("Executing update query:", updateQuery);
-        console.log("With values:", values);
         const result = await prisma.$queryRawUnsafe(updateQuery, ...values);
         updatedUser = result[0];
       } else {
         // No basic profile fields to update, just get current user data
-        console.log("No basic fields to update, getting current user data");
         updatedUser = await prisma.users.findUnique({
           where: { id: userId },
           select: {
@@ -161,115 +172,86 @@ class ProfileService {
         });
       }
 
-      console.log("User updated successfully:", updatedUser);
-
-      // Handle courses update if provided
+      // Handle current courses update if provided
       if (courses && Array.isArray(courses)) {
-        console.log("Updating courses:", courses);
-        console.log("Number of courses to update:", courses.length);
+        await this.updateCoursesForUser(userId, courses, false, updatedUser.semester);
+      }
 
-        try {
-          // Use a transaction to ensure data consistency
-          await prisma.$transaction(async (tx) => {
-            console.log("Starting course update transaction");
-            
-            // Remove existing current courses
-            const deleteResult = await tx.user_courses.deleteMany({
-              where: {
-                user_id: userId,
-                is_completed: false,
-              },
-            });
-            console.log("Deleted existing courses:", deleteResult);
-
-            // Add new courses - now expecting course codes
-            const addedCourses = [];
-            
-            // Pre-fetch all courses to avoid transaction timeout issues
-            const allAvailableCourses = await tx.courses.findMany({
-              select: { id: true, course_code: true, course_name: true }
-            });
-            console.log("Available courses in transaction:", allAvailableCourses.length);
-            
-            for (const courseCode of courses) {
-              if (!courseCode || typeof courseCode !== 'string') {
-                console.warn("Skipping invalid course code:", courseCode);
-                continue;
-              }
-
-              console.log("Processing course with code:", courseCode);
-
-              // Find course from pre-fetched list (case-insensitive)
-              const course = allAvailableCourses.find(c => 
-                c.course_code.toLowerCase() === courseCode.toLowerCase()
-              );
-
-              if (!course) {
-                console.warn("Course not found with code:", courseCode);
-                console.log("Available course codes:", allAvailableCourses.map(c => c.course_code));
-                continue; // Skip if course doesn't exist
-              }
-
-              console.log("Found course:", { id: course.id, code: course.course_code, name: course.course_name });
-
-              // Check if the user is already enrolled in this course for this semester
-              const existingEnrollment = await tx.user_courses.findFirst({
-                where: {
-                  user_id: userId,
-                  course_id: course.id,
-                  enrolled_semester: updatedUser.semester || 1,
-                }
-              });
-
-              if (existingEnrollment) {
-                console.log("User already enrolled in course:", courseCode, "- updating completion status");
-                // Update the existing enrollment to not completed
-                await tx.user_courses.update({
-                  where: { id: existingEnrollment.id },
-                  data: { is_completed: false }
-                });
-                addedCourses.push(courseCode);
-              } else {
-                // Add user to course
-                const newEnrollment = await tx.user_courses.create({
-                  data: {
-                    user_id: userId,
-                    course_id: course.id,
-                    enrolled_semester: updatedUser.semester || 1,
-                    is_completed: false,
-                  },
-                });
-                console.log("Added user to course:", courseCode, "- enrollment ID:", newEnrollment.id);
-                addedCourses.push(courseCode);
-              }
-            }
-
-            console.log("Successfully processed courses:", addedCourses);
-            console.log("Course update transaction completed");
-          }, {
-            maxWait: 10000, // 10 seconds
-            timeout: 20000, // 20 seconds
-          });
-
-          console.log("Courses updated successfully in transaction");
-        } catch (courseError) {
-          console.error("Error updating courses:", courseError);
-          console.error("Course error details:", courseError.message);
-          console.error("Course error stack:", courseError.stack);
-          // Don't throw here to avoid breaking the profile update
-          // But we could add a flag to indicate partial success
-        }
-      } else {
-        console.log("No courses provided or courses is not an array:", { courses, type: typeof courses });
+      // Handle previous courses update if provided
+      if (previousCourses && Array.isArray(previousCourses)) {
+        await this.updateCoursesForUser(userId, previousCourses, true, updatedUser.semester);
       }
 
       // Get updated profile with courses
-      console.log("Getting updated profile...");
       return await this.getUserProfile(userId);
     } catch (error) {
-      console.error("Update user profile error - Full error:", error);
-      console.error("Error stack:", error.stack);
+      console.error("Update user profile error:", error.message);
       throw error;
+    }
+  }
+
+  // Helper method to update courses for a user
+  async updateCoursesForUser(userId, courseList, isCompleted, userSemester) {
+    try {
+      // Use a transaction to ensure data consistency
+      await prisma.$transaction(async (tx) => {
+        // Remove existing courses of the specified type
+        await tx.user_courses.deleteMany({
+          where: {
+            user_id: userId,
+            is_completed: isCompleted,
+          },
+        });
+
+        // Pre-fetch all courses to avoid transaction timeout issues
+        const allAvailableCourses = await tx.courses.findMany({
+          select: { id: true, course_code: true, course_name: true }
+        });
+        
+        for (const courseCode of courseList) {
+          if (!courseCode || typeof courseCode !== 'string') {
+            continue;
+          }
+
+          // Find course from pre-fetched list (case-insensitive)
+          const course = allAvailableCourses.find(c => 
+            c.course_code.toLowerCase() === courseCode.toLowerCase()
+          );
+
+          if (!course) {
+            console.warn("Course not found with code:", courseCode);
+            continue; // Skip if course doesn't exist
+          }
+
+          // Check if the user is already enrolled in this course for this semester
+          const existingEnrollment = await tx.user_courses.findFirst({
+            where: {
+              user_id: userId,
+              course_id: course.id,
+              enrolled_semester: userSemester || 1,
+              is_completed: isCompleted,
+            }
+          });
+
+          if (!existingEnrollment) {
+            // Add user to course
+            await tx.user_courses.create({
+              data: {
+                user_id: userId,
+                course_id: course.id,
+                enrolled_semester: userSemester || 1,
+                is_completed: isCompleted,
+              },
+            });
+          }
+        }
+      }, {
+        maxWait: 10000, // 10 seconds
+        timeout: 20000, // 20 seconds
+      });
+    } catch (courseError) {
+      console.error(`Error updating ${isCompleted ? 'previous' : 'current'} courses:`, courseError.message);
+      throw courseError;
     }
   }
 
