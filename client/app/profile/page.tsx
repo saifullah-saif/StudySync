@@ -82,11 +82,28 @@ export default function ProfilePage() {
       setSaving(true)
       setError("")
 
+      console.log("About to save profile with courses:", profile.courses);
+      console.log("Full profile data:", profile);
+
+      // Debug: Check authentication first
+      try {
+        const authCheck = await profileAPI.getProfile();
+        console.log("Auth check successful:", authCheck);
+      } catch (authError) {
+        console.error("Authentication failed:", authError);
+        setError("Please log in again and try.");
+        setSaving(false);
+        return;
+      }
+
       const response = await profileAPI.updateProfile(profile)
+
+      console.log("Update response:", response);
 
       if (response.success) {
         // Update local state with the response data
         const updatedProfile = response.data.profile
+        console.log("Updated profile from server:", updatedProfile);
         setProfile({
           name: updatedProfile.name || "",
           email: updatedProfile.email || "",
@@ -100,9 +117,10 @@ export default function ProfilePage() {
       } else {
         setError("Failed to update profile")
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error updating profile:", err)
-      setError("Failed to update profile. Please try again.")
+      console.error("Error details:", err.response?.data);
+      setError(`Failed to update profile: ${err.response?.data?.message || err.message}`)
     } finally {
       setSaving(false)
     }

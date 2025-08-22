@@ -36,7 +36,8 @@ class ProfileController {
       console.log("Profile update request:", {
         userId,
         updateData,
-        userInfo: req.user
+        userInfo: req.user,
+        courses: updateData.courses
       });
 
       // Validate user ID
@@ -60,6 +61,13 @@ class ProfileController {
           success: false,
           message: "Semester must be between 1 and 8",
         });
+      }
+
+      // Log courses data specifically
+      if (updateData.courses) {
+        console.log("Courses to update:", updateData.courses);
+        console.log("Courses array length:", updateData.courses.length);
+        console.log("Courses type:", typeof updateData.courses);
       }
 
       const updatedProfile = await profileService.updateUserProfile(userId, updateData);
