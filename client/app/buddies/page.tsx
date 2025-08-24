@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import Header from "@/components/header"
 import { buddyAPI } from "@/lib/api"
 import { Button } from "@/components/ui/button"
@@ -10,7 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, MessageCircle, UserPlus, Clock, CheckCircle, XCircle } from "lucide-react"
+import { Search, MessageCircle, UserPlus, Clock, CheckCircle, XCircle, UserCheck } from "lucide-react"
 
 interface Buddy {
   id: number
@@ -21,6 +22,11 @@ interface Buddy {
   profile_picture_url?: string
   sharedCourses: Array<{ code: string; name: string }>
   type: 'peer' | 'mentor'
+  connection_status?: 'pending' | 'accepted' | 'rejected' | null
+  connection_type?: 'peer' | 'mentor' | null
+  is_requester?: boolean
+  is_connected?: boolean
+  has_pending_request?: boolean
 }
 
 interface Invitation {
@@ -56,6 +62,7 @@ interface Connection {
 }
 
 export default function BuddiesPage() {
+  const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
   const [buddyType, setBuddyType] = useState("peers")
   const [buddies, setBuddies] = useState<Buddy[]>([])
@@ -206,6 +213,19 @@ export default function BuddiesPage() {
     }
   }
 
+  const handleChatClick = (connection: Connection) => {
+    const user = connection.connected_user
+    const queryParams = new URLSearchParams({
+      userId: user.id.toString(),
+      userName: user.name,
+      ...(user.department && { userDepartment: user.department }),
+      ...(user.semester && { userSemester: user.semester.toString() }),
+      ...(user.profile_picture_url && { userProfilePicture: user.profile_picture_url }),
+    })
+
+    router.push(`/buddies/chat?${queryParams.toString()}`)
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
@@ -264,7 +284,11 @@ export default function BuddiesPage() {
               ) : error ? (
                 <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
                   <p className="text-red-700">{error}</p>
-                  <Button onClick={loadBuddies} className="mt-2" size="sm">
+                  <Button 
+                    onClick={loadBuddies} 
+                    className="group mt-2 bg-red-600 hover:bg-red-700 transition-all duration-200 hover:shadow-sm" 
+                    size="sm"
+                  >
                     Try Again
                   </Button>
                 </div>
@@ -324,21 +348,42 @@ export default function BuddiesPage() {
                           </div>
                         </div>
 
-                        <Button
-                          onClick={() => handleInvite(buddy.id, buddyType)}
-                          className="w-full bg-blue-600 hover:bg-blue-700"
-                          size="sm"
-                          disabled={inviteLoading[buddy.id] || sentInvites[buddy.id]}
-                        >
-                          <UserPlus className="w-4 h-4 mr-2" />
-                          {inviteLoading[buddy.id] ? (
-                            "Sending..."
-                          ) : sentInvites[buddy.id] ? (
-                            "Invite Sent"
-                          ) : (
-                            buddyType === 'mentors' ? 'Request Mentoring' : 'Send Study Invite'
-                          )}
-                        </Button>
+                        {/* Connection Status Button */}
+                        {buddy.is_connected ? (
+                          <Button
+                            className="group w-full bg-green-600 hover:bg-green-600 cursor-not-allowed transition-all duration-200"
+                            size="sm"
+                            disabled={true}
+                          >
+                            <UserCheck className="w-4 h-4 mr-2" />
+                            Connected
+                          </Button>
+                        ) : buddy.has_pending_request ? (
+                          <Button
+                            className="group w-full bg-yellow-600 hover:bg-yellow-600 cursor-not-allowed transition-all duration-200"
+                            size="sm"
+                            disabled={true}
+                          >
+                            <Clock className="w-4 h-4 mr-2" />
+                            {buddy.is_requester ? "Request Sent" : "Invitation Pending"}
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={() => handleInvite(buddy.id, buddyType)}
+                            className="group w-full bg-blue-600 hover:bg-blue-700 transition-all duration-200 hover:shadow-sm"
+                            size="sm"
+                            disabled={inviteLoading[buddy.id] || sentInvites[buddy.id]}
+                          >
+                            <UserPlus className="w-4 h-4 mr-2 transition-transform duration-200 group-hover:scale-110" />
+                            {inviteLoading[buddy.id] ? (
+                              "Sending..."
+                            ) : sentInvites[buddy.id] ? (
+                              "Invite Sent"
+                            ) : (
+                              buddyType === 'mentors' ? 'Request Mentoring' : 'Send Study Invite'
+                            )}
+                          </Button>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
@@ -399,19 +444,20 @@ export default function BuddiesPage() {
                             <Button
                               onClick={() => handleInvitationResponse(invitation.id, "accept")}
                               size="sm"
-                              className="bg-green-600 hover:bg-green-700"
+                              className="group bg-green-600 hover:bg-green-700 transition-all duration-200 hover:shadow-sm"
                               disabled={respondLoading[invitation.id]}
                             >
-                              <CheckCircle className="w-4 h-4 mr-1" />
+                              <CheckCircle className="w-4 h-4 mr-1 transition-transform duration-200 group-hover:scale-110" />
                               {respondLoading[invitation.id] ? "..." : "Accept"}
                             </Button>
                             <Button
                               onClick={() => handleInvitationResponse(invitation.id, "decline")}
                               size="sm"
                               variant="outline"
+                              className="group border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300 hover:text-red-700 transition-all duration-200 hover:shadow-sm"
                               disabled={respondLoading[invitation.id]}
                             >
-                              <XCircle className="w-4 h-4 mr-1" />
+                              <XCircle className="w-4 h-4 mr-1 transition-transform duration-200 group-hover:scale-110" />
                               {respondLoading[invitation.id] ? "..." : "Decline"}
                             </Button>
                           </div>
@@ -479,8 +525,13 @@ export default function BuddiesPage() {
                             </div>
                           </div>
                           <div className="text-right">
-                            <Button size="sm" variant="outline">
-                              <MessageCircle className="w-4 h-4 mr-1" />
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => handleChatClick(connection)}
+                              className="group border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-all duration-200 hover:shadow-sm"
+                            >
+                              <MessageCircle className="w-4 h-4 mr-1 transition-transform duration-200 group-hover:scale-110" />
                               Chat
                             </Button>
                           </div>

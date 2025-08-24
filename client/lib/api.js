@@ -243,6 +243,32 @@ export const buddyAPI = {
   },
 };
 
+export const chatAPI = {
+  // Get chat history with a specific user
+  getChatHistory: async (userId) => {
+    const response = await api.get(`/chats/${userId}`);
+    return response.data;
+  },
+
+  // Send a message to a specific user
+  sendMessage: async (userId, content) => {
+    const response = await api.post(`/chats/${userId}`, { content });
+    return response.data;
+  },
+
+  // Get all conversations for the current user
+  getConversations: async () => {
+    const response = await api.get('/chats/conversations');
+    return response.data;
+  },
+
+  // Mark messages from a specific user as read
+  markAsRead: async (userId) => {
+    const response = await api.put(`/chats/${userId}/read`);
+    return response.data;
+  },
+};
+
 export const apiRequest = {
   get: async (url, config = {}) => {
     const response = await api.get(url, config);

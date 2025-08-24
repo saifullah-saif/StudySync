@@ -251,11 +251,67 @@ class BuddyService {
   // Get buddies based on type (peers or mentors)
   async getBuddies(userId, type = 'peers', searchQuery = '') {
     try {
+      let buddies;
       if (type === 'mentors') {
-        return await this.getMentors(userId, searchQuery);
+        buddies = await this.getMentors(userId, searchQuery);
       } else {
-        return await this.getPeers(userId, searchQuery);
+        buddies = await this.getPeers(userId, searchQuery);
       }
+
+      // Get all connection statuses for these users
+      const buddyIds = buddies.map(buddy => buddy.id);
+      
+      if (buddyIds.length === 0) {
+        return buddies;
+      }
+
+      // Query for existing connections (bidirectional check)
+      const connections = await prisma.user_connections.findMany({
+        where: {
+          OR: [
+            {
+              requester_id: userId,
+              addressee_id: { in: buddyIds }
+            },
+            {
+              requester_id: { in: buddyIds },
+              addressee_id: userId
+            }
+          ]
+        },
+        select: {
+          requester_id: true,
+          addressee_id: true,
+          status: true,
+          request_type: true
+        }
+      });
+
+      // Create a map of connection statuses
+      const connectionMap = new Map();
+      connections.forEach(conn => {
+        const otherUserId = conn.requester_id === userId ? conn.addressee_id : conn.requester_id;
+        connectionMap.set(otherUserId, {
+          status: conn.status,
+          request_type: conn.request_type,
+          is_requester: conn.requester_id === userId
+        });
+      });
+
+      // Add connection status to each buddy
+      const buddiesWithStatus = buddies.map(buddy => {
+        const connectionInfo = connectionMap.get(buddy.id);
+        return {
+          ...buddy,
+          connection_status: connectionInfo?.status || null,
+          connection_type: connectionInfo?.request_type || null,
+          is_requester: connectionInfo?.is_requester || false,
+          is_connected: connectionInfo?.status === 'accepted',
+          has_pending_request: connectionInfo?.status === 'pending'
+        };
+      });
+
+      return buddiesWithStatus;
     } catch (error) {
       console.error("Get buddies error:", error);
       throw error;
