@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
@@ -39,6 +40,7 @@ interface Course {
 }
 
 export default function BrowseNotes() {
+  const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCourse, setSelectedCourse] = useState("all")
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
@@ -115,6 +117,10 @@ export default function BrowseNotes() {
       month: 'short', 
       day: 'numeric'
     })
+  }
+
+  const handleNoteClick = (noteId: number) => {
+    router.push(`/view-notes/${noteId}`)
   }
 
   const handleDownload = async (noteId: number) => {
@@ -228,7 +234,11 @@ export default function BrowseNotes() {
             </div>
           ) : (
             notes.map((note) => (
-              <Card key={note.id} className="bg-blue-50 border-blue-200 hover:shadow-lg transition-shadow">
+              <Card 
+                key={note.id} 
+                className="bg-blue-50 border-blue-200 hover:shadow-lg transition-shadow cursor-pointer"
+                onClick={() => handleNoteClick(note.id)}
+              >
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between mb-3">
                     <h3 className="text-lg font-semibold text-gray-900 flex-1 line-clamp-2">{note.title}</h3>
@@ -275,7 +285,10 @@ export default function BrowseNotes() {
                       <Button 
                         variant="outline" 
                         size="sm"
-                        onClick={() => handleDownload(note.id)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDownload(note.id)
+                        }}
                       >
                         <Download className="w-4 h-4 mr-1" />
                         Download
