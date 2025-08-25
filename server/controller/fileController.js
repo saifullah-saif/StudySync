@@ -1,88 +1,25 @@
 const { PrismaClient } = require("@prisma/client");
-const multer = require("multer");
 const supabase = require("../lib/supabaseClient");
 const { extractTextFromFile } = require("../lib/extractText");
 const fileService = require("../services/fileService");
+const uploadService = require("../lib/uploadService");
 
 const prisma = new PrismaClient();
 
-// Configure multer for file uploads
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 15 * 1024 * 1024, // 15MB limit
-  },
-  fileFilter: (req, file, cb) => {
-    try {
-      // Check if file exists
-      if (!file) {
-        return cb(new Error("No file provided"), false);
-      }
-
-      // Check file name
-      if (!file.originalname || file.originalname.trim().length === 0) {
-        return cb(new Error("File name cannot be empty"), false);
-      }
-
-      if (file.originalname.length > 255) {
-        return cb(
-          new Error("File name is too long (max 255 characters)"),
-          false
-        );
-      }
-
-      // Check for potentially dangerous file names
-      const dangerousPatterns = [
-        /\.\./, // Directory traversal
-        /[<>:"|?*]/, // Invalid characters
-        /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i, // Reserved names
-      ];
-
-      if (
-        dangerousPatterns.some((pattern) => pattern.test(file.originalname))
-      ) {
-        return cb(new Error("File name contains invalid characters"), false);
-      }
-
-      const allowedTypes = [
-        "application/pdf",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "text/plain",
-        "image/jpeg",
-        "image/png",
-        "image/gif",
-        "application/msword",
-      ];
-      const allowedExtensions = [
-        ".pdf",
-        ".docx",
-        ".txt",
-        ".jpg",
-        ".jpeg",
-        ".png",
-        ".gif",
-        ".doc",
-      ];
-
-      const hasValidMimeType = allowedTypes.includes(file.mimetype);
-      const hasValidExtension = allowedExtensions.some((ext) =>
-        file.originalname.toLowerCase().endsWith(ext)
-      );
-
-      if (hasValidMimeType || hasValidExtension) {
-        cb(null, true);
-      } else {
-        cb(
-          new Error(
-            "File type not supported. Allowed types: PDF, DOCX, TXT, DOC, JPG, PNG, GIF"
-          ),
-          false
-        );
-      }
-    } catch (error) {
-      cb(new Error("File validation error: " + error.message), false);
-    }
-  },
+// Configure multer using centralized upload service
+const upload = uploadService.createMulterConfig({
+  allowedTypes: [
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "text/plain",
+    "image/jpeg",
+    "image/png",
+    "image/gif",
+    "application/msword",
+  ],
+  allowedExtensions: [".pdf", ".docx", ".txt", ".jpg", ".jpeg", ".png", ".gif", ".doc"],
+  maxFileSize: 15 * 1024 * 1024, // 15MB limit
+  validateFileName: true,
 });
 
 /**
@@ -138,63 +75,22 @@ const uploadFile = async (req, res) => {
       });
     }
 
-    // Upload to Supabase Storage
-    const fileName = `${userId}/${Date.now()}_${file.originalname}`;
-    const bucketName =
-      process.env.SUPABASE_BUCKET_NAME || "study-sync-documents";
+    // Upload using centralized upload service (private bucket with signed URL)
+    const uploadResult = await uploadService.uploadFile(file, userId, {
+      bucketName: process.env.SUPABASE_BUCKET_NAME || "study-sync-documents",
+      isPublic: false, // Set to private for better security
+      folderPath: `files/${userId}`, // Organize files in a dedicated folder
+      upsert: false,
+    });
 
-    // Create bucket if it doesn't exist
-    const { data: buckets } = await supabase.storage.listBuckets();
-    const bucketExists = buckets?.some((bucket) => bucket.name === bucketName);
-
-    if (!bucketExists) {
-      console.log(`Creating bucket: ${bucketName}`);
-      const { error: createBucketError } = await supabase.storage.createBucket(
-        bucketName,
-        {
-          public: true,
-          allowedMimeTypes: [
-            "application/pdf",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "text/plain",
-            "image/jpeg",
-            "image/png",
-            "image/gif",
-            "application/msword",
-          ],
-          fileSizeLimit: 15728640, // 15MB
-        }
-      );
-
-      if (createBucketError) {
-        console.error("Error creating bucket:", createBucketError);
-        return res.status(500).json({
-          success: false,
-          message: "Failed to create storage bucket",
-        });
-      }
-    }
-
-    // Upload file
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from(bucketName)
-      .upload(fileName, file.buffer, {
-        contentType: file.mimetype,
-        duplex: "half",
-      });
-
-    if (uploadError) {
-      console.error("Upload error:", uploadError);
+    if (!uploadResult.success) {
       return res.status(500).json({
         success: false,
-        message: "Failed to upload file to storage",
+        message: uploadResult.error || "Failed to upload file to storage",
       });
     }
 
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from(bucketName)
-      .getPublicUrl(fileName);
+    const { fileName, filePath, signedUrl } = uploadResult.data;
 
     // Create database record using notes table
     const document = await prisma.notes.create({
@@ -203,7 +99,7 @@ const uploadFile = async (req, res) => {
         title: title.trim(),
         description: `Uploaded file: ${file.originalname}`,
         file_name: file.originalname,
-        file_path: fileName,
+        file_path: fileName, // Use the fileName from upload service
         file_type: getFileTypeEnum(file.originalname),
         file_size_bytes: BigInt(file.size),
         visibility: "private",
@@ -215,7 +111,7 @@ const uploadFile = async (req, res) => {
     res.status(201).json({
       success: true,
       data: fileService.formatFileResponse(document),
-      fileUrl: urlData.publicUrl,
+      fileUrl: signedUrl, // Use signed URL for private files
       message: "File uploaded successfully",
     });
   } catch (error) {

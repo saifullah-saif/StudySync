@@ -3,6 +3,7 @@ const { authenticateToken } = require("../middleware/authMiddleware");
 const {
   getUserDecks,
   getDeck,
+  createDeck,
   createPracticeSession,
   getPracticeSession,
   recordFlashcardAttempt,
@@ -31,6 +32,22 @@ router.get("/decks", getUserDecks);
  * @access Private
  */
 router.get("/decks/:id", getDeck);
+
+/**
+ * @route POST /api/practice/decks
+ * @desc Create a manual flashcard deck
+ * @access Private
+ * @body {
+ *   title: string,
+ *   description?: string,
+ *   flashcards: Array<{
+ *     question: string,
+ *     answer: string,
+ *     explanation?: string
+ *   }>
+ * }
+ */
+router.post("/decks", createDeck);
 
 /**
  * @route POST /api/practice/flashcard-sessions

@@ -19,7 +19,7 @@ interface PracticeSession {
   cardsCorrect: number;
   totalTimeSeconds: number;
   startedAt: string;
-  completedAt?: string;
+  endedAt?: string;
 }
 
 interface Deck {
@@ -139,7 +139,7 @@ export default function PracticeSummaryPage() {
           ? Math.round(session.totalTimeSeconds / session.cardsStudied)
           : 0,
       missedCards,
-      completedAt: session.completedAt || new Date().toISOString(),
+      completedAt: session.endedAt || new Date().toISOString(),
     };
 
     const blob = new Blob([JSON.stringify(summaryData, null, 2)], {

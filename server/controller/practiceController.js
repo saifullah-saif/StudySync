@@ -244,7 +244,7 @@ const getPracticeSession = async (req, res) => {
           cardsCorrect: session.cards_correct,
           totalTimeSeconds: session.total_time_seconds,
           startedAt: session.started_at,
-          completedAt: session.completed_at,
+          endedAt: session.ended_at,
         },
         deck: session.flashcard_decks,
       },
@@ -263,8 +263,12 @@ const getPracticeSession = async (req, res) => {
  */
 const recordFlashcardAttempt = async (req, res) => {
   try {
+    console.log("recordFlashcardAttempt called with:", req.body);
+    
     const { sessionId, flashcardId, isCorrect, responseTimeSeconds } = req.body;
     const userId = req.user.id;
+
+    console.log("Extracted data:", { sessionId, flashcardId, isCorrect, responseTimeSeconds, userId });
 
     // Verify session ownership
     const session = await prisma.study_sessions.findFirst({
@@ -275,32 +279,91 @@ const recordFlashcardAttempt = async (req, res) => {
     });
 
     if (!session) {
+      console.log("Session not found or access denied");
       return res.status(404).json({
         success: false,
         message: "Practice session not found or access denied",
       });
     }
 
-    // Record the attempt
-    await prisma.flashcard_attempts.create({
-      data: {
-        session_id: parseInt(sessionId),
+    console.log("Session found:", session);
+
+    // Get or create card progress for this user and flashcard
+    let cardProgress = await prisma.card_progress.findFirst({
+      where: {
+        user_id: userId,
         flashcard_id: parseInt(flashcardId),
-        is_correct: Boolean(isCorrect),
-        response_time_seconds: parseFloat(responseTimeSeconds) || 0,
-        attempted_at: new Date(),
       },
     });
+
+    if (!cardProgress) {
+      console.log("Creating new card progress");
+      cardProgress = await prisma.card_progress.create({
+        data: {
+          user_id: userId,
+          flashcard_id: parseInt(flashcardId),
+          algorithm_id: 1,
+          current_interval: 1,
+          ease_factor: 2.50,
+          total_reviews: 0,
+          correct_reviews: 0,
+          consecutive_correct: 0,
+          learning_stage: "new",
+          mastery_level: 0,
+        },
+      });
+    }
+
+    console.log("Card progress:", cardProgress);
+
+    // Update card progress statistics
+    const wasCorrect = Boolean(isCorrect);
+    const updatedCardProgress = await prisma.card_progress.update({
+      where: { id: cardProgress.id },
+      data: {
+        total_reviews: cardProgress.total_reviews + 1,
+        correct_reviews: cardProgress.correct_reviews + (wasCorrect ? 1 : 0),
+        consecutive_correct: wasCorrect ? cardProgress.consecutive_correct + 1 : 0,
+        last_review_date: new Date(),
+        last_response: wasCorrect ? "correct" : "incorrect",
+        updated_at: new Date(),
+      },
+    });
+
+    console.log("Updated card progress:", updatedCardProgress);
+
+    // Record the review
+    const cardReview = await prisma.card_reviews.create({
+      data: {
+        session_id: parseInt(sessionId),
+        card_progress_id: cardProgress.id,
+        user_response: wasCorrect ? "correct" : "incorrect",
+        response_time_ms: Math.round((parseFloat(responseTimeSeconds) || 0) * 1000),
+        previous_interval: cardProgress.current_interval,
+        new_interval: cardProgress.current_interval, // For now, keep the same interval
+        previous_ease_factor: cardProgress.ease_factor,
+        new_ease_factor: cardProgress.ease_factor, // For now, keep the same ease factor
+        reviewed_at: new Date(),
+      },
+    });
+
+    console.log("Card review created:", cardReview);
 
     res.json({
       success: true,
       message: "Attempt recorded successfully",
+      data: {
+        cardProgress: updatedCardProgress,
+        review: cardReview,
+      },
     });
   } catch (error) {
-    console.error("Record flashcard attempt error:", error);
+    console.error("Record flashcard attempt error - Full error:", error);
+    console.error("Error stack:", error.stack);
     res.status(500).json({
       success: false,
-      message: error.message || "Failed to record attempt",
+      message: "Failed to record attempt",
+      error: error.message,
     });
   }
 };
@@ -338,7 +401,8 @@ const completePracticeSession = async (req, res) => {
         cards_studied: parseInt(cardsStudied),
         cards_correct: parseInt(cardsCorrect),
         total_time_seconds: parseInt(totalTimeSeconds),
-        completed_at: new Date(),
+        ended_at: new Date(),
+        is_completed: true,
       },
     });
 
@@ -363,9 +427,124 @@ const completePracticeSession = async (req, res) => {
   }
 };
 
+/**
+ * Create a manual flashcard deck
+ */
+const createDeck = async (req, res) => {
+  try {
+    console.log("createDeck called with body:", req.body);
+    console.log("User:", req.user);
+    
+    const userId = req.user.id;
+    const { title, description, flashcards } = req.body;
+
+    console.log("Extracted data:", { userId, title, description, flashcards });
+
+    // Validation
+    if (!title || !title.trim()) {
+      console.log("Validation failed: Title is required");
+      return res.status(400).json({
+        success: false,
+        message: "Title is required"
+      });
+    }
+
+    if (!flashcards || !Array.isArray(flashcards) || flashcards.length === 0) {
+      console.log("Validation failed: No flashcards provided");
+      return res.status(400).json({
+        success: false,
+        message: "At least one flashcard is required"
+      });
+    }
+
+    // Validate flashcards
+    for (let i = 0; i < flashcards.length; i++) {
+      const card = flashcards[i];
+      if (!card.question || !card.question.trim() || !card.answer || !card.answer.trim()) {
+        console.log(`Validation failed: Flashcard ${i + 1} invalid:`, card);
+        return res.status(400).json({
+          success: false,
+          message: `Flashcard ${i + 1} must have both question and answer`
+        });
+      }
+    }
+
+    console.log("All validation passed, creating deck...");
+
+    // Create deck with flashcards in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      console.log("Creating deck with data:", {
+        title: title.trim(),
+        description: description?.trim() || null,
+        user_id: userId,
+        creation_method: 'manual',
+        created_at: new Date(),
+      });
+
+      // Create the deck
+      const deck = await tx.flashcard_decks.create({
+        data: {
+          title: title.trim(),
+          description: description?.trim() || null,
+          user_id: userId,
+          creation_method: 'manual',
+          created_at: new Date(),
+        }
+      });
+
+      console.log("Deck created:", deck);
+
+      // Create flashcards
+      const flashcardsData = flashcards.map((card, index) => ({
+        deck_id: deck.id,
+        question: card.question.trim(),
+        answer: card.answer.trim(),
+        explanation: card.explanation?.trim() || null,
+        created_at: new Date(),
+      }));
+
+      console.log("Creating flashcards with data:", flashcardsData);
+
+      await tx.flashcards.createMany({
+        data: flashcardsData,
+      });
+
+      console.log("Flashcards created successfully");
+
+      return deck;
+    });
+
+    console.log("Transaction completed successfully, sending response");
+
+    res.json({
+      success: true,
+      data: {
+        deck: {
+          id: result.id,
+          title: result.title,
+          description: result.description,
+          cardCount: flashcards.length,
+          createdAt: result.created_at,
+        }
+      },
+      message: "Deck created successfully"
+    });
+
+  } catch (error) {
+    console.error("Error creating deck - Full error:", error);
+    console.error("Error stack:", error.stack);
+    res.status(500).json({
+      success: false,
+      message: "Failed to create deck",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   getUserDecks,
   getDeck,
+  createDeck,
   createPracticeSession,
   getPracticeSession,
   recordFlashcardAttempt,

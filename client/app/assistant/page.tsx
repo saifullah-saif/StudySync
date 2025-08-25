@@ -12,7 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, Play, Volume2, FileText, Loader2, Files } from "lucide-react";
+import { Upload, Play, Volume2, FileText, Loader2, Files, Plus, X, Edit, Save } from "lucide-react";
 import { toast } from "sonner";
 import { documentAPI, practiceAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
@@ -39,6 +39,16 @@ export default function AssistantPage() {
   const [recentDecks, setRecentDecks] = useState<any[]>([]);
   const [decksLoading, setDecksLoading] = useState(false);
 
+  // Manual flashcard states
+  const [manualFlashcards, setManualFlashcards] = useState<Array<{
+    id: string;
+    question: string;
+    answer: string;
+    explanation?: string;
+  }>>([]);
+  const [editingCard, setEditingCard] = useState<string | null>(null);
+  const [isCreatingManualDeck, setIsCreatingManualDeck] = useState(false);
+
   // Load recent decks
   const loadRecentDecks = async () => {
     if (!user) return;
@@ -53,6 +63,96 @@ export default function AssistantPage() {
       console.error("Failed to load recent decks:", error);
     } finally {
       setDecksLoading(false);
+    }
+  };
+
+  const addManualCard = () => {
+    const newCard = {
+      id: Date.now().toString(),
+      question: "",
+      answer: "",
+      explanation: ""
+    };
+    setManualFlashcards([...manualFlashcards, newCard]);
+    setEditingCard(newCard.id);
+  };
+
+  const updateManualCard = (id: string, field: string, value: string) => {
+    setManualFlashcards(manualFlashcards.map(card => 
+      card.id === id ? { ...card, [field]: value } : card
+    ));
+  };
+
+  const removeManualCard = (id: string) => {
+    setManualFlashcards(manualFlashcards.filter(card => card.id !== id));
+    if (editingCard === id) setEditingCard(null);
+  };
+
+  const saveManualCard = (id: string) => {
+    setEditingCard(null);
+  };
+
+  const createManualDeck = async () => {
+    console.log("createManualDeck called");
+    console.log("User:", user);
+    console.log("Title:", title);
+    console.log("Manual flashcards:", manualFlashcards);
+
+    if (!user) {
+      alert("Please log in to create flashcard decks");
+      return;
+    }
+
+    if (!title.trim() || manualFlashcards.length === 0) {
+      alert("Please provide a title and at least one flashcard");
+      return;
+    }
+
+    const validFlashcards = manualFlashcards.filter(card => 
+      card.question.trim() && card.answer.trim()
+    );
+
+    if (validFlashcards.length === 0) {
+      alert("Please provide valid question and answer pairs");
+      return;
+    }
+
+    try {
+      setIsCreatingManualDeck(true);
+      console.log("Calling practiceAPI.createDeck with data:", {
+        title,
+        flashcards: validFlashcards
+      });
+      
+      const result = await practiceAPI.createDeck({
+        title,
+        flashcards: validFlashcards.map(card => ({
+          question: card.question,
+          answer: card.answer,
+          explanation: card.explanation || null
+        }))
+      });
+
+      console.log("API result:", result);
+
+      if (result.success) {
+        alert("Manual flashcard deck created successfully!");
+        
+        // Reset form
+        setTitle("");
+        setManualFlashcards([]);
+        setEditingCard(null);
+        
+        // Refresh recent decks
+        loadRecentDecks();
+      } else {
+        throw new Error(result.message || "Failed to create manual deck");
+      }
+    } catch (error) {
+      console.error("Error creating manual deck:", error);
+      alert("Error creating manual deck. Please try again.");
+    } finally {
+      setIsCreatingManualDeck(false);
     }
   };
 
@@ -413,7 +513,7 @@ export default function AssistantPage() {
                   </button>
                   <button
                     onClick={() => setSelectedTab("text")}
-                    className={`flex-1 py-3 px-6 text-center font-medium rounded-r-lg transition-colors ${
+                    className={`flex-1 py-3 px-6 text-center font-medium transition-colors ${
                       selectedTab === "text"
                         ? "bg-blue-600 text-white"
                         : "bg-gray-200 text-gray-700 hover:bg-gray-300"
@@ -421,6 +521,17 @@ export default function AssistantPage() {
                     disabled={isUploading || isGenerating}
                   >
                     Text
+                  </button>
+                  <button
+                    onClick={() => setSelectedTab("manual")}
+                    className={`flex-1 py-3 px-6 text-center font-medium rounded-r-lg transition-colors ${
+                      selectedTab === "manual"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                    }`}
+                    disabled={isUploading || isGenerating}
+                  >
+                    Manual
                   </button>
                 </div>
 
@@ -609,6 +720,164 @@ export default function AssistantPage() {
                           </Button>
                         </div>
                       )}
+                  </div>
+                )}
+
+                {/* Manual Tab */}
+                {selectedTab === "manual" && (
+                  <div className="space-y-6">
+                    {/* Current flashcards */}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm font-medium text-gray-700">
+                          Flashcards ({manualFlashcards.length})
+                        </Label>
+                        <Button
+                          onClick={addManualCard}
+                          variant="outline"
+                          size="sm"
+                          className="flex items-center gap-2"
+                          disabled={isCreatingManualDeck}
+                        >
+                          <Plus className="w-4 h-4" />
+                          Add Card
+                        </Button>
+                      </div>
+
+                      {manualFlashcards.length === 0 ? (
+                        <div className="text-center py-8 text-gray-500">
+                          <p>No flashcards yet. Click "Add Card" to get started.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-3 max-h-96 overflow-y-auto">
+                          {manualFlashcards.map((card, index) => (
+                            <Card key={card.id} className="p-4">
+                              <div className="space-y-3">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-sm font-medium text-gray-600">
+                                    Card {index + 1}
+                                  </span>
+                                  <div className="flex items-center gap-2">
+                                    {editingCard === card.id ? (
+                                      <Button
+                                        onClick={() => saveManualCard(card.id)}
+                                        variant="outline"
+                                        size="sm"
+                                      >
+                                        <Save className="w-4 h-4" />
+                                      </Button>
+                                    ) : (
+                                      <Button
+                                        onClick={() => setEditingCard(card.id)}
+                                        variant="outline"
+                                        size="sm"
+                                      >
+                                        <Edit className="w-4 h-4" />
+                                      </Button>
+                                    )}
+                                    <Button
+                                      onClick={() => removeManualCard(card.id)}
+                                      variant="destructive"
+                                      size="sm"
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                {editingCard === card.id ? (
+                                  <div className="space-y-3">
+                                    <div>
+                                      <Label className="text-sm font-medium text-gray-700">
+                                        Question *
+                                      </Label>
+                                      <Textarea
+                                        placeholder="Enter your question..."
+                                        value={card.question}
+                                        onChange={(e) =>
+                                          updateManualCard(card.id, "question", e.target.value)
+                                        }
+                                        className="min-h-[80px] mt-1"
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label className="text-sm font-medium text-gray-700">
+                                        Answer *
+                                      </Label>
+                                      <Textarea
+                                        placeholder="Enter the answer..."
+                                        value={card.answer}
+                                        onChange={(e) =>
+                                          updateManualCard(card.id, "answer", e.target.value)
+                                        }
+                                        className="min-h-[80px] mt-1"
+                                      />
+                                    </div>
+                                    <div>
+                                      <Label className="text-sm font-medium text-gray-700">
+                                        Explanation (Optional)
+                                      </Label>
+                                      <Textarea
+                                        placeholder="Add an explanation..."
+                                        value={card.explanation || ""}
+                                        onChange={(e) =>
+                                          updateManualCard(card.id, "explanation", e.target.value)
+                                        }
+                                        className="min-h-[60px] mt-1"
+                                      />
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="space-y-2">
+                                    <div>
+                                      <p className="text-sm font-medium text-gray-700">Question:</p>
+                                      <p className="text-sm text-gray-900">
+                                        {card.question || <em className="text-gray-400">No question yet</em>}
+                                      </p>
+                                    </div>
+                                    <div>
+                                      <p className="text-sm font-medium text-gray-700">Answer:</p>
+                                      <p className="text-sm text-gray-900">
+                                        {card.answer || <em className="text-gray-400">No answer yet</em>}
+                                      </p>
+                                    </div>
+                                    {card.explanation && (
+                                      <div>
+                                        <p className="text-sm font-medium text-gray-700">Explanation:</p>
+                                        <p className="text-sm text-gray-600">{card.explanation}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </Card>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Create deck button */}
+                    <Button
+                      className="w-full bg-green-600 hover:bg-green-700 py-3 text-lg font-semibold"
+                      onClick={createManualDeck}
+                      disabled={
+                        isCreatingManualDeck
+                      }
+                    >
+                      {isCreatingManualDeck ? (
+                        <>
+                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                          Creating Deck...
+                        </>
+                      ) : (
+                        "Create Flashcard Deck"
+                      )}
+                    </Button>
+                    
+                    {/* Debug info */}
+                    <div className="text-xs text-gray-500 mt-2">
+                      Debug - Title: "{title}", Cards: {manualFlashcards.length}, Valid Cards: {manualFlashcards.filter(card => card.question.trim() && card.answer.trim()).length}
+                    </div>
                   </div>
                 )}
 

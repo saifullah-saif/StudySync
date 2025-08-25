@@ -47,57 +47,6 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// Public deck endpoint for testing (no auth required)
-app.get("/api/public/decks/:id", async (req, res) => {
-  try {
-    const { PrismaClient } = require("@prisma/client");
-    const prisma = new PrismaClient();
-
-    const { id } = req.params;
-
-    const deck = await prisma.flashcard_decks.findFirst({
-      where: {
-        id: parseInt(id),
-        is_deleted: false,
-      },
-      include: {
-        flashcards: {
-          include: {
-            flashcard_options: {
-              orderBy: {
-                option_order: "asc",
-              },
-            },
-          },
-          orderBy: {
-            created_at: "asc",
-          },
-        },
-      },
-    });
-
-    if (!deck) {
-      return res.status(404).json({
-        success: false,
-        message: "Deck not found",
-      });
-    }
-
-    res.json({
-      success: true,
-      deck,
-    });
-
-    await prisma.$disconnect();
-  } catch (error) {
-    console.error("Public deck error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to retrieve deck",
-    });
-  }
-});
-
 const port = process.env.PORT || 5001;
 
 async function startServer() {

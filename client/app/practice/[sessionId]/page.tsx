@@ -44,7 +44,7 @@ interface PracticeSession {
   cardsCorrect: number;
   totalTimeSeconds: number;
   startedAt: string;
-  completedAt?: string;
+  endedAt?: string;
 }
 
 interface Deck {

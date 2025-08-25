@@ -75,9 +75,8 @@ const generateFlashcardsFromFile = async (req, res) => {
       });
     }
 
-    // For mock testing, skip job conflict check and return mock response immediately
-    // TODO: Re-enable job conflict check when implementing real generation service
-    console.log("🚀 Flashcard generation request received:");
+    // Start flashcard generation job
+    console.log("🚀 Enqueuing flashcard generation job:");
     console.log("Document ID:", documentId);
     console.log("User ID:", userId);
     console.log("Options:", {
@@ -87,39 +86,46 @@ const generateFlashcardsFromFile = async (req, res) => {
       maxCards,
     });
 
-    const mockResult = {
-      jobId: Math.floor(Math.random() * 1000),
-      status: "completed", // Mock as completed for testing
-      deckId: 1, // Mock deck ID for testing redirect
-      cardsGenerated: Math.floor(Math.random() * 15) + 5, // Mock 5-20 cards
-      message:
-        "Mock flashcard generation completed (OpenAI integration pending)",
-    };
+    // Use the async flashcard generation service
+    const result = await flashcardGenerationService.enqueueGenerationJob(
+      parseInt(documentId),
+      userId,
+      {
+        deckTitle: deckTitle || document.title,
+        cardType,
+        targetDifficulty,
+        maxCards,
+        templateId,
+      }
+    );
 
-    res.status(200).json({
+    // Return 202 Accepted with job information
+    res.status(202).json({
       success: true,
-      data: mockResult,
-      message: "Flashcard generation request processed (mock response)",
+      data: result,
     });
   } catch (error) {
     console.error("Generate flashcards error:", error);
 
-    // For database errors, still return mock response to keep UI working
-    if (error.code === "P2002" || error.message.includes("database")) {
-      console.log("🔄 Database error, returning mock response anyway");
-      const mockResult = {
-        jobId: Math.floor(Math.random() * 1000),
-        status: "completed",
-        deckId: 1,
-        cardsGenerated: Math.floor(Math.random() * 15) + 5,
-        message:
-          "Mock flashcard generation completed (database error bypassed)",
-      };
+    // Check for specific error types
+    if (error.message.includes("Document not found")) {
+      return res.status(404).json({
+        success: false,
+        message: "Document not found or access denied",
+      });
+    }
 
-      return res.status(200).json({
-        success: true,
-        data: mockResult,
-        message: "Flashcard generation request processed (mock response)",
+    if (error.message.includes("OpenAI")) {
+      return res.status(500).json({
+        success: false,
+        message: "AI service temporarily unavailable. Please try again later.",
+      });
+    }
+
+    if (error.message.includes("Insufficient text")) {
+      return res.status(400).json({
+        success: false,
+        message: "Document doesn't contain enough text for flashcard generation",
       });
     }
 
@@ -152,19 +158,15 @@ const getJobStatus = async (req, res) => {
       });
     }
 
-    // Mock job status response
-    const mockJobStatus = {
-      jobId: parseInt(jobId),
-      status: "completed",
-      deckId: 1,
-      cardsGenerated: Math.floor(Math.random() * 15) + 5,
-      documentTitle: "Mock Document",
-      message: "Mock job completed successfully",
-    };
+    // Get real job status from service
+    const jobStatus = await flashcardGenerationService.getJobStatus(
+      parseInt(jobId),
+      userId
+    );
 
     res.json({
       success: true,
-      data: mockJobStatus,
+      data: jobStatus,
     });
   } catch (error) {
     console.error("Get job status error:", error);

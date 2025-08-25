@@ -191,9 +191,9 @@ export const documentAPI = {
     return response.data;
   },
 
-  // Get deck details (public endpoint for testing)
+  // Get deck details (authenticated endpoint)
   getDeck: async (deckId) => {
-    const response = await api.get(`/public/decks/${deckId}`);
+    const response = await api.get(`/practice/decks/${deckId}`);
     return response.data;
   },
 };
@@ -342,6 +342,12 @@ export const practiceAPI = {
     const response = await api.get(
       `/practice/decks?page=${page}&limit=${limit}`
     );
+    return response.data;
+  },
+
+  // Create manual deck
+  createDeck: async (deckData) => {
+    const response = await api.post("/practice/decks", deckData);
     return response.data;
   },
 

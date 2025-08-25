@@ -67,18 +67,35 @@ export default function DeckViewPage() {
   const loadDeck = async () => {
     try {
       setLoading(true);
+      
+      // Check if user is authenticated first
+      if (!user) {
+        toast.error("Please log in to view flashcard decks");
+        router.push("/");
+        return;
+      }
+      
       const result = await documentAPI.getDeck(parseInt(deckId));
 
       if (result.success) {
-        setDeck(result.deck);
+        setDeck(result.data); // Changed from result.deck to result.data
       } else {
         toast.error(result.message || "Failed to load flashcard deck");
         router.push("/assistant");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Load deck error:", error);
-      toast.error("Failed to load flashcard deck");
-      router.push("/assistant");
+      
+      if (error.response?.status === 401) {
+        toast.error("Please log in to view flashcard decks");
+        router.push("/");
+      } else if (error.response?.status === 404) {
+        toast.error("Flashcard deck not found");
+        router.push("/assistant");
+      } else {
+        toast.error("Failed to load flashcard deck");
+        router.push("/assistant");
+      }
     } finally {
       setLoading(false);
     }

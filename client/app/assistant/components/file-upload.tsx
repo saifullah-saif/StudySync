@@ -103,18 +103,18 @@ export default function FileUpload({
           return;
         }
 
-        // Check file type
+        // Check file type - support both PDF, DOCX, TXT for flashcard generation
         const fileExtension = "." + file.name.split(".").pop()?.toLowerCase();
+        const supportedTypes = [".pdf", ".docx", ".txt"];
+        
         if (!fileExtension || fileExtension === ".") {
           errors.push(`File "${file.name}" has no extension`);
           return;
         }
 
-        if (!acceptedFileTypes.includes(fileExtension)) {
+        if (!supportedTypes.includes(fileExtension)) {
           errors.push(
-            `File type ${fileExtension} is not supported. Supported types: ${acceptedFileTypes.join(
-              ", "
-            )}`
+            `File type ${fileExtension} is not supported. Supported types: PDF, DOCX, TXT`
           );
           return;
         }
@@ -312,7 +312,7 @@ export default function FileUpload({
               ref={fileInputRef}
               type="file"
               multiple={multiple}
-              accept={acceptedFileTypes.join(",")}
+              accept=".pdf,.docx,.txt"
               onChange={(e) => handleFileSelect(e.target.files)}
               className="hidden"
             />
@@ -327,8 +327,7 @@ export default function FileUpload({
                   Drag & drop files here, or click to select files
                 </p>
                 <p className="text-sm text-gray-500">
-                  Supports: PDF, DOCX, DOC, TXT, JPG, PNG, GIF (max{" "}
-                  {maxFileSize}MB each)
+                  Supports: PDF, DOCX, TXT (max {maxFileSize}MB each)
                 </p>
               </div>
             )}

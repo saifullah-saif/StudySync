@@ -1,39 +1,24 @@
 const { PrismaClient } = require("@prisma/client");
-const multer = require("multer");
 const supabase = require("../lib/supabaseClient");
 const { extractTextFromFile, chunkText } = require("../lib/extractText");
 const {
   generateFlashcards,
   deduplicateFlashcards,
 } = require("../lib/openaiClient");
+const uploadService = require("../lib/uploadService");
 
 const prisma = new PrismaClient();
 
-// Configure multer for file uploads
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 15 * 1024 * 1024, // 15MB limit
-  },
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = [
-      "application/pdf",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "text/plain",
-    ];
-    const allowedExtensions = [".pdf", ".docx", ".txt"];
-
-    const hasValidMimeType = allowedTypes.includes(file.mimetype);
-    const hasValidExtension = allowedExtensions.some((ext) =>
-      file.originalname.toLowerCase().endsWith(ext)
-    );
-
-    if (hasValidMimeType || hasValidExtension) {
-      cb(null, true);
-    } else {
-      cb(new Error("Only PDF, DOCX, and TXT files are allowed"), false);
-    }
-  },
+// Configure multer using centralized upload service
+const upload = uploadService.createMulterConfig({
+  allowedTypes: [
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "text/plain",
+  ],
+  allowedExtensions: [".pdf", ".docx", ".txt"],
+  maxFileSize: 15 * 1024 * 1024, // 15MB limit
+  validateFileName: true,
 });
 
 /**
@@ -59,58 +44,22 @@ const uploadDocument = async (req, res) => {
       });
     }
 
-    // Upload to Supabase Storage
-    const fileName = `${userId}/${Date.now()}_${file.originalname}`;
-    const bucketName =
-      process.env.SUPABASE_BUCKET_NAME || "study-sync-documents";
+    // Upload using centralized upload service (private bucket with signed URL)
+    const uploadResult = await uploadService.uploadFile(file, userId, {
+      bucketName: process.env.SUPABASE_BUCKET_NAME || "study-sync-documents",
+      isPublic: false, // Set to private for better security
+      folderPath: `documents/${userId}`, // Organize documents in a dedicated folder
+      upsert: false,
+    });
 
-    // Create bucket if it doesn't exist
-    const { data: buckets } = await supabase.storage.listBuckets();
-    const bucketExists = buckets?.some((bucket) => bucket.name === bucketName);
-
-    if (!bucketExists) {
-      console.log(`Creating bucket: ${bucketName}`);
-      const { error: createBucketError } = await supabase.storage.createBucket(
-        bucketName,
-        {
-          public: true,
-          allowedMimeTypes: [
-            "application/pdf",
-            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            "text/plain",
-          ],
-          fileSizeLimit: 10485760, // 10MB
-        }
-      );
-
-      if (createBucketError) {
-        console.error("Error creating bucket:", createBucketError);
-        return res.status(500).json({
-          success: false,
-          message: "Failed to create storage bucket",
-        });
-      }
-    }
-
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from(bucketName)
-      .upload(fileName, file.buffer, {
-        contentType: file.mimetype,
-        upsert: false,
-      });
-
-    if (uploadError) {
-      console.error("Supabase upload error:", uploadError);
+    if (!uploadResult.success) {
       return res.status(500).json({
         success: false,
-        message: "Failed to upload file to storage",
+        message: uploadResult.error || "Failed to upload file to storage",
       });
     }
 
-    // Get the public URL
-    const { data: urlData } = supabase.storage
-      .from(bucketName)
-      .getPublicUrl(fileName);
+    const { fileName, filePath, signedUrl } = uploadResult.data;
 
     // Create database record using notes table (since documents table doesn't exist)
     const document = await prisma.notes.create({
@@ -119,7 +68,7 @@ const uploadDocument = async (req, res) => {
         title: title.trim(),
         description: `Uploaded document: ${file.originalname}`,
         file_name: file.originalname,
-        file_path: fileName,
+        file_path: fileName, // Use the fileName from upload service
         file_type: getFileTypeEnum(file.originalname),
         file_size_bytes: BigInt(file.size),
         visibility: "private",
@@ -131,7 +80,7 @@ const uploadDocument = async (req, res) => {
     res.status(201).json({
       success: true,
       documentId: document.id,
-      fileUrl: urlData.publicUrl,
+      fileUrl: signedUrl, // Use signed URL for private files
       message: "File uploaded successfully",
     });
   } catch (error) {
@@ -464,17 +413,15 @@ async function extractTextFromDocument(document) {
     const bucketName =
       process.env.SUPABASE_BUCKET_NAME || "study-sync-documents";
 
-    // Download file from Supabase
-    const { data, error } = await supabase.storage
-      .from(bucketName)
-      .download(document.file_path);
+    // Download file using upload service
+    const downloadResult = await uploadService.downloadFile(bucketName, document.file_path);
 
-    if (error) {
-      throw new Error(`Failed to download file: ${error.message}`);
+    if (!downloadResult.success) {
+      throw new Error(`Failed to download file: ${downloadResult.error}`);
     }
 
     // Convert to buffer
-    const arrayBuffer = await data.arrayBuffer();
+    const arrayBuffer = await downloadResult.data.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
     // Extract text

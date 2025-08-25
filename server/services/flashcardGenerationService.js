@@ -1,14 +1,11 @@
 const { PrismaClient } = require("@prisma/client");
-const OpenAI = require("openai");
+const huggingfaceService = require("./huggingfaceService");
 const supabase = require("../lib/supabaseClient");
 const { extractTextFromFile } = require("../lib/extractText");
 
 const prisma = new PrismaClient();
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+console.log("✅ Flashcard Generation Service initialized with Hugging Face");
 
 class FlashcardGenerationService {
   static instance = null;
@@ -21,7 +18,74 @@ class FlashcardGenerationService {
   }
 
   /**
+   * Enqueue flashcard generation job for an uploaded file
+   */
+  async enqueueGenerationJob(documentId, userId, options = {}) {
+    const {
+      deckTitle,
+      cardType = "basic",
+      targetDifficulty = 3,
+      maxCards = 20,
+      templateId = null,
+    } = options;
+
+    try {
+      // Validate inputs
+      if (!documentId || !userId) {
+        throw new Error("Document ID and User ID are required");
+      }
+
+      // Get document details
+      const document = await prisma.notes.findFirst({
+        where: {
+          id: documentId,
+          user_id: userId,
+        },
+      });
+
+      if (!document) {
+        throw new Error("Document not found or access denied");
+      }
+
+      // Create generation job
+      const job = await prisma.generation_jobs.create({
+        data: {
+          document_id: documentId,
+          user_id: userId,
+          template_id: templateId,
+          status: "queued",
+          started_at: new Date(),
+        },
+      });
+
+      // Process the job asynchronously (don't await)
+      setImmediate(() => {
+        this.processGenerationJob(job.id, document, deckTitle, {
+          cardType,
+          targetDifficulty,
+          maxCards,
+          templateId,
+        }).catch((error) => {
+          console.error(`Job ${job.id} failed:`, error);
+          this.markJobFailed(job.id, error.message);
+        });
+      });
+
+      return {
+        jobId: job.id,
+        status: "queued",
+        message: "Flashcard generation job has been queued",
+        estimatedTime: "2-5 minutes",
+      };
+    } catch (error) {
+      console.error("Enqueue generation job error:", error);
+      throw error;
+    }
+  }
+
+  /**
    * Start flashcard generation job for an uploaded file
+   * @deprecated Use enqueueGenerationJob for async processing
    */
   async generateFlashcardsFromFile(documentId, userId, options = {}) {
     const {
@@ -239,9 +303,14 @@ class FlashcardGenerationService {
   }
 
   /**
-   * Generate flashcards using OpenAI
+   * Generate flashcards using OpenAI or fallback
    */
   async generateFlashcardsWithAI(chunks, options, jobId) {
+    if (!hasOpenAI) {
+      console.log("Using fallback flashcard generation (OpenAI not available)");
+      return this.generateFallbackFlashcards(chunks, options);
+    }
+
     const { cardType, targetDifficulty, maxCards } = options;
     const allFlashcards = [];
 
@@ -285,6 +354,83 @@ class FlashcardGenerationService {
     );
 
     return validFlashcards;
+  }
+
+  /**
+   * Generate fallback flashcards when OpenAI is not available
+   */
+  async generateFallbackFlashcards(chunks, options) {
+    const { cardType, targetDifficulty, maxCards } = options;
+    
+    // Create basic flashcards from text analysis
+    const fallbackCards = [];
+    const text = chunks.join("\n\n");
+    
+    // Simple text-based flashcard generation
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 20);
+    const words = text.toLowerCase().split(/\s+/);
+    
+    // Find key terms (words that appear multiple times)
+    const wordCount = {};
+    words.forEach(word => {
+      const cleaned = word.replace(/[^\w]/g, '');
+      if (cleaned.length > 3) {
+        wordCount[cleaned] = (wordCount[cleaned] || 0) + 1;
+      }
+    });
+    
+    const keyTerms = Object.entries(wordCount)
+      .filter(([word, count]) => count >= 2 && count <= 10)
+      .sort(([,a], [,b]) => b - a)
+      .slice(0, maxCards)
+      .map(([word]) => word);
+
+    // Generate basic definition cards
+    for (let i = 0; i < Math.min(keyTerms.length, maxCards); i++) {
+      const term = keyTerms[i];
+      
+      // Find sentences containing the term
+      const relevantSentences = sentences.filter(sentence => 
+        sentence.toLowerCase().includes(term)
+      ).slice(0, 2);
+      
+      if (relevantSentences.length > 0) {
+        const question = `What is ${term.charAt(0).toUpperCase() + term.slice(1)}?`;
+        const answer = relevantSentences.join('. ').trim();
+        
+        fallbackCards.push({
+          question,
+          answer,
+          explanation: `This information was extracted from the document.`,
+          difficulty_level: targetDifficulty,
+          source_text: answer
+        });
+      }
+    }
+    
+    // If we don't have enough cards, add some general questions
+    if (fallbackCards.length < 3) {
+      const generalCards = [
+        {
+          question: "What is the main topic of this document?",
+          answer: "This document discusses the key concepts and processes described in the uploaded material.",
+          explanation: "Generated based on document content analysis.",
+          difficulty_level: targetDifficulty,
+          source_text: text.substring(0, 200) + "..."
+        },
+        {
+          question: "What are the key processes mentioned in this document?",
+          answer: "The document covers various important processes and concepts that are central to the subject matter.",
+          explanation: "Extracted from document analysis.",
+          difficulty_level: targetDifficulty,
+          source_text: text.substring(0, 200) + "..."
+        }
+      ];
+      
+      fallbackCards.push(...generalCards.slice(0, Math.max(3 - fallbackCards.length, 0)));
+    }
+    
+    return fallbackCards.slice(0, maxCards);
   }
 
   /**
@@ -393,6 +539,10 @@ Generate exactly {cardCount} flashcards. Return only valid JSON.`;
    * Call OpenAI API with retry logic and comprehensive error handling
    */
   async callOpenAIWithRetry(promptTemplate, text, cardCount, maxRetries = 3) {
+    if (!hasOpenAI || !openai) {
+      throw new Error("OpenAI not available - API key not configured");
+    }
+
     const prompt = promptTemplate
       .replace("{text}", text)
       .replace("{cardCount}", cardCount.toString());

@@ -1,5 +1,6 @@
 const { PrismaClient } = require("@prisma/client");
 const supabase = require("../lib/supabaseClient");
+const uploadService = require("../lib/uploadService");
 
 const prisma = new PrismaClient();
 
@@ -299,17 +300,8 @@ class FileService {
         };
       }
 
-      // For uploaded files, get signed URL from Supabase
-      const bucketName =
-        process.env.SUPABASE_BUCKET_NAME || "study-sync-documents";
-
-      const { data, error } = await supabase.storage
-        .from(bucketName)
-        .createSignedUrl(file.file_path, 3600); // 1 hour expiry
-
-      if (error) {
-        throw new Error(`Failed to generate download URL: ${error.message}`);
-      }
+      // For uploaded files, get signed URL using uploadService
+      const signedUrl = await uploadService.createSignedUrl(file.file_path);
 
       // Increment download count
       await prisma.notes.update({
@@ -323,7 +315,7 @@ class FileService {
 
       return {
         type: "url",
-        url: data.signedUrl,
+        url: signedUrl,
         fileName: file.file_name,
       };
     } catch (error) {
