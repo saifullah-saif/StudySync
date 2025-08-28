@@ -6,6 +6,9 @@ const { verifyTokenFromCookie } = require("../middleware/jwtCookieMiddleware");
 // GET /api/seats/room/:roomId - Get all seats for a room
 router.get("/room/:roomId", seatsController.getSeatsByRoom);
 
+// GET /api/seats/room/:roomId/booked - Get booked seats for a specific room and time period
+router.get("/room/:roomId/booked", seatsController.getBookedSeats);
+
 // GET /api/seats/:seatId - Get seat by ID
 router.get("/:seatId", seatsController.getSeatById);
 

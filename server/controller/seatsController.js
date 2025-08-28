@@ -14,6 +14,7 @@ async function getSeatsByRoom(req, res) {
 async function getSeatById(req, res) {
   try {
     const { seatId } = req.params;
+    console.log("Getting seat by id:", seatId);
     const seat = await seatsService.getSeatById(seatId);
     if (!seat) {
       return res.status(404).json({ success: false, message: "Seat not found" });
@@ -87,10 +88,86 @@ async function getUserReservations(req, res) {
   }
 }
 
+async function getBookedSeats(req, res) {
+  try {
+    const { roomId } = req.params;
+    const { start_time, end_time } = req.query;
+
+    if (!roomId || !start_time || !end_time) {
+      return res.status(400).json({
+        success: false,
+        message: "Room ID, start time, and end time are required"
+      });
+    }
+
+    const startTime = new Date(start_time);
+    const endTime = new Date(end_time);
+
+    // Find all reservations that overlap with the requested time period
+    const bookedSeats = await prisma.reservations.findMany({
+      where: {
+        room_id: parseInt(roomId),
+        seat_id: {
+          not: null // Only seat reservations
+        },
+        status: {
+          in: ['reserved', 'occupied']
+        },
+        OR: [
+          {
+            start_time: {
+              lte: startTime
+            },
+            end_time: {
+              gt: startTime
+            }
+          },
+          {
+            start_time: {
+              lt: endTime
+            },
+            end_time: {
+              gte: endTime
+            }
+          },
+          {
+            start_time: {
+              gte: startTime
+            },
+            end_time: {
+              lte: endTime
+            }
+          }
+        ]
+      },
+      include: {
+        seats: true
+      }
+    });
+
+    // Extract seat numbers
+    const bookedSeatNumbers = bookedSeats.map(reservation =>
+      reservation.seats?.seat_number
+    ).filter(Boolean);
+
+    return res.json({
+      success: true,
+      bookedSeats: bookedSeatNumbers
+    });
+  } catch (err) {
+    console.error("Error fetching booked seats:", err);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch booked seats"
+    });
+  }
+}
+
 module.exports = {
   getSeatsByRoom,
   getSeatById,
   createReservation,
   cancelReservation,
-  getUserReservations
+  getUserReservations,
+  getBookedSeats
 };

@@ -21,11 +21,62 @@ interface RoomLayoutProps {
   capacity?: number
   roomCode?: string
   roomId?: number
+  startTime?: string
+  endTime?: string
 }
 
-export function RoomLayout({ mode, selectedSeats = [], onSeatClick, capacity = 12, roomCode = "ROOM", roomId }: RoomLayoutProps) {
-  const { seats: databaseSeats, loading, error, reserveSeat } = useSeats(roomId || null)
+export function RoomLayout({ mode, selectedSeats = [], onSeatClick, capacity = 12, roomCode = "ROOM", roomId, startTime, endTime }: RoomLayoutProps) {
   const [seats, setSeats] = useState<Seat[]>([])
+  const [bookedSeats, setBookedSeats] = useState<string[]>([])
+  const [allSeats, setAllSeats] = useState<DatabaseSeat[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Fetch all seats for the room (without time-specific reservations)
+  const fetchAllSeats = async () => {
+    if (!roomId) return
+
+    setLoading(true)
+    setError(null)
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/seats/room/${roomId}`)
+      const data = await response.json()
+
+      if (data.success) {
+        setAllSeats(data.data)
+      } else {
+        setError(data.message || 'Failed to fetch seats')
+      }
+    } catch (err) {
+      setError('Failed to fetch seats')
+      console.error('Error fetching seats:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Fetch booked seats for the specific time period
+  const fetchBookedSeats = async () => {
+    if (!roomId || !startTime || !endTime) {
+      setBookedSeats([])
+      return
+    }
+
+    try {
+      console.log(`Fetching booked seats for room ${roomId} from ${startTime} to ${endTime}`)
+      const response = await fetch(`http://localhost:5000/api/seats/room/${roomId}/booked?start_time=${encodeURIComponent(startTime)}&end_time=${encodeURIComponent(endTime)}`)
+      const data = await response.json()
+      console.log('Booked seats response:', data)
+      if (data.success) {
+        setBookedSeats(data.bookedSeats || [])
+        console.log('Set booked seats:', data.bookedSeats || [])
+      }
+    } catch (error) {
+      console.error('Error fetching booked seats:', error)
+      setBookedSeats([])
+    }
+  }
 
   // Determine room type from room code or name
   const getRoomTypeFromCode = (code: string): string => {
@@ -39,16 +90,16 @@ export function RoomLayout({ mode, selectedSeats = [], onSeatClick, capacity = 1
   // Convert database seats to layout seats
   const convertDatabaseSeatsToLayout = (dbSeats: DatabaseSeat[]): Seat[] => {
     return dbSeats.map(dbSeat => {
-      const hasActiveReservation = dbSeat.reservations && dbSeat.reservations.length > 0
+      // For time-specific booking, ignore current reservations and use bookedSeats array
+      const isBookedForTimeSlot = bookedSeats.includes(dbSeat.seat_number)
       let status: "available" | "booked" | "occupied" | "selected" = "available"
 
-      if (hasActiveReservation) {
-        const reservation = dbSeat.reservations[0]
-        status = reservation.status === 'occupied' ? 'occupied' : 'booked'
+      if (isBookedForTimeSlot) {
+        status = 'booked' // Show as booked for the selected time period
       }
 
       return {
-        id: `${roomCode}-${dbSeat.seat_number}`,
+        id: dbSeat.seat_number, // Use the database seat number directly
         x: Number(dbSeat.position_x) || 0,
         y: Number(dbSeat.position_y) || 0,
         status,
@@ -60,23 +111,28 @@ export function RoomLayout({ mode, selectedSeats = [], onSeatClick, capacity = 1
     })
   }
 
-  // Update seats when database data changes
+  // Fetch all seats when room changes
   useEffect(() => {
-    if (databaseSeats && databaseSeats.length > 0) {
-      setSeats(convertDatabaseSeatsToLayout(databaseSeats))
+    fetchAllSeats()
+  }, [roomId])
+
+  // Fetch booked seats when time parameters change
+  useEffect(() => {
+    fetchBookedSeats()
+  }, [roomId, startTime, endTime])
+
+  // Update seats when database data or booked seats change
+  useEffect(() => {
+    if (allSeats && allSeats.length > 0) {
+      setSeats(convertDatabaseSeatsToLayout(allSeats))
     } else {
       setSeats([]) // Only show database seats
     }
-  }, [databaseSeats, roomCode])
+  }, [allSeats, bookedSeats, roomCode])
 
   const getSeatColor = (seat: Seat) => {
     if (mode === "book" && selectedSeats.includes(seat.id)) {
       return "#3B82F6" // Blue for selected
-    }
-
-    // If seat is not accessible, show as red
-    if (seat.isAccessible === false) {
-      return "#EF4444" // Red for non-accessible
     }
 
     switch (seat.status) {
@@ -98,13 +154,38 @@ export function RoomLayout({ mode, selectedSeats = [], onSeatClick, capacity = 1
     return "#D1D5DB" // Gray border
   }
 
-  const handleSeatClick = async (seat: Seat) => {
-    // Don't allow interaction with non-accessible seats
-    if (seat.isAccessible === false) {
-      alert('This seat is not accessible.')
-      return
-    }
+  // Reserve seat function (for view mode)
+  const reserveSeat = async (seatId: number, startTime: Date, endTime: Date, purpose?: string) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/seats/${seatId}/reserve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          purpose: purpose || 'Quick reservation'
+        })
+      })
 
+      const data = await response.json()
+      if (data.success) {
+        // Refresh seats after successful reservation
+        fetchAllSeats()
+        fetchBookedSeats()
+      } else {
+        throw new Error(data.message || 'Failed to reserve seat')
+      }
+    } catch (error) {
+      console.error('Error reserving seat:', error)
+      throw error
+    }
+  }
+
+  const handleSeatClick = async (seat: Seat) => {
+    // Only allow interaction with available seats or already selected seats
     if (mode === "book" && onSeatClick && (seat.status === "available" || selectedSeats.includes(seat.id))) {
       onSeatClick(seat.id)
     } else if (mode === "view" && seat.status === "available" && roomId) {
@@ -150,7 +231,7 @@ export function RoomLayout({ mode, selectedSeats = [], onSeatClick, capacity = 1
               rx="6"
               className={
                 (mode === "book" && (seat.status === "available" || selectedSeats.includes(seat.id))) ||
-                (mode === "view" && seat.status === "available" && seat.isAccessible !== false)
+                (mode === "view" && seat.status === "available")
                   ? "cursor-pointer hover:opacity-80"
                   : ""
               }

@@ -119,42 +119,7 @@ export default function BookingPage({ params }: { params: { id: string } }) {
                   />
                 </div>
 
-                {/* Legend */}
-                <div className="space-y-3">
-                  <h4 className="font-semibold dark:text-white">Legend:</h4>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-4 bg-green-500 border-2 border-gray-300 rounded"></div>
-                      <span className="dark:text-gray-300">Available</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-4 bg-orange-500 rounded"></div>
-                      <span className="dark:text-gray-300">Booked</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-4 bg-red-500 rounded"></div>
-                      <span className="dark:text-gray-300">Occupied/Not Accessible</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-4 bg-blue-600 border-2 border-blue-800 rounded"></div>
-                      <span className="dark:text-gray-300">Selected</span>
-                    </div>
-                  </div>
 
-                  <div className="mt-4">
-                    <h5 className="font-medium dark:text-white mb-2">Icons:</h5>
-                    <div className="grid grid-cols-1 gap-2 text-xs">
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-3 bg-gray-600 rounded-sm"></div>
-                        <span className="dark:text-gray-300">Computer Available</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="w-4 h-3 bg-yellow-400 rounded-sm"></div>
-                        <span className="dark:text-gray-300">Power Outlet</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </CardContent>
             </Card>
           </div>

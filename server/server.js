@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
+const reservationsService = require("./services/reservationsService");
 
 const app = express();
 app.use(cookieParser());
@@ -21,16 +22,31 @@ app.use(express.urlencoded({ extended: true }));
 // Routes
 const libraryRoomsRouter = require("./routes/libraryRoomsRoutes");
 const seatsRouter = require("./routes/seatsRoutes");
+const reservationsRouter = require("./routes/reservationsRoutes");
+const authRouter = require("./routes/auth");
+
+app.use("/api/auth", authRouter);
 app.use("/api/library-rooms", libraryRoomsRouter);
 app.use("/api/seats", seatsRouter);
+app.use("/api/reservations", reservationsRouter);
 
 const port = process.env.PORT || 5000;
+
+// Auto-update room availability every minute
+setInterval(async () => {
+  try {
+    await reservationsService.updateRoomAvailability();
+  } catch (error) {
+    console.error("Error in auto room availability update:", error);
+  }
+}, 60000); // Run every 60 seconds
 
 async function startServer() {
   try {
     app.listen(port, () => {
       console.log(`Server is running on port ${port}`);
       console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
+      console.log("Room availability auto-update is running every minute");
     });
   } catch (error) {
     console.error("Failed to start server:", error);
