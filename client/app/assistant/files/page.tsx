@@ -51,11 +51,12 @@ import {
   Clock,
 } from "lucide-react";
 import { toast } from "sonner";
-import { fileAPI, generationAPI } from "@/lib/api";
+import { fileAPI, generationAPI, flashcardAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 import FileUpload from "../components/file-upload";
 import { langchainAPI } from "@/lib/api";
 import { generateQsAns } from "@/actions/upload-actions";
+import { FlashcardsPanel } from "@/components/FlashcardsPanel";
 interface FileItem {
   id: number;
   title: string;
@@ -103,6 +104,12 @@ export default function FilesPage() {
   });
   const [activeJobs, setActiveJobs] = useState<Map<number, any>>(new Map());
   const [showJobsDialog, setShowJobsDialog] = useState(false);
+
+  // Flashcard-related states
+  const [extractedQsAns, setExtractedQsAns] = useState<Map<number, any>>(
+    new Map()
+  );
+  const [generatingFlashcards, setGeneratingFlashcards] = useState(false);
 
   const router = useRouter();
   const { user } = useAuth();
@@ -346,19 +353,49 @@ export default function FilesPage() {
 
       if (result.success) {
         toast.success(`Successfully processed "${file.title}"`, {
-          description: `Extracted ${result.data.wordCount} words and generated ${result.data.qsAns?.length || 0} Q&A pairs`,
-          duration: 5000
+          description: `Extracted ${
+            result.data.wordCount
+          } words and generated ${result.data.qsAns?.length || 0} Q&A pairs`,
+          duration: 5000,
         });
-        
-        console.log('📄 Extracted text preview:', result.data.extractedText?.substring(0, 500) + '...');
-        
+
+        console.log(
+          "📄 Extracted text preview:",
+          result.data.extractedText?.substring(0, 500) + "..."
+        );
+
         // Print Q&A pairs to client console as well
         if (result.data.qsAns && result.data.qsAns.length > 0) {
-          console.log('\n🎓 Generated Q&A Pairs:');
-          result.data.qsAns.forEach((item, index) => {
+          console.log("\n🎓 Generated Q&A Pairs:");
+          result.data.qsAns.forEach((item: any, index: number) => {
             console.log(`${index + 1}. Q: ${item.question}`);
             console.log(`   A: ${item.answer}\n`);
           });
+
+          // Store Q&A data for flashcard generation
+          console.log(`🔧 Debug: Storing Q&A data for file ID ${file.id}`);
+          console.log(`🔧 Debug: Q&A data:`, result.data.qsAns);
+
+          setExtractedQsAns((prev) => {
+            const newMap = new Map(prev).set(file.id, {
+              qsAns: result.data.qsAns,
+              title: file.title,
+              extractedText: result.data.extractedText,
+            });
+            console.log(`🔧 Debug: Updated extractedQsAns map:`, newMap);
+            console.log(
+              `🔧 Debug: Map has file ${file.id}:`,
+              newMap.has(file.id)
+            );
+            return newMap;
+          });
+        } else {
+          console.log("⚠️ No Q&A pairs found in result.data");
+          console.log("⚠️ Result.data structure:", result.data);
+          console.log("⚠️ Result.data keys:", Object.keys(result.data));
+          console.log("⚠️ Full result object:", result);
+          console.log("⚠️ Result.data.qsAns:", result.data.qsAns);
+          console.log("⚠️ Result.data.qsAns type:", typeof result.data.qsAns);
         }
       } else {
         toast.error(`Failed to process "${file.title}": ${result.message}`);
@@ -382,12 +419,62 @@ export default function FilesPage() {
   //redirect to the [id] summary page
 
   const handleGenerateFlashcards = async (file: FileItem) => {
-    setGeneratingFile(file);
-    setGenerationOptions({
-      ...generationOptions,
-      deckTitle: generationOptions.deckTitle || file.title,
-    });
-    setShowGenerationDialog(true);
+    // Check if we have Q&A data for this file
+    const qsAnsData = extractedQsAns.get(file.id);
+
+    if (!qsAnsData || !qsAnsData.qsAns || qsAnsData.qsAns.length === 0) {
+      toast.error("Please extract PDF text first to generate Q&A pairs");
+      return;
+    }
+
+    try {
+      setGeneratingFlashcards(true);
+
+      toast.info(`Generating flashcards from "${file.title}"...`, {
+        duration: 3000,
+      });
+
+      // Generate flashcards using the extracted Q&A data
+      const result = await flashcardAPI.generateFlashcards(
+        qsAnsData.qsAns,
+        file.title,
+        file.id
+      );
+
+      if (result.success) {
+        toast.success(
+          `Successfully generated ${result.data.totalCards} flashcards!`,
+          {
+            duration: 5000,
+          }
+        );
+
+        // Store flashcards in sessionStorage to pass to the flashcard page
+        const flashcardData = {
+          flashcards: result.data.flashcards || [],
+          title: file.title,
+          fileId: file.id,
+          qsAns: qsAnsData.qsAns,
+        };
+
+        sessionStorage.setItem(
+          "currentFlashcards",
+          JSON.stringify(flashcardData)
+        );
+
+        // Redirect to flashcards page
+        router.push("/assistant/flashcards");
+
+        console.log("🃏 Generated flashcard deck:", result.data);
+      } else {
+        toast.error(`Failed to generate flashcards: ${result.message}`);
+      }
+    } catch (error: any) {
+      console.error("Generate flashcards error:", error);
+      toast.error(`Failed to generate flashcards: ${error.message}`);
+    } finally {
+      setGeneratingFlashcards(false);
+    }
   };
 
   const startGeneration = async () => {
@@ -826,7 +913,6 @@ export default function FilesPage() {
                     </div>
                   </div>
                 </div>
-
                 <div className="space-y-2 mb-4">
                   <div className="flex justify-between text-xs text-gray-500">
                     <span>Size</span>
@@ -841,7 +927,6 @@ export default function FilesPage() {
                     <span>{file.downloadCount}</span>
                   </div>
                 </div>
-
                 {file.tags && file.tags.length > 0 && (
                   <div className="flex flex-wrap gap-1 mb-3">
                     {file.tags.slice(0, 2).map((tag, index) => (
@@ -860,7 +945,6 @@ export default function FilesPage() {
                     )}
                   </div>
                 )}
-
                 <div className="flex flex-col space-y-2">
                   <div className="flex space-x-1">
                     <Button
@@ -906,17 +990,41 @@ export default function FilesPage() {
                     </AlertDialog>
                   </div>
 
-                  {/* Generate Flashcards Button */}
-                  <Button
-                    size="sm"
-                    onClick={() => handleGenerateFlashcards(file)}
-                    className="w-full bg-blue-600 hover:bg-blue-700"
-                  >
-                    <Zap className="h-3 w-3 mr-1" />
-                    Generate Flashcards
-                  </Button>
+                  {/* Generate Flashcards Button - MOVED TO TOP */}
+                  {(() => {
+                    const hasQsAns = extractedQsAns.has(file.id);
+                    console.log(
+                      `🔧 Debug: File ${file.id} (${file.title}) - hasQsAns: ${hasQsAns}`
+                    );
+                    if (hasQsAns) {
+                      console.log(
+                        `🔧 Debug: Q&A data for file ${file.id}:`,
+                        extractedQsAns.get(file.id)
+                      );
+                    }
+                    return hasQsAns;
+                  })() && (
+                    <Button
+                      size="sm"
+                      onClick={() => handleGenerateFlashcards(file)}
+                      disabled={generatingFlashcards}
+                      className="w-full bg-blue-600 hover:bg-blue-700"
+                    >
+                      {generatingFlashcards ? (
+                        <>
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          Generating Flashcards...
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="h-3 w-3 mr-1" />
+                          Generate Flashcards
+                        </>
+                      )}
+                    </Button>
+                  )}
 
-                  {/* Process PDF with LangChain Button */}
+                  {/* Extract PDF Text Button - MOVED TO BOTTOM */}
                   <Button
                     size="sm"
                     onClick={() => handleProcessPDF(file)}

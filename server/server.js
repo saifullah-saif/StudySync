@@ -31,6 +31,7 @@ const fileRoutes = require("./routes/files");
 const practiceRoutes = require("./routes/practice");
 const generationRoutes = require("./routes/generation");
 const langchainRoutes = require("./routes/langchain");
+const flashcardRoutes = require("./routes/flashcards");
 
 // Use routes
 app.use("/api/auth", authRoutes);
@@ -39,6 +40,7 @@ app.use("/api/files", fileRoutes);
 app.use("/api/practice", practiceRoutes);
 app.use("/api/generation", generationRoutes);
 app.use("/api/langchain", langchainRoutes);
+app.use("/api/flashcards", flashcardRoutes);
 
 // Health check endpoint (no auth required)
 app.get("/api/health", (req, res) => {

@@ -443,6 +443,48 @@ export const practiceAPI = {
   },
 };
 
+export const flashcardAPI = {
+  // Generate flashcards from Q&A data
+  generateFlashcards: async (qsAns, title, sourceFileId) => {
+    const response = await api.post("/flashcards/generate", {
+      qsAns,
+      title,
+      sourceFileId: sourceFileId || null,
+    });
+    return response.data;
+  },
+
+  // Get user's flashcard decks
+  getUserDecks: async () => {
+    const response = await api.get("/flashcards/decks");
+    return response.data;
+  },
+
+  // Get specific flashcard deck
+  getDeck: async (deckId) => {
+    const response = await api.get(`/flashcards/deck/${deckId}`);
+    return response.data;
+  },
+
+  // Update flashcard deck progress
+  updateDeck: async (deckId, updateData) => {
+    const response = await api.put(`/flashcards/deck/${deckId}`, updateData);
+    return response.data;
+  },
+
+  // Add saveDeck method
+  saveDeck: async (deckData) => {
+    const response = await api.post("/flashcard/save", deckData);
+    return response.data;
+  },
+
+  // Delete flashcard deck
+  deleteDeck: async (deckId) => {
+    const response = await api.delete(`/flashcards/deck/${deckId}`);
+    return response.data;
+  },
+};
+
 export const apiRequest = {
   get: async (url, config = {}) => {
     const response = await api.get(url, config);
