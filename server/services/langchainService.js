@@ -1,6 +1,7 @@
 const { PDFLoader } = require("@langchain/community/document_loaders/fs/pdf");
 const fs = require("fs").promises;
 const path = require("path");
+const simpleQAService = require("./simpleQAService");
 
 class LangChainService {
   async extractPDFText(filePath) {
@@ -23,10 +24,35 @@ class LangChainService {
       console.log(fullText);
       console.log("=".repeat(50));
 
+      let qsAns;
+      try {
+        console.log("� Generating Q&A using rule-based extraction...");
+
+        // Use simple rule-based Q&A generation (no external API required)
+        qsAns = simpleQAService.generateQAPairs(fullText, 8);
+
+        // Print the generated Q&A pairs to console
+        console.log("\n🎓 GENERATED Q&A PAIRS:");
+        console.log("=".repeat(60));
+        qsAns.forEach((item, index) => {
+          console.log(`\n${index + 1}. Q: ${item.question}`);
+          console.log(`   A: ${item.answer}`);
+          console.log(`   Type: ${item.type || "general"}`);
+        });
+        console.log("=".repeat(60));
+      } catch (error) {
+        console.error("❌ Failed to generate Q&A:", error.message);
+
+        // For now, continue without Q&A generation
+        qsAns = [];
+      }
+
       return {
         text: fullText,
         pageCount: docs.length,
         wordCount: fullText.split(" ").length,
+        qsAns: qsAns || [], // Include generated Q&A pairs
+        success: true,
       };
     } catch (error) {
       console.error("❌ PDF extraction error:", error);
@@ -67,6 +93,8 @@ class LangChainService {
           text: textContent,
           pageCount: 1,
           wordCount: textContent.split(" ").length,
+          qsAns: [], // No Q&A generation for text files yet
+          success: true,
         };
       } else {
         throw new Error(`Unsupported file type: ${fileExtension}`);

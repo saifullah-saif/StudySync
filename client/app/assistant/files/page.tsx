@@ -346,14 +346,20 @@ export default function FilesPage() {
 
       if (result.success) {
         toast.success(`Successfully processed "${file.title}"`, {
-          description: `Extracted ${result.data.wordCount} words`,
-          duration: 5000,
+          description: `Extracted ${result.data.wordCount} words and generated ${result.data.qsAns?.length || 0} Q&A pairs`,
+          duration: 5000
         });
-
-        console.log(
-          "📄 Extracted text preview:",
-          result.data.extractedText.substring(0, 500) + "..."
-        );
+        
+        console.log('📄 Extracted text preview:', result.data.extractedText?.substring(0, 500) + '...');
+        
+        // Print Q&A pairs to client console as well
+        if (result.data.qsAns && result.data.qsAns.length > 0) {
+          console.log('\n🎓 Generated Q&A Pairs:');
+          result.data.qsAns.forEach((item, index) => {
+            console.log(`${index + 1}. Q: ${item.question}`);
+            console.log(`   A: ${item.answer}\n`);
+          });
+        }
       } else {
         toast.error(`Failed to process "${file.title}": ${result.message}`);
       }
