@@ -12,6 +12,8 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@langchain/community": "^0.3.53",
+    "@langchain/core": "^0.3.72",
     "@prisma/client": "^6.13.0",
     "@supabase/supabase-js": "^2.54.0",
     "axios": "^1.11.0",

@@ -301,7 +301,26 @@ class FileService {
       }
 
       // For uploaded files, get signed URL using uploadService
-      const signedUrl = await uploadService.createSignedUrl(file.file_path);
+      const bucketName =
+        process.env.SUPABASE_BUCKET_NAME || "study-sync-documents";
+
+      console.log("🔍 Debug - File path:", file.file_path);
+      console.log("🔍 Debug - Bucket name:", bucketName);
+      console.log("🔍 Debug - File name:", file.file_name);
+
+      const signedUrlResult = await uploadService.createSignedUrl(
+        bucketName,
+        file.file_path,
+        3600
+      );
+
+      if (!signedUrlResult.success) {
+        throw new Error(
+          `Failed to create signed URL: ${signedUrlResult.error}`
+        );
+      }
+
+      console.log("🔍 Debug - Signed URL result:", signedUrlResult);
 
       // Increment download count
       await prisma.notes.update({
@@ -313,11 +332,14 @@ class FileService {
         },
       });
 
-      return {
+      const result = {
         type: "url",
-        url: signedUrl,
+        url: signedUrlResult.signedUrl,
         fileName: file.file_name,
       };
+
+      console.log("🔍 Debug - Final result:", result);
+      return result;
     } catch (error) {
       console.error("Get download URL error:", error);
       throw error;

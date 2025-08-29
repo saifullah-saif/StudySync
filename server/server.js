@@ -30,6 +30,7 @@ const documentRoutes = require("./routes/documents");
 const fileRoutes = require("./routes/files");
 const practiceRoutes = require("./routes/practice");
 const generationRoutes = require("./routes/generation");
+const langchainRoutes = require("./routes/langchain");
 
 // Use routes
 app.use("/api/auth", authRoutes);
@@ -37,6 +38,7 @@ app.use("/api/documents", documentRoutes);
 app.use("/api/files", fileRoutes);
 app.use("/api/practice", practiceRoutes);
 app.use("/api/generation", generationRoutes);
+app.use("/api/langchain", langchainRoutes);
 
 // Health check endpoint (no auth required)
 app.get("/api/health", (req, res) => {

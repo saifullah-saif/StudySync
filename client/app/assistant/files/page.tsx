@@ -54,7 +54,8 @@ import { toast } from "sonner";
 import { fileAPI, generationAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 import FileUpload from "../components/file-upload";
-
+import { langchainAPI } from "@/lib/api";
+import { generateQsAns } from "@/actions/upload-actions";
 interface FileItem {
   id: number;
   title: string;
@@ -285,6 +286,94 @@ export default function FilesPage() {
     loadStats();
     toast.success("File uploaded successfully!");
   };
+
+  //parse the pdf using langchain
+  // Add this state variable with your other useState declarations
+  const [processingFiles, setProcessingFiles] = useState<Set<number>>(
+    new Set()
+  );
+
+  // Add this function with your other functions
+  const handleProcessPDF = async (file: FileItem) => {
+    try {
+      setProcessingFiles((prev) => new Set(prev).add(file.id));
+
+      toast.info(`Processing "${file.title}" with LangChain...`, {
+        duration: 3000,
+      });
+
+      // Get the file download URL first
+      console.log("Getting download URL for file:", file.id);
+      const downloadResponse = await fileAPI.downloadFile(file.id);
+      console.log("🔍 Client Debug - Full response:", downloadResponse);
+      console.log("🔍 Client Debug - Response data:", downloadResponse.data);
+      console.log(
+        "🔍 Client Debug - Response status:",
+        downloadResponse.status
+      );
+      console.log(
+        "🔍 Client Debug - Response headers:",
+        downloadResponse.headers
+      );
+
+      const downloadData = downloadResponse.data || downloadResponse;
+      console.log("🔍 Client Debug - Download data:", downloadData);
+      console.log("🔍 Client Debug - Download data type:", typeof downloadData);
+      console.log(
+        "🔍 Client Debug - Download data keys:",
+        Object.keys(downloadData)
+      );
+
+      // Fix: Access the nested data property
+      const fileUrl =
+        downloadData.data?.downloadUrl || downloadData.downloadUrl;
+      const fileName = downloadData.data?.fileName || downloadData.fileName;
+
+      if (!fileUrl) {
+        console.error("🔍 Client Debug - Missing downloadUrl in response");
+        console.error(
+          "🔍 Client Debug - Available keys:",
+          Object.keys(downloadData)
+        );
+        console.error("🔍 Client Debug - Data property:", downloadData.data);
+        throw new Error("Could not get file download URL");
+      }
+
+      console.log("Processing file with URL:", fileUrl);
+
+      // Use LangChain API directly instead of generateQsAns
+      const result = await langchainAPI.processFileFromUrl(fileUrl, fileName);
+
+      if (result.success) {
+        toast.success(`Successfully processed "${file.title}"`, {
+          description: `Extracted ${result.data.wordCount} words`,
+          duration: 5000,
+        });
+
+        console.log(
+          "📄 Extracted text preview:",
+          result.data.extractedText.substring(0, 500) + "..."
+        );
+      } else {
+        toast.error(`Failed to process "${file.title}": ${result.message}`);
+      }
+    } catch (error: any) {
+      console.error("Process file error:", error);
+      toast.error(`Failed to process file: ${error.message}`);
+    } finally {
+      setProcessingFiles((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(file.id);
+        return newSet;
+      });
+    }
+  };
+
+  //generate qs and ans from the pdf using AI
+
+  //Save the qs and ans to the database
+
+  //redirect to the [id] summary page
 
   const handleGenerateFlashcards = async (file: FileItem) => {
     setGeneratingFile(file);
@@ -819,6 +908,26 @@ export default function FilesPage() {
                   >
                     <Zap className="h-3 w-3 mr-1" />
                     Generate Flashcards
+                  </Button>
+
+                  {/* Process PDF with LangChain Button */}
+                  <Button
+                    size="sm"
+                    onClick={() => handleProcessPDF(file)}
+                    disabled={processingFiles.has(file.id)}
+                    className="w-full bg-green-600 hover:bg-green-700"
+                  >
+                    {processingFiles.has(file.id) ? (
+                      <>
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        Processing PDF...
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="h-3 w-3 mr-1" />
+                        Extract PDF Text
+                      </>
+                    )}
                   </Button>
                 </div>
               </CardContent>

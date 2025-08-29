@@ -7,7 +7,8 @@ const multer = require("multer");
  */
 class UploadService {
   constructor() {
-    this.defaultBucketName = process.env.SUPABASE_BUCKET_NAME || "study-sync-documents";
+    this.defaultBucketName =
+      process.env.SUPABASE_BUCKET_NAME || "study-sync-documents";
     this.maxFileSize = 15 * 1024 * 1024; // 15MB
   }
 
@@ -31,7 +32,16 @@ class UploadService {
         "image/gif",
         "application/msword",
       ],
-      allowedExtensions = [".pdf", ".docx", ".txt", ".jpg", ".jpeg", ".png", ".gif", ".doc"],
+      allowedExtensions = [
+        ".pdf",
+        ".docx",
+        ".txt",
+        ".jpg",
+        ".jpeg",
+        ".png",
+        ".gif",
+        ".doc",
+      ],
       maxFileSize = this.maxFileSize,
       validateFileName = true,
     } = options;
@@ -55,7 +65,10 @@ class UploadService {
             }
 
             if (file.originalname.length > 255) {
-              return cb(new Error("File name is too long (max 255 characters)"), false);
+              return cb(
+                new Error("File name is too long (max 255 characters)"),
+                false
+              );
             }
 
             // Check for potentially dangerous file names
@@ -65,8 +78,15 @@ class UploadService {
               /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i, // Reserved names
             ];
 
-            if (dangerousPatterns.some((pattern) => pattern.test(file.originalname))) {
-              return cb(new Error("File name contains invalid characters"), false);
+            if (
+              dangerousPatterns.some((pattern) =>
+                pattern.test(file.originalname)
+              )
+            ) {
+              return cb(
+                new Error("File name contains invalid characters"),
+                false
+              );
             }
           }
 
@@ -81,7 +101,9 @@ class UploadService {
           } else {
             cb(
               new Error(
-                `File type not allowed. Allowed types: ${allowedExtensions.join(", ")}`
+                `File type not allowed. Allowed types: ${allowedExtensions.join(
+                  ", "
+                )}`
               ),
               false
             );
@@ -115,8 +137,9 @@ class UploadService {
     } = bucketOptions;
 
     // Check if bucket exists
-    const { data: buckets, error: listError } = await supabase.storage.listBuckets();
-    
+    const { data: buckets, error: listError } =
+      await supabase.storage.listBuckets();
+
     if (listError) {
       throw new Error(`Failed to list buckets: ${listError.message}`);
     }
@@ -125,7 +148,7 @@ class UploadService {
 
     if (!bucketExists) {
       console.log(`Creating bucket: ${bucketName} (public: ${isPublic})`);
-      
+
       const { error: createBucketError } = await supabase.storage.createBucket(
         bucketName,
         {
@@ -136,7 +159,9 @@ class UploadService {
       );
 
       if (createBucketError) {
-        throw new Error(`Failed to create bucket: ${createBucketError.message}`);
+        throw new Error(
+          `Failed to create bucket: ${createBucketError.message}`
+        );
       }
     }
   }
@@ -168,7 +193,9 @@ class UploadService {
       const timestamp = Date.now();
       const fileName = `${folderPath}/${timestamp}_${file.originalname}`;
 
-      console.log(`Uploading file: ${fileName} to bucket: ${bucketName} (public: ${isPublic})`);
+      console.log(
+        `Uploading file: ${fileName} to bucket: ${bucketName} (public: ${isPublic})`
+      );
 
       // Upload file
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -194,12 +221,15 @@ class UploadService {
         publicUrl = urlData.publicUrl;
       } else {
         // For private buckets, generate signed URL (valid for 1 hour by default)
-        const { data: signedUrlData, error: signedUrlError } = await supabase.storage
-          .from(bucketName)
-          .createSignedUrl(fileName, 3600); // 1 hour expiry
+        const { data: signedUrlData, error: signedUrlError } =
+          await supabase.storage
+            .from(bucketName)
+            .createSignedUrl(fileName, 3600); // 1 hour expiry
 
         if (signedUrlError) {
-          console.warn(`Failed to create signed URL: ${signedUrlError.message}`);
+          console.warn(
+            `Failed to create signed URL: ${signedUrlError.message}`
+          );
           // Continue without signed URL - it can be generated later if needed
         } else {
           signedUrl = signedUrlData.signedUrl;
@@ -239,6 +269,11 @@ class UploadService {
    */
   async createSignedUrl(bucketName, fileName, expiresIn = 3600) {
     try {
+      console.log("🔍 UploadService Debug:");
+      console.log("  - bucketName:", bucketName);
+      console.log("  - fileName:", fileName);
+      console.log("  - expiresIn:", expiresIn);
+
       const { data, error } = await supabase.storage
         .from(bucketName)
         .createSignedUrl(fileName, expiresIn);

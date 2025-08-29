@@ -17,7 +17,16 @@ const upload = uploadService.createMulterConfig({
     "image/gif",
     "application/msword",
   ],
-  allowedExtensions: [".pdf", ".docx", ".txt", ".jpg", ".jpeg", ".png", ".gif", ".doc"],
+  allowedExtensions: [
+    ".pdf",
+    ".docx",
+    ".txt",
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".gif",
+    ".doc",
+  ],
   maxFileSize: 15 * 1024 * 1024, // 15MB limit
   validateFileName: true,
 });
@@ -250,6 +259,8 @@ const downloadFile = async (req, res) => {
 
     const downloadData = await fileService.getDownloadUrl(parseInt(id), userId);
 
+    console.log("🔍 FileController Debug - downloadData:", downloadData);
+
     if (downloadData.type === "text") {
       // For pasted content, return as text file
       res.setHeader("Content-Type", "text/plain");
@@ -260,13 +271,16 @@ const downloadFile = async (req, res) => {
       res.send(downloadData.content);
     } else {
       // For uploaded files, redirect to signed URL
-      res.json({
+      const response = {
         success: true,
         data: {
           downloadUrl: downloadData.url,
           fileName: downloadData.fileName,
         },
-      });
+      };
+
+      console.log("🔍 FileController Debug - JSON response:", response);
+      res.json(response);
     }
   } catch (error) {
     console.error("Download file error:", error);

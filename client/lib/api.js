@@ -251,9 +251,12 @@ export const fileAPI = {
 
   // Download file
   downloadFile: async (fileId) => {
-    const response = await api.get(`/files/${fileId}/download`, {
-      responseType: "blob",
-    });
+    console.log("🔍 API Debug - Making download request for fileId:", fileId);
+    // Remove responseType: "blob" to get JSON response with signed URL
+    const response = await api.get(`/files/${fileId}/download`);
+    console.log("🔍 API Debug - Raw response:", response);
+    console.log("🔍 API Debug - Response data:", response.data);
+    console.log("🔍 API Debug - Response status:", response.status);
     return response;
   },
 
@@ -266,6 +269,39 @@ export const fileAPI = {
   // Get file statistics
   getFileStats: async () => {
     const response = await api.get("/files/stats");
+    return response.data;
+  },
+};
+
+// Add this langchainAPI object to your existing api.js
+export const langchainAPI = {
+  // Process file with LangChain
+  processFile: async (fileId) => {
+    const response = await api.post(`/langchain/process/${fileId}`);
+    return response.data;
+  },
+
+  // Get processed file content
+  getFileContent: async (fileId) => {
+    const response = await api.get(`/langchain/content/${fileId}`);
+    return response.data;
+  },
+
+  // Extract chunks from text
+  extractChunks: async (text, options = {}) => {
+    const response = await api.post("/langchain/extract-chunks", {
+      text,
+      options,
+    });
+    return response.data;
+  },
+
+  // Process file from URL with LangChain
+  processFileFromUrl: async (fileUrl, fileName) => {
+    const response = await api.post("/langchain/process-url", {
+      fileUrl,
+      fileName,
+    });
     return response.data;
   },
 };
