@@ -2,14 +2,14 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import FlashcardsPanel, { Flashcard } from "@/components/FlashcardsPanel";
+import StudyFlashcards, { StudyFlashcard } from "@/components/StudyFlashcards";
 import { Button } from "@/components/ui/button";
 import { Loader2, ArrowLeft, Home } from "lucide-react";
 
 export default function FlashcardsPageClient() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [cards, setCards] = useState<Flashcard[] | null>(null);
+  const [cards, setCards] = useState<StudyFlashcard[] | null>(null);
   const [title, setTitle] = useState<string>("Flashcards");
   const [fileId, setFileId] = useState<number | null>(null);
 
@@ -34,8 +34,8 @@ export default function FlashcardsPageClient() {
           id: `card-${index + 1}`,
           question: item.question,
           answer: item.answer,
-          showAnswer: false,
-          known: false,
+          shownAnswer: false,
+          result: null,
         }));
       }
 
@@ -46,8 +46,8 @@ export default function FlashcardsPageClient() {
           id: c.id ?? String(i + 1),
           question: c.question ?? c.q ?? "",
           answer: c.answer ?? c.a ?? "",
-          showAnswer: false,
-          known: false,
+          shownAnswer: false,
+          result: null,
         }))
       );
     } catch (err) {
@@ -58,9 +58,17 @@ export default function FlashcardsPageClient() {
     }
   }, []);
 
-  const handleSave = (deckId: string) => {
-    console.log("Deck saved with ID:", deckId);
-    // Optionally redirect or show success message
+  const handleQuit = () => {
+    router.push("/assistant/files");
+  };
+
+  const handleFinish = (summary: {
+    total: number;
+    correct: number;
+    incorrect: number;
+  }) => {
+    console.log("Study session finished:", summary);
+    // Could save stats to backend here
   };
 
   if (loading) {
@@ -116,32 +124,11 @@ export default function FlashcardsPageClient() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-blue-500 text-white py-4 px-6">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <h1 className="text-xl font-bold">StudySync</h1>
-          <Button
-            onClick={() => router.push("/assistant/files")}
-            variant="ghost"
-            size="sm"
-            className="text-white hover:text-gray-200"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Files
-          </Button>
-        </div>
-      </div>
-
-      {/* Main Content */}
-      <div className="py-6">
-        <FlashcardsPanel
-          flashcards={cards}
-          title={title}
-          fileId={fileId}
-          onSave={handleSave}
-        />
-      </div>
-    </div>
+    <StudyFlashcards
+      flashcards={cards}
+      title={title}
+      onQuit={handleQuit}
+      onFinish={handleFinish}
+    />
   );
 }
