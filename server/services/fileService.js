@@ -28,6 +28,19 @@ class FileService {
         sortOrder = "desc",
       } = options;
 
+      // Map frontend field names to database field names
+      const fieldMapping = {
+        uploadDate: "upload_date",
+        fileSize: "file_size_bytes",
+        fileName: "file_name",
+        fileType: "file_type",
+        lastModified: "last_modified",
+        downloadCount: "download_count",
+      };
+
+      // Use mapped field name or keep original if no mapping exists
+      const dbSortBy = fieldMapping[sortBy] || sortBy;
+
       const skip = (page - 1) * limit;
 
       // Build where clause
@@ -71,7 +84,7 @@ class FileService {
           is_processed_by_ai: true,
         },
         orderBy: {
-          [sortBy]: sortOrder,
+          [dbSortBy]: sortOrder,
         },
         skip,
         take: limit,

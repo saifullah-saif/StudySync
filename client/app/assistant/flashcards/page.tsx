@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import StudyFlashcards, { StudyFlashcard } from "@/components/StudyFlashcards";
+import Header from "@/components/header";
 import { Button } from "@/components/ui/button";
 import { Loader2, ArrowLeft, Home } from "lucide-react";
 
@@ -73,10 +74,13 @@ export default function FlashcardsPageClient() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" />
-          <p className="text-gray-600 mt-4">Loading flashcards...</p>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+        <Header />
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" />
+            <p className="text-gray-600 mt-4">Loading flashcards...</p>
+          </div>
         </div>
       </div>
     );
@@ -84,35 +88,24 @@ export default function FlashcardsPageClient() {
 
   if (!cards || cards.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        {/* Header */}
-        <div className="bg-blue-500 text-white py-4 px-6">
-          <div className="max-w-6xl mx-auto flex items-center justify-between">
-            <h1 className="text-xl font-bold">StudySync</h1>
-            <Button
-              onClick={() => router.push("/assistant/files")}
-              variant="ghost"
-              size="sm"
-              className="text-white hover:text-gray-200"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Files
-            </Button>
-          </div>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+        <Header />
 
         {/* Empty State */}
-        <div className="flex items-center justify-center py-16">
+        <div className="flex items-center justify-center py-20">
           <div className="text-center">
-            <div className="text-6xl mb-4">📚</div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            <div className="text-6xl mb-6">📚</div>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">
               No Flashcards Found
             </h2>
-            <p className="text-gray-600 mb-6">
+            <p className="text-gray-600 mb-8 text-lg">
               Generate flashcards from a PDF file first.
             </p>
-            <div className="flex gap-3 justify-center">
-              <Button onClick={() => router.push("/assistant/files")}>
+            <div className="flex gap-4 justify-center">
+              <Button
+                onClick={() => router.push("/assistant/files")}
+                className="bg-blue-600 hover:bg-blue-700 px-6 py-3"
+              >
                 <Home className="h-4 w-4 mr-2" />
                 Go to Files
               </Button>
@@ -124,11 +117,13 @@ export default function FlashcardsPageClient() {
   }
 
   return (
-    <StudyFlashcards
-      flashcards={cards}
-      title={title}
-      onQuit={handleQuit}
-      onFinish={handleFinish}
-    />
+    <div>
+      <StudyFlashcards
+        flashcards={cards}
+        title={title}
+        onQuit={handleQuit}
+        onFinish={handleFinish}
+      />
+    </div>
   );
 }

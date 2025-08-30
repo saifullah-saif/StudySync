@@ -1,679 +1,460 @@
-"use client";
-
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { useRouter } from "next/navigation";
-import { Loader2, RotateCcw, Eye, X, CheckCircle, XCircle } from "lucide-react";
+  Star,
+  Trophy,
+  Target,
+  CheckCircle,
+  XCircle,
+  RotateCcw,
+  SkipForward,
+} from "lucide-react";
+import {
+  scheduleNextReview,
+  selectDailySession,
+  calculateExperience,
+  calcLevelFromXP,
+  DEFAULT_CONFIG,
+  updateStreakData,
+  getStreakData,
+  checkStreakStatus,
+  type DailySession,
+  type Flashcard as LearningFlashcard,
+} from "@/lib/learning";
+import { flashcardAPI } from "@/lib/api";
 
-export interface StudyFlashcard {
-  id: string;
-  question: string;
-  answer: string;
-  shownAnswer?: boolean;
-  result?: "right" | "wrong" | null;
+interface Flashcard extends LearningFlashcard {}
+
+interface StudyFlashcardsProps {
+  flashcards: Flashcard[];
+  deckId?: string;
 }
 
-export interface StudyProps {
-  flashcards?: StudyFlashcard[];
-  title?: string;
-  onQuit?: () => void;
-  onFinish?: (summary: {
-    total: number;
-    correct: number;
-    incorrect: number;
-  }) => void;
-  reviewWrong?: boolean;
-}
+const XP_PER_LEVEL = 100; // Define XP needed per level
 
 export default function StudyFlashcards({
-  flashcards: propFlashcards,
-  title = "Study Session",
-  onQuit,
-  onFinish,
-  reviewWrong = false,
-}: StudyProps) {
-  const router = useRouter();
-  const [flashcards, setFlashcards] = useState<StudyFlashcard[]>([]);
+  flashcards,
+  deckId,
+}: StudyFlashcardsProps) {
+  const [studyCards, setStudyCards] = useState<Flashcard[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
-  const [correct, setCorrect] = useState(0);
-  const [incorrect, setIncorrect] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [showSummary, setShowSummary] = useState(false);
-  const [waiting, setWaiting] = useState(false);
-  const [feedbackType, setFeedbackType] = useState<"right" | "wrong" | null>(
-    null
-  );
+  const [sessionStats, setSessionStats] = useState({
+    correct: 0,
+    incorrect: 0,
+    totalXP: 0,
+    streak: 0,
+  });
+  const [userLevel, setUserLevel] = useState(1);
+  const [userXP, setUserXP] = useState(0);
+  const [isSessionComplete, setIsSessionComplete] = useState(false);
 
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const prefersReducedMotion = useRef(false);
+  // Utility functions
+  const calculateSimpleXP = (isCorrect: boolean, intervalIndex: number) => {
+    return isCorrect ? 10 + intervalIndex * 5 : 0;
+  };
 
-  // Load flashcards from sessionStorage or props
+  const getLevel = (totalXP: number) => {
+    return calcLevelFromXP(totalXP);
+  };
+
+  const getLevelProgress = (totalXP: number) => {
+    const currentLevelXP = totalXP % XP_PER_LEVEL;
+    return (currentLevelXP / XP_PER_LEVEL) * 100;
+  };
+
+  const getAccuracy = (correct: number, incorrect: number) => {
+    const total = correct + incorrect;
+    return total > 0 ? Math.round((correct / total) * 100) : 0;
+  };
+
+  // Initialize study session
   useEffect(() => {
-    const loadFlashcards = () => {
-      try {
-        let cards: StudyFlashcard[] = [];
+    const initializeSession = async () => {
+      // Load stored XP and level
+      const storedXP = parseInt(localStorage.getItem("studyXP") || "0");
+      const storedLevel = getLevel(storedXP);
+      setUserXP(storedXP);
+      setUserLevel(storedLevel);
 
-        if (propFlashcards && propFlashcards.length > 0) {
-          cards = propFlashcards;
-        } else {
-          const raw = sessionStorage.getItem("currentFlashcards");
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            let deck = parsed.flashcards || parsed.qsAns || parsed;
+      // Select cards for today's session using spaced repetition
+      const session = selectDailySession(flashcards, DEFAULT_CONFIG);
+      const sessionCards = [...session.reviews, ...session.news];
+      setStudyCards(sessionCards);
 
-            // Convert Q&A format to flashcard format if needed
-            if (parsed.qsAns && Array.isArray(parsed.qsAns)) {
-              deck = parsed.qsAns.map((item: any, index: number) => ({
-                id: `card-${index + 1}`,
-                question: item.question,
-                answer: item.answer,
-              }));
-            }
-
-            cards = (deck || []).map((c: any, i: number) => ({
-              id: c.id ?? String(i + 1),
-              question: c.question ?? c.q ?? "",
-              answer: c.answer ?? c.a ?? "",
-              shownAnswer: false,
-              result: null,
-            }));
-          }
-        }
-
-        // Filter for review mode
-        if (reviewWrong) {
-          cards = cards.filter((card) => card.result === "wrong");
-        }
-
-        setFlashcards(cards);
-
-        // Load progress from sessionStorage
-        const savedProgress = sessionStorage.getItem("studyProgress");
-        if (savedProgress && !reviewWrong) {
-          const progress = JSON.parse(savedProgress);
-          setCurrentIndex(progress.currentIndex || 0);
-          setCorrect(progress.correct || 0);
-          setIncorrect(progress.incorrect || 0);
-        }
-      } catch (error) {
-        console.error("Failed to load flashcards:", error);
-        setFlashcards([]);
-      } finally {
-        setLoading(false);
+      if (sessionCards.length === 0) {
+        setIsSessionComplete(true);
       }
     };
 
-    loadFlashcards();
-
-    // Check for reduced motion preference
-    if (typeof window !== "undefined") {
-      const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-      prefersReducedMotion.current = mediaQuery.matches;
+    if (flashcards.length > 0) {
+      initializeSession();
     }
-  }, [propFlashcards, reviewWrong]);
+  }, [flashcards]);
 
-  // Save progress to sessionStorage
-  const saveProgress = useCallback(() => {
-    if (typeof window !== "undefined") {
-      sessionStorage.setItem(
-        "studyProgress",
-        JSON.stringify({
-          currentIndex,
-          correct,
-          incorrect,
-        })
-      );
+  // Save progress to backend and localStorage
+  const saveProgress = async (updatedCard: Flashcard) => {
+    try {
+      // Attempt to save to backend
+      const result = await flashcardAPI.updateCard(updatedCard.id, {
+        intervalIndex: updatedCard.intervalIndex,
+        nextReview: updatedCard.nextReview,
+        correctCount: updatedCard.correctCount,
+        incorrectCount: updatedCard.incorrectCount,
+        isEncountered: updatedCard.isEncountered,
+        updatedAt: updatedCard.updatedAt,
+      });
+
+      if (!result.success) {
+        console.warn("Backend save failed, using localStorage fallback");
+      }
+    } catch (error) {
+      console.warn("Backend save error, using localStorage fallback:", error);
     }
-  }, [currentIndex, correct, incorrect]);
 
-  // Keyboard event handler
-  useEffect(() => {
-    const handleKeyPress = (event: KeyboardEvent) => {
-      // Don't handle keyboard events when waiting or dialog is open
-      if (waiting || showSummary) {
-        console.log(
-          "🔧 Debug: Keyboard event ignored - waiting:",
-          waiting,
-          "showSummary:",
-          showSummary
-        );
-        return;
-      }
-
-      console.log(
-        "🔧 Debug: Key pressed:",
-        event.key,
-        "showAnswer:",
-        showAnswer
-      );
-
-      switch (event.key.toLowerCase()) {
-        case "q":
-        case "escape":
-          console.log("🔧 Debug: Quit key pressed");
-          handleQuit();
-          break;
-        case " ":
-        case "enter":
-          event.preventDefault();
-          if (!showAnswer) {
-            console.log("🔧 Debug: Show answer key pressed");
-            handleShowAnswer();
-          }
-          break;
-        case "r":
-          if (showAnswer) {
-            console.log("🔧 Debug: Right key pressed");
-            event.preventDefault(); // Prevent any default behavior
-            handleMarkRight();
-          }
-          break;
-        case "w":
-          if (showAnswer) {
-            console.log("🔧 Debug: Wrong key pressed");
-            event.preventDefault(); // Prevent any default behavior
-            handleMarkWrong();
-          }
-          break;
-        case "arrowright":
-          if (showAnswer) {
-            console.log("🔧 Debug: Arrow right key pressed");
-            event.preventDefault(); // Prevent any default behavior
-            handleMarkRight(); // Default to right on arrow
-          }
-          break;
-      }
-    };
-
-    document.addEventListener("keydown", handleKeyPress);
-    return () => {
-      document.removeEventListener("keydown", handleKeyPress);
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, [showAnswer, waiting, showSummary]); // Fixed dependencies
-
-  // Save progress when state changes
-  useEffect(() => {
-    saveProgress();
-  }, [saveProgress]);
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
-
-  const currentCard = flashcards[currentIndex];
-
-  const handleShowAnswer = useCallback(() => {
-    if (waiting) return;
-    setShowAnswer(true);
-
-    // Update card state
-    setFlashcards((prev) =>
-      prev.map((card, index) =>
-        index === currentIndex ? { ...card, shownAnswer: true } : card
-      )
+    // Always save to localStorage as fallback
+    const cardKey = `card_${updatedCard.id}`;
+    localStorage.setItem(
+      cardKey,
+      JSON.stringify({
+        intervalIndex: updatedCard.intervalIndex,
+        nextReview: updatedCard.nextReview,
+        correctCount: updatedCard.correctCount,
+        incorrectCount: updatedCard.incorrectCount,
+        isEncountered: updatedCard.isEncountered,
+        updatedAt: updatedCard.updatedAt,
+      })
     );
-  }, [waiting, currentIndex]);
+  };
 
-  const handleMarkRight = useCallback(() => {
-    if (waiting) return;
+  const handleAnswer = async (isCorrect: boolean) => {
+    const currentCard = studyCards[currentIndex];
+    if (!currentCard) return;
 
-    console.log("🔧 Debug: handleMarkRight called");
-    console.log("🔧 Debug: currentIndex before increment:", currentIndex);
-    console.log("🔧 Debug: correct before increment:", correct);
+    // Update learning state using spaced repetition algorithm
+    const updatedCard = scheduleNextReview(currentCard, isCorrect);
 
-    setCorrect((prev) => {
-      console.log("🔧 Debug: setCorrect - prev:", prev, "new:", prev + 1);
-      return prev + 1;
-    });
-    setFeedbackType("right");
-    markCardAndAdvance("right");
-  }, [waiting, currentIndex, correct]);
+    // Calculate XP earned
+    const xpEarned = calculateSimpleXP(
+      isCorrect,
+      updatedCard.intervalIndex || 0
+    );
+    const newTotalXP = userXP + xpEarned;
+    const newLevel = getLevel(newTotalXP);
 
-  const handleMarkWrong = useCallback(() => {
-    if (waiting) return;
+    // Update session stats
+    const newStats = {
+      ...sessionStats,
+      correct: sessionStats.correct + (isCorrect ? 1 : 0),
+      incorrect: sessionStats.incorrect + (isCorrect ? 0 : 1),
+      totalXP: sessionStats.totalXP + xpEarned,
+      streak: isCorrect ? sessionStats.streak + 1 : 0,
+    };
 
-    console.log("🔧 Debug: handleMarkWrong called");
-    setIncorrect((prev) => prev + 1);
-    setFeedbackType("wrong");
-    markCardAndAdvance("wrong");
-  }, [waiting]);
+    // Update state
+    setSessionStats(newStats);
+    setUserXP(newTotalXP);
+    setUserLevel(newLevel);
 
-  const markCardAndAdvance = useCallback(
-    (result: "right" | "wrong") => {
-      console.log("🔧 Debug: markCardAndAdvance called with result:", result);
-      setWaiting(true);
+    // Update global statistics
+    const totalFlashcardsReviewed =
+      parseInt(localStorage.getItem("totalFlashcardsReviewed") || "0") + 1;
+    const totalCorrect =
+      parseInt(localStorage.getItem("totalCorrect") || "0") +
+      (isCorrect ? 1 : 0);
+    const totalIncorrect =
+      parseInt(localStorage.getItem("totalIncorrect") || "0") +
+      (isCorrect ? 0 : 1);
 
-      // Update card result
-      setFlashcards((prev) =>
-        prev.map((card, index) =>
-          index === currentIndex ? { ...card, result } : card
-        )
-      );
+    localStorage.setItem(
+      "totalFlashcardsReviewed",
+      totalFlashcardsReviewed.toString()
+    );
+    localStorage.setItem("totalCorrect", totalCorrect.toString());
+    localStorage.setItem("totalIncorrect", totalIncorrect.toString());
 
-      // Auto-advance after 1 second
-      console.log("🔧 Debug: Setting timeout for auto-advance");
-      timeoutRef.current = setTimeout(() => {
-        console.log("🔧 Debug: Timeout triggered - calling goToNextCard");
-        goToNextCard();
-      }, 1000);
-    },
-    [currentIndex]
-  );
+    // Save progress
+    await saveProgress(updatedCard);
 
-  const goToNextCard = useCallback(() => {
-    console.log("🔧 Debug: goToNextCard called");
-    console.log("🔧 Debug: currentIndex before advance:", currentIndex);
-    console.log("🔧 Debug: flashcards.length:", flashcards.length);
+    // Save XP progress
+    localStorage.setItem("studyXP", newTotalXP.toString());
 
-    setWaiting(false);
-    setFeedbackType(null);
-    setShowAnswer(false);
+    // Auto-advance to next card after a short delay
+    setTimeout(() => {
+      nextCard();
+    }, 1000);
+  };
 
-    if (currentIndex + 1 < flashcards.length) {
-      console.log("🔧 Debug: Advancing to next card");
-      setCurrentIndex((prev) => {
-        console.log(
-          "🔧 Debug: setCurrentIndex - prev:",
-          prev,
-          "new:",
-          prev + 1
-        );
-        return prev + 1;
-      });
+  const nextCard = () => {
+    if (currentIndex < studyCards.length - 1) {
+      setCurrentIndex(currentIndex + 1);
+      setShowAnswer(false);
     } else {
-      // Finished all cards
-      console.log("🔧 Debug: Finished all cards - calling finishStudy");
-      finishStudy();
+      // Session complete
+      setIsSessionComplete(true);
+      saveSessionStats();
     }
-  }, [currentIndex, flashcards.length]);
+  };
 
-  const finishStudy = useCallback(() => {
-    // Clear saved progress
-    if (typeof window !== "undefined") {
-      sessionStorage.removeItem("studyProgress");
-    }
+  const saveSessionStats = async () => {
+    const sessionData = {
+      deckId,
+      ...sessionStats,
+      completedAt: new Date().toISOString(),
+      cardsStudied: studyCards.length,
+    };
 
-    setShowSummary(true);
+    // Update streak data for completing a session
+    const updatedStreakData = updateStreakData(true);
 
-    if (onFinish) {
-      onFinish({
-        total: flashcards.length,
-        correct,
-        incorrect,
+    try {
+      await flashcardAPI.saveSessionProgress({
+        ...sessionData,
+        streakData: updatedStreakData,
       });
+    } catch (error) {
+      console.warn("Failed to save session stats:", error);
     }
-  }, [flashcards.length, correct, incorrect, onFinish]);
+  };
 
-  const handleQuit = useCallback(() => {
-    // Clear timeout if running
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-
-    if (onQuit) {
-      onQuit();
-    } else {
-      router.back();
-    }
-  }, [onQuit, router]);
-
-  const handleRestart = useCallback(() => {
+  const resetSession = () => {
+    const session = selectDailySession(flashcards, DEFAULT_CONFIG);
+    const sessionCards = [...session.reviews, ...session.news];
+    setStudyCards(sessionCards);
     setCurrentIndex(0);
     setShowAnswer(false);
-    setCorrect(0);
-    setIncorrect(0);
-    setShowSummary(false);
-    setWaiting(false);
-    setFeedbackType(null);
+    setSessionStats({
+      correct: 0,
+      incorrect: 0,
+      totalXP: 0,
+      streak: 0,
+    });
+    setIsSessionComplete(false);
+  };
 
-    // Reset all card states
-    setFlashcards((prev) =>
-      prev.map((card) => ({
-        ...card,
-        shownAnswer: false,
-        result: null,
-      }))
-    );
+  const currentCard = studyCards[currentIndex];
+  const progress =
+    studyCards.length > 0 ? ((currentIndex + 1) / studyCards.length) * 100 : 0;
+  const accuracy = getAccuracy(sessionStats.correct, sessionStats.incorrect);
+  const levelProgress = getLevelProgress(userXP);
 
-    // Clear saved progress
-    if (typeof window !== "undefined") {
-      sessionStorage.removeItem("studyProgress");
-    }
-  }, []);
-
-  const handleReviewWrong = useCallback(() => {
-    // TODO: Implement review wrong cards only
-    console.log("Review wrong cards - TODO");
-    setShowSummary(false);
-    // For now, just close and go back
-    handleQuit();
-  }, [handleQuit]);
-
-  const handleCloseSummary = useCallback(() => {
-    setShowSummary(false);
-    handleQuit();
-  }, [handleQuit]);
-
-  if (loading) {
+  if (studyCards.length === 0 && !isSessionComplete) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" />
-          <p className="text-gray-600 mt-4">Loading study session...</p>
-        </div>
-      </div>
+      <Card className="w-full max-w-2xl mx-auto">
+        <CardContent className="flex flex-col items-center justify-center py-12 space-y-4">
+          <Target className="h-16 w-16 text-muted-foreground" />
+          <h3 className="text-xl font-semibold">No Cards Due Today</h3>
+          <p className="text-muted-foreground text-center">
+            Great job! You've completed all your reviews for today. Come back
+            tomorrow for more cards.
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
-  if (flashcards.length === 0) {
+  if (isSessionComplete) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-6xl mb-4">📚</div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            {reviewWrong
-              ? "No wrong cards to review!"
-              : "No flashcards to study"}
-          </h2>
-          <p className="text-gray-600 mb-6">
-            {reviewWrong
-              ? "You got all the cards right! Great job!"
-              : "Generate flashcards from a PDF file first."}
-          </p>
-          <Button onClick={handleQuit}>Go Back</Button>
-        </div>
-      </div>
-    );
-  }
-
-  const accuracy =
-    flashcards.length > 0
-      ? Math.round((correct / (correct + incorrect)) * 100) || 0
-      : 0;
-
-  // Debug: Log state changes
-  console.log("🔧 Debug Render:", {
-    currentIndex,
-    showAnswer,
-    waiting,
-    feedbackType,
-    correct,
-    incorrect,
-    flashcardsLength: flashcards.length,
-    currentCard: currentCard?.question?.substring(0, 30) + "...",
-  });
-
-  return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      {/* Debug info - development only */}
-      {process.env.NODE_ENV === "development" && (
-        <div className="max-w-2xl mx-auto mb-4 p-2 bg-yellow-100 text-xs text-gray-700 rounded">
-          <strong>Debug:</strong> Index: {currentIndex}, Show:{" "}
-          {showAnswer ? "Y" : "N"}, Wait: {waiting ? "Y" : "N"}, Type:{" "}
-          {feedbackType || "none"}
-        </div>
-      )}
-
-      {/* Header with progress */}
-      <div className="max-w-2xl mx-auto mb-8">
-        <div className="flex justify-between items-center mb-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
-            <p className="text-gray-600 text-sm">
-              Study mode - Focus on one card at a time
-            </p>
-          </div>
-          <Badge variant="outline" className="text-sm">
-            Card {currentIndex + 1} / {flashcards.length}
-          </Badge>
-        </div>
-
-        {/* Progress and stats */}
-        <div className="flex gap-4 text-sm text-gray-600 mb-2">
-          <div className="flex items-center gap-1">
-            <CheckCircle className="h-4 w-4 text-green-600" />
-            <span>{correct} correct</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <XCircle className="h-4 w-4 text-red-600" />
-            <span>{incorrect} wrong</span>
-          </div>
-        </div>
-
-        {/* Progress bar */}
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div
-            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-            style={{
-              width: `${((currentIndex + 1) / flashcards.length) * 100}%`,
-            }}
-            role="progressbar"
-            aria-valuenow={currentIndex + 1}
-            aria-valuemin={0}
-            aria-valuemax={flashcards.length}
-          />
-        </div>
-      </div>
-
-      {/* Main card */}
-      <div className="max-w-2xl mx-auto">
-        <Card
-          className={`relative transition-all duration-300 ${
-            prefersReducedMotion.current
-              ? ""
-              : showAnswer
-              ? "transform scale-105"
-              : ""
-          }`}
-        >
-          <CardContent className="p-8 md:p-12 min-h-[300px] flex flex-col justify-center">
-            {/* Question */}
-            <div className="text-center mb-8">
-              <div className="text-lg md:text-xl font-semibold text-gray-900 mb-4 leading-relaxed">
-                {currentCard?.question || "No content"}
-              </div>
-
-              {/* Answer (revealed) */}
-              {showAnswer && (
-                <div
-                  className={`text-base text-gray-700 leading-relaxed border-t pt-6 mt-6 ${
-                    prefersReducedMotion.current
-                      ? "opacity-100"
-                      : "animate-in fade-in duration-300"
-                  }`}
-                  role="region"
-                  aria-live="polite"
-                  aria-label="Answer revealed"
-                >
-                  {currentCard?.answer || "No content"}
-                </div>
-              )}
-            </div>
-
-            {/* Feedback indicator */}
-            {waiting && feedbackType && (
-              <div className="absolute top-4 right-4">
-                {feedbackType === "right" ? (
-                  <CheckCircle className="h-8 w-8 text-green-500" />
-                ) : (
-                  <XCircle className="h-8 w-8 text-red-500" />
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Action buttons */}
-        <div className="flex gap-4 justify-center mt-6">
-          {!showAnswer ? (
-            // Question phase buttons
-            <>
-              <Button variant="outline" onClick={handleQuit} disabled={waiting}>
-                <X className="h-4 w-4 mr-2" />
-                Quit
-              </Button>
-              <Button
-                onClick={handleShowAnswer}
-                disabled={waiting}
-                aria-expanded={showAnswer}
-                aria-controls="answer-content"
-              >
-                <Eye className="h-4 w-4 mr-2" />
-                Show Answer
-              </Button>
-            </>
-          ) : (
-            // Answer phase buttons
-            <>
-              <Button
-                variant="outline"
-                onClick={handleMarkWrong}
-                disabled={waiting}
-                className={
-                  waiting && feedbackType === "wrong" ? "bg-red-50" : ""
-                }
-                aria-pressed={waiting && feedbackType === "wrong"}
-              >
-                {waiting && feedbackType === "wrong" ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <XCircle className="h-4 w-4 mr-2" />
-                )}
-                Mark Wrong
-              </Button>
-              <Button
-                onClick={handleMarkRight}
-                disabled={waiting}
-                className={
-                  waiting && feedbackType === "right" ? "bg-green-50" : ""
-                }
-                aria-pressed={waiting && feedbackType === "right"}
-              >
-                {waiting && feedbackType === "right" ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                )}
-                Make Right
-              </Button>
-            </>
-          )}
-        </div>
-
-        {/* Debug button - temporary */}
-        {process.env.NODE_ENV === "development" && (
-          <div className="flex justify-center mt-2">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => {
-                console.log("🔧 Debug: Manual advance clicked");
-                if (timeoutRef.current) {
-                  clearTimeout(timeoutRef.current);
-                }
-                goToNextCard();
-              }}
-            >
-              Debug: Next Card
-            </Button>
-          </div>
-        )}
-
-        {/* Keyboard shortcuts help */}
-        <div className="text-center mt-6 text-xs text-gray-500">
-          <p>
-            Keyboard: <kbd className="bg-gray-200 px-1 rounded">Q</kbd> Quit •
-            <kbd className="bg-gray-200 px-1 rounded ml-1">Space</kbd> Show
-            Answer •<kbd className="bg-gray-200 px-1 rounded ml-1">R</kbd> Right
-            •<kbd className="bg-gray-200 px-1 rounded ml-1">W</kbd> Wrong
-          </p>
-        </div>
-      </div>
-
-      {/* Summary Modal */}
-      <Dialog open={showSummary} onOpenChange={() => {}}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Study Session Complete!</DialogTitle>
-            <DialogDescription>
-              Here's how you performed on this deck.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4 text-center">
-              <div className="p-4 bg-green-50 rounded-lg">
-                <div className="text-2xl font-bold text-green-700">
-                  {correct}
+      <Card className="w-full max-w-2xl mx-auto">
+        <CardHeader className="text-center bg-gradient-to-r from-green-500 to-blue-500 text-white rounded-t-lg">
+          <CardTitle className="flex items-center justify-center gap-2">
+            <Trophy className="h-6 w-6" />
+            Session Complete!
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="py-8 space-y-6">
+          <div className="text-center space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
+                <div className="text-2xl font-bold text-green-600">
+                  {sessionStats.correct}
                 </div>
                 <div className="text-sm text-green-600">Correct</div>
               </div>
-              <div className="p-4 bg-red-50 rounded-lg">
-                <div className="text-2xl font-bold text-red-700">
-                  {incorrect}
+              <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-4">
+                <div className="text-2xl font-bold text-red-600">
+                  {sessionStats.incorrect}
                 </div>
-                <div className="text-sm text-red-600">Wrong</div>
+                <div className="text-sm text-red-600">Incorrect</div>
               </div>
             </div>
 
-            <div className="text-center p-4 bg-blue-50 rounded-lg">
-              <div className="text-3xl font-bold text-blue-700">
-                {accuracy}%
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                <div className="text-2xl font-bold text-blue-600">
+                  +{sessionStats.totalXP}
+                </div>
+                <div className="text-sm text-blue-600">XP Earned</div>
               </div>
-              <div className="text-sm text-blue-600">Accuracy</div>
+              <div className="bg-orange-50 dark:bg-orange-900/20 rounded-lg p-4">
+                <div className="text-2xl font-bold text-orange-600">
+                  {getStreakData().currentStreak}
+                </div>
+                <div className="text-sm text-orange-600">Day Streak</div>
+              </div>
             </div>
 
-            <div className="text-center text-gray-600">
-              <p>Total Cards: {flashcards.length}</p>
+            {accuracy > 0 && (
+              <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-4">
+                <div className="text-2xl font-bold text-purple-600">
+                  {accuracy}%
+                </div>
+                <div className="text-sm text-purple-600">Accuracy</div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-center gap-2">
+              <Star className="h-5 w-5 text-yellow-500" />
+              <span className="font-semibold">Level {userLevel}</span>
+              <Badge variant="secondary">{userXP} XP</Badge>
             </div>
           </div>
 
-          <DialogFooter className="flex gap-2">
-            <Button variant="outline" onClick={handleCloseSummary}>
-              Close
-            </Button>
-            {incorrect > 0 && (
-              <Button variant="outline" onClick={handleReviewWrong}>
-                Review Wrong
-              </Button>
-            )}
-            <Button onClick={handleRestart}>
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Restart
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <Button onClick={resetSession} className="w-full">
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Study More Cards
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
 
-      {/* Screen reader announcements */}
-      <div role="status" aria-live="polite" className="sr-only">
-        {waiting &&
-          `Moving to ${
-            feedbackType === "right" ? "correct" : "incorrect"
-          } pile`}
-        {showAnswer && "Answer revealed"}
-        {showSummary &&
-          `Study complete. ${correct} correct, ${incorrect} wrong, ${accuracy}% accuracy`}
+  if (!currentCard) {
+    return <div>Loading...</div>;
+  }
+
+  return (
+    <div className="w-full max-w-2xl mx-auto space-y-4">
+      {/* Header with level and progress */}
+      <div className="bg-gradient-to-r from-purple-500 to-blue-500 rounded-lg p-4 text-white">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Star className="h-5 w-5 text-yellow-300" />
+            <span className="font-semibold">Level {userLevel}</span>
+            <Badge
+              variant="secondary"
+              className="bg-white/20 text-white border-0"
+            >
+              {userXP} XP
+            </Badge>
+          </div>
+          <div className="text-sm">
+            Card {currentIndex + 1} of {studyCards.length}
+          </div>
+        </div>
+        <Progress value={levelProgress} className="h-2 bg-white/20" />
+        <div className="text-xs mt-1 opacity-80">
+          {XP_PER_LEVEL - (userXP % XP_PER_LEVEL)} XP to next level
+        </div>
       </div>
+
+      {/* Session Progress */}
+      <div className="flex justify-between items-center px-4 py-2 bg-muted rounded-lg">
+        <div className="flex items-center gap-4 text-sm">
+          <div className="flex items-center gap-1">
+            <CheckCircle className="h-4 w-4 text-green-600" />
+            <span>{sessionStats.correct}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <XCircle className="h-4 w-4 text-red-600" />
+            <span>{sessionStats.incorrect}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <Trophy className="h-4 w-4 text-yellow-600" />
+            <span>Streak: {sessionStats.streak}</span>
+          </div>
+        </div>
+        <Progress value={progress} className="w-24 h-2" />
+      </div>
+
+      {/* Main Flashcard */}
+      <Card className="bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900 shadow-xl border-0">
+        <CardHeader>
+          <CardTitle className="text-center text-lg">
+            {showAnswer ? "Answer" : "Question"}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="py-8">
+          <div className="text-center space-y-6">
+            <div className="text-xl font-medium min-h-[100px] flex items-center justify-center p-4 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
+              {showAnswer ? currentCard.answer : currentCard.question}
+            </div>
+
+            <div className="flex flex-col gap-3">
+              {!showAnswer ? (
+                <Button
+                  onClick={() => setShowAnswer(true)}
+                  size="lg"
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+                >
+                  Show Answer
+                </Button>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  <Button
+                    onClick={() => handleAnswer(false)}
+                    variant="destructive"
+                    size="lg"
+                    className="flex items-center gap-2 shadow-md hover:scale-105 transition-transform"
+                  >
+                    <XCircle className="h-5 w-5" />
+                    Mark Wrong
+                  </Button>
+                  <Button
+                    onClick={() => handleAnswer(true)}
+                    size="lg"
+                    className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white shadow-md hover:scale-105 transition-transform"
+                  >
+                    <CheckCircle className="h-5 w-5" />
+                    Mark Correct
+                  </Button>
+                </div>
+              )}
+
+              {showAnswer && (
+                <Button
+                  onClick={nextCard}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2"
+                >
+                  <SkipForward className="h-4 w-4" />
+                  Next Card
+                </Button>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Learning Info */}
+      {currentCard.intervalIndex !== undefined && (
+        <Card className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-indigo-200 dark:border-indigo-800">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between text-sm">
+              <span>Learning Stage: {currentCard.intervalIndex + 1}/8</span>
+              {currentCard.correctCount !== undefined &&
+                currentCard.incorrectCount !== undefined && (
+                  <span>
+                    Success Rate:{" "}
+                    {currentCard.correctCount + currentCard.incorrectCount > 0
+                      ? Math.round(
+                          (currentCard.correctCount /
+                            (currentCard.correctCount +
+                              currentCard.incorrectCount)) *
+                            100
+                        )
+                      : 0}
+                    %
+                  </span>
+                )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

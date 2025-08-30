@@ -32,6 +32,12 @@ import { useAuth } from "@/contexts/auth-context";
 import FileUpload from "./components/file-upload";
 import DeckList from "@/components/flashcards/DeckList";
 import StreakHistory from "@/components/StreakHistory";
+import {
+  getStreakData,
+  getStreakStats,
+  checkStreakStatus,
+  calcLevelFromXP,
+} from "@/lib/learning";
 
 // New minimalist dashboard components
 import { DashboardShell } from "@/components/DashboardShell";
@@ -43,6 +49,11 @@ import { StreakCard } from "@/components/StreakCard";
 export default function AssistantPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const [timeRemaining, setTimeRemaining] = useState({
+    hours: 23,
+    minutes: 59,
+    seconds: 59,
+  });
   const [selectedTab, setSelectedTab] = useState("document");
   const [textContent, setTextContent] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -54,6 +65,23 @@ export default function AssistantPage() {
   );
   const [recentDecks, setRecentDecks] = useState<any[]>([]);
   const [decksLoading, setDecksLoading] = useState(false);
+
+  // Streak and stats states
+  const [streakStats, setStreakStats] = useState({
+    currentStreak: 0,
+    longestStreak: 0,
+    totalPracticeDays: 0,
+    averagePerWeek: 0,
+    lastPracticeDate: "",
+    streakStatus: "active" as "active" | "broken" | "frozen",
+  });
+  const [userStats, setUserStats] = useState({
+    xp: 0,
+    level: 1,
+    flashcardsReviewed: 0,
+    accuracy: 0,
+  });
+  const [streakBroken, setStreakBroken] = useState(false);
 
   // Manual flashcard states
   const [manualFlashcards, setManualFlashcards] = useState<
@@ -82,6 +110,54 @@ export default function AssistantPage() {
     } finally {
       setDecksLoading(false);
     }
+  };
+
+  // Load streak and user statistics
+  const loadUserStats = () => {
+    // Load streak data
+    const currentStreakStats = getStreakStats();
+    setStreakStats(currentStreakStats);
+
+    // Check if streak is broken
+    const { isBroken } = checkStreakStatus();
+    setStreakBroken(isBroken);
+
+    // Load user stats from localStorage
+    const storedXP = parseInt(localStorage.getItem("studyXP") || "0");
+    const level = calcLevelFromXP(storedXP);
+    const flashcardsReviewed = parseInt(
+      localStorage.getItem("totalFlashcardsReviewed") || "0"
+    );
+    const totalCorrect = parseInt(localStorage.getItem("totalCorrect") || "0");
+    const totalIncorrect = parseInt(
+      localStorage.getItem("totalIncorrect") || "0"
+    );
+    const accuracy =
+      totalCorrect + totalIncorrect > 0
+        ? Math.round((totalCorrect / (totalCorrect + totalIncorrect)) * 100)
+        : 0;
+
+    setUserStats({
+      xp: storedXP,
+      level,
+      flashcardsReviewed,
+      accuracy,
+    });
+  };
+
+  // Calculate time remaining until midnight
+  const calculateTimeUntilMidnight = () => {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+
+    const diff = tomorrow.getTime() - now.getTime();
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+    return { hours, minutes, seconds };
   };
 
   const addManualCard = () => {
@@ -165,11 +241,34 @@ export default function AssistantPage() {
     }
   };
 
+  // Countdown timer effect
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const newTime = calculateTimeUntilMidnight();
+      setTimeRemaining(newTime);
+    }, 1000);
+
+    // Initial calculation
+    setTimeRemaining(calculateTimeUntilMidnight());
+
+    return () => clearInterval(timer);
+  }, []);
+
   // Load recent decks when user is available
   useEffect(() => {
     if (user) {
       loadRecentDecks();
     }
+  }, [user]);
+
+  // Load user stats on component mount and when user changes
+  useEffect(() => {
+    loadUserStats();
+
+    // Refresh stats every 30 seconds
+    const statsInterval = setInterval(loadUserStats, 30000);
+
+    return () => clearInterval(statsInterval);
   }, [user]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {

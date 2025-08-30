@@ -483,6 +483,74 @@ export const flashcardAPI = {
     const response = await api.delete(`/flashcards/deck/${deckId}`);
     return response.data;
   },
+
+  // Update individual flashcard learning state
+  updateCard: async (cardId, updateData) => {
+    try {
+      const response = await api.put(`/flashcards/card/${cardId}`, updateData);
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.warn("Failed to update card on server:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Batch update multiple cards
+  updateCards: async (cardUpdates) => {
+    try {
+      const response = await api.put("/flashcards/cards/batch", {
+        cards: cardUpdates,
+      });
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.warn("Failed to batch update cards on server:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Save learning session progress
+  saveSessionProgress: async (sessionData) => {
+    try {
+      const response = await api.post("/flashcards/session", sessionData);
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.warn("Failed to save session progress:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Get learning statistics
+  getLearningStats: async (deckId = null) => {
+    try {
+      const url = deckId ? `/flashcards/stats/${deckId}` : "/flashcards/stats";
+      const response = await api.get(url);
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.warn("Failed to fetch learning stats:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Streak management endpoints
+  getStreakData: async () => {
+    try {
+      const response = await api.get("/flashcards/streak");
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.warn("Failed to fetch streak data:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  updateStreak: async (streakData) => {
+    try {
+      const response = await api.post("/flashcards/streak", streakData);
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.warn("Failed to update streak:", error);
+      return { success: false, error: error.message };
+    }
+  },
 };
 
 export const apiRequest = {

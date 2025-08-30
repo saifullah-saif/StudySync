@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -53,6 +54,7 @@ export default function FileUpload({
   multiple = true,
   maxFiles = 10,
 }: FileUploadProps) {
+  const router = useRouter();
   const [uploadingFiles, setUploadingFiles] = useState<UploadingFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -106,7 +108,7 @@ export default function FileUpload({
         // Check file type - support both PDF, DOCX, TXT for flashcard generation
         const fileExtension = "." + file.name.split(".").pop()?.toLowerCase();
         const supportedTypes = [".pdf", ".docx", ".txt"];
-        
+
         if (!fileExtension || fileExtension === ".") {
           errors.push(`File "${file.name}" has no extension`);
           return;
@@ -436,6 +438,18 @@ export default function FileUpload({
           </CardContent>
         </Card>
       )}
+
+      {/* Show All Files Button */}
+      <div className="mt-6 text-center">
+        <Button
+          variant="outline"
+          onClick={() => router.push("/assistant/files")}
+          className="w-full"
+        >
+          <File className="h-4 w-4 mr-2" />
+          Show All Files
+        </Button>
+      </div>
     </div>
   );
 }
