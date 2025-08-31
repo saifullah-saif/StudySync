@@ -56,7 +56,7 @@ import { useAuth } from "@/contexts/auth-context";
 import FileUpload from "../components/file-upload";
 import { langchainAPI } from "@/lib/api";
 import { generateQsAns } from "@/actions/upload-actions";
-import { FlashcardsPanel } from "@/components/FlashcardsPanel";
+import FlashcardsPanel from "@/components/FlashcardsPanel";
 interface FileItem {
   id: number;
   title: string;
@@ -449,23 +449,47 @@ export default function FilesPage() {
           }
         );
 
-        // Store flashcards in sessionStorage to pass to the flashcard page
-        const flashcardData = {
-          flashcards: result.data.flashcards || [],
-          title: file.title,
-          fileId: file.id,
-          qsAns: qsAnsData.qsAns,
-        };
-
-        sessionStorage.setItem(
-          "currentFlashcards",
-          JSON.stringify(flashcardData)
-        );
-
-        // Redirect to flashcards page
-        router.push("/assistant/flashcards");
-
         console.log("🃏 Generated flashcard deck:", result.data);
+
+        // Create practice session for the newly created deck
+        const deckId = result.data.deckId;
+        if (deckId) {
+          try {
+            const sessionResult = await flashcardAPI.createPracticeSession(
+              deckId,
+              "all_cards"
+            );
+
+            if (sessionResult?.success && sessionResult.data?.sessionId) {
+              // Redirect to practice session using the modern UI
+              router.push(`/practice/${sessionResult.data.sessionId}`);
+            } else {
+              throw new Error(
+                sessionResult?.message || "Failed to create practice session"
+              );
+            }
+          } catch (sessionError) {
+            console.error("Failed to create practice session:", sessionError);
+            toast.error("Failed to start practice session");
+
+            // Fallback: store in sessionStorage and use old flow (will be removed later)
+            const flashcardData = {
+              flashcards: result.data.flashcards || [],
+              title: file.title,
+              fileId: file.id,
+              qsAns: qsAnsData.qsAns,
+            };
+
+            sessionStorage.setItem(
+              "currentFlashcards",
+              JSON.stringify(flashcardData)
+            );
+
+            router.push("/assistant/flashcards");
+          }
+        } else {
+          toast.error("No deck ID returned from flashcard generation");
+        }
       } else {
         toast.error(`Failed to generate flashcards: ${result.message}`);
       }

@@ -14,7 +14,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ArrowLeft, Search, Filter, Plus } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  ArrowLeft,
+  Search,
+  Filter,
+  Plus,
+  ChevronDown,
+  FileText,
+  Edit,
+} from "lucide-react";
 import { toast } from "sonner";
 import { practiceAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
@@ -144,13 +158,31 @@ export default function FlashcardsPage() {
             </div>
           </div>
 
-          <Button
-            onClick={() => router.push("/assistant/files")}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Create New Deck
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className="bg-blue-600 hover:bg-blue-700">
+                <Plus className="w-4 h-4 mr-2" />
+                Create New Deck
+                <ChevronDown className="w-4 h-4 ml-2" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuItem
+                onClick={() => router.push("/assistant?tab=flashcards")}
+                className="cursor-pointer"
+              >
+                <Edit className="w-4 h-4 mr-2" />
+                Create Manually
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => router.push("/assistant/files")}
+                className="cursor-pointer"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Generate from Files
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Filters and Search */}

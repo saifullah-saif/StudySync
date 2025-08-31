@@ -2,7 +2,7 @@
 
 import type React from "react";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -31,6 +31,7 @@ import { documentAPI, practiceAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 import FileUpload from "./components/file-upload";
 import DeckList from "@/components/flashcards/DeckList";
+import ManualFlashcardCreator from "@/components/ManualFlashcardCreator";
 import StreakHistory from "@/components/StreakHistory";
 
 // New minimalist dashboard components
@@ -42,8 +43,10 @@ import { StreakCard } from "@/components/StreakCard";
 
 export default function AssistantPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const [selectedTab, setSelectedTab] = useState("document");
+  const [activeMainTab, setActiveMainTab] = useState("dashboard");
   const [textContent, setTextContent] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
@@ -171,6 +174,14 @@ export default function AssistantPage() {
       loadRecentDecks();
     }
   }, [user]);
+
+  // Handle URL parameters for tab switching
+  useEffect(() => {
+    const tab = searchParams?.get("tab");
+    if (tab && ["dashboard", "flashcards", "files", "podcasts"].includes(tab)) {
+      setActiveMainTab(tab);
+    }
+  }, [searchParams]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -349,7 +360,11 @@ export default function AssistantPage() {
       <Header />
 
       <main>
-        <Tabs defaultValue="dashboard" className="w-full">
+        <Tabs
+          value={activeMainTab}
+          onValueChange={setActiveMainTab}
+          className="w-full"
+        >
           <div className="bg-white border-b border-slate-200 px-6 py-4">
             <div className="max-w-7xl mx-auto">
               <TabsList className="grid w-full grid-cols-4 lg:w-[800px]">
@@ -388,23 +403,7 @@ export default function AssistantPage() {
 
           {/* Other tabs remain unchanged for now */}
           <TabsContent value="flashcards" className="p-6">
-            <div className="max-w-4xl mx-auto">
-              <div className="text-center mb-8">
-                <h1 className="text-3xl font-bold text-slate-900 mb-4">
-                  Create Flashcards
-                </h1>
-                <p className="text-slate-600">
-                  Upload documents or enter text to generate flashcards
-                </p>
-              </div>
-              {/* Placeholder for flashcard creation - keeping existing functionality */}
-              <div className="bg-white p-8 rounded-2xl shadow-sm">
-                <p className="text-slate-600">
-                  Flashcard creation functionality preserved from original
-                  implementation...
-                </p>
-              </div>
-            </div>
+            <ManualFlashcardCreator />
           </TabsContent>
 
           <TabsContent value="files" className="p-6">

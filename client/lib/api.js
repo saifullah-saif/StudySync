@@ -613,6 +613,37 @@ export const flashcardAPI = {
       return { success: false, error: error.message };
     }
   },
+
+  // Create practice session
+  createPracticeSession: async (deckId, sessionType = "all_cards") => {
+    const response = await api.post("/practice/flashcard-sessions", {
+      deckId,
+      sessionType,
+    });
+    return response.data;
+  },
+
+  // Get practice session
+  getPracticeSession: async (sessionId) => {
+    const response = await api.get(`/practice/practice-sessions/${sessionId}`);
+    return response.data;
+  },
+
+  // Complete practice session
+  completePracticeSession: async (
+    sessionId,
+    sessionData,
+    includeUsageUpdates = true
+  ) => {
+    const response = await api.post(
+      `/practice/practice-sessions/${sessionId}/complete`,
+      {
+        ...sessionData,
+        includeUsageUpdates,
+      }
+    );
+    return response.data;
+  },
 };
 
 // User Stats API

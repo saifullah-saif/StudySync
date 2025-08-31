@@ -2,62 +2,98 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import StudyFlashcards, { StudyFlashcard } from "@/components/StudyFlashcards";
 import Header from "@/components/header";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft, Home } from "lucide-react";
+import { Loader2, Home } from "lucide-react";
+import { flashcardAPI } from "@/lib/api";
+import { toast } from "sonner";
 
 export default function FlashcardsPageClient() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [cards, setCards] = useState<StudyFlashcard[] | null>(null);
-  const [title, setTitle] = useState<string>("Flashcards");
-  const [fileId, setFileId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setLoading(true);
-    try {
-      const raw = sessionStorage.getItem("currentFlashcards");
-      if (!raw) {
-        setCards([]);
+    const createPracticeSession = async () => {
+      setLoading(true);
+      try {
+        const raw = sessionStorage.getItem("currentFlashcards");
+        if (!raw) {
+          setError("No flashcards found");
+          setLoading(false);
+          return;
+        }
+
+        const parsed = JSON.parse(raw);
+
+        // Handle different data structures
+        let deck = parsed.flashcards || parsed.qsAns || parsed;
+
+        // Convert Q&A format to flashcard format if needed
+        if (parsed.qsAns && Array.isArray(parsed.qsAns)) {
+          deck = parsed.qsAns.map((item: any, index: number) => ({
+            question: item.question,
+            answer: item.answer,
+          }));
+        }
+
+        if (!deck || deck.length === 0) {
+          setError("No valid flashcards found");
+          setLoading(false);
+          return;
+        }
+
+        // Save deck to database first
+        const deckPayload = {
+          title: parsed.title || "Generated Flashcards",
+          sourceFileId: parsed.fileId ? Number(parsed.fileId) : null,
+          qsAns: deck.map((c: any) => ({
+            question: c.question ?? c.q ?? "",
+            answer: c.answer ?? c.a ?? "",
+          })),
+        };
+
+        console.log("Creating deck with payload:", deckPayload);
+        const deckResult = await flashcardAPI.generateFlashcards(deckPayload);
+
+        if (!deckResult?.success || !deckResult.data?.deckId) {
+          throw new Error(deckResult?.message || "Failed to save deck");
+        }
+
+        const deckId = deckResult.data.deckId;
+        console.log("Deck created with ID:", deckId);
+
+        // Create practice session for the deck
+        const sessionResult = await flashcardAPI.createPracticeSession(
+          deckId,
+          "all_cards"
+        );
+
+        if (!sessionResult?.success || !sessionResult.data?.sessionId) {
+          throw new Error(
+            sessionResult?.message || "Failed to create practice session"
+          );
+        }
+
+        const sessionId = sessionResult.data.sessionId;
+        console.log("Practice session created with ID:", sessionId);
+
+        // Clear session storage since we've saved to database
+        sessionStorage.removeItem("currentFlashcards");
+
+        // Redirect to practice session
+        router.push(`/practice/${sessionId}`);
+      } catch (err: any) {
+        console.error("Failed to create practice session:", err);
+        setError(err.message || "Failed to start practice session");
+        toast.error("Failed to start practice session");
+      } finally {
         setLoading(false);
-        return;
       }
+    };
 
-      const parsed = JSON.parse(raw);
-
-      // Handle different data structures
-      let deck = parsed.flashcards || parsed.qsAns || parsed;
-
-      // Convert Q&A format to flashcard format if needed
-      if (parsed.qsAns && Array.isArray(parsed.qsAns)) {
-        deck = parsed.qsAns.map((item: any, index: number) => ({
-          id: `card-${index + 1}`,
-          question: item.question,
-          answer: item.answer,
-          shownAnswer: false,
-          result: null,
-        }));
-      }
-
-      setTitle(parsed.title || "Generated Flashcards");
-      setFileId(parsed.fileId || null);
-      setCards(
-        (deck || []).map((c: any, i: number) => ({
-          id: c.id ?? String(i + 1),
-          question: c.question ?? c.q ?? "",
-          answer: c.answer ?? c.a ?? "",
-          shownAnswer: false,
-          result: null,
-        }))
-      );
-    } catch (err) {
-      console.error("Failed to load flashcards from sessionStorage", err);
-      setCards([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    createPracticeSession();
+  }, [router]);
 
   const handleQuit = () => {
     router.push("/assistant/files");
@@ -79,28 +115,26 @@ export default function FlashcardsPageClient() {
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" />
-            <p className="text-gray-600 mt-4">Loading flashcards...</p>
+            <p className="text-gray-600 mt-4">Creating practice session...</p>
           </div>
         </div>
       </div>
     );
   }
 
-  if (!cards || cards.length === 0) {
+  if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
         <Header />
 
-        {/* Empty State */}
+        {/* Error State */}
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
-            <div className="text-6xl mb-6">📚</div>
+            <div className="text-6xl mb-6">⚠️</div>
             <h2 className="text-3xl font-bold text-gray-900 mb-4">
-              No Flashcards Found
+              Failed to Start Practice
             </h2>
-            <p className="text-gray-600 mb-8 text-lg">
-              Generate flashcards from a PDF file first.
-            </p>
+            <p className="text-gray-600 mb-8 text-lg">{error}</p>
             <div className="flex gap-4 justify-center">
               <Button
                 onClick={() => router.push("/assistant/files")}
@@ -117,13 +151,16 @@ export default function FlashcardsPageClient() {
   }
 
   return (
-    <div>
-      <StudyFlashcards
-        flashcards={cards}
-        title={title}
-        onQuit={handleQuit}
-        onFinish={handleFinish}
-      />
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+      <Header />
+      <div className="flex items-center justify-center py-20">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" />
+          <p className="text-gray-600 mt-4">
+            Redirecting to practice session...
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
