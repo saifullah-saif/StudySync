@@ -437,17 +437,32 @@ export default function AssistantPage() {
             <div className="max-w-4xl mx-auto">
               <div className="text-center mb-8">
                 <h1 className="text-3xl font-bold text-slate-900 mb-4">
-                  Podcast Generator
+                  My Podcasts
                 </h1>
                 <p className="text-slate-600">
-                  Transform your notes into audio lectures
+                  Generated podcasts from your study materials
                 </p>
               </div>
+
               <div className="bg-white p-8 rounded-2xl shadow-sm">
-                <p className="text-slate-600">
-                  Podcast generation functionality preserved from original
-                  implementation...
-                </p>
+                <div className="text-center py-12">
+                  <Flame className="w-16 h-16 mx-auto mb-4 text-purple-500" />
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    Generate Your First Podcast
+                  </h3>
+                  <p className="text-gray-600 mb-6">
+                    Go to "My Files", extract text from a PDF, and click
+                    "Generate Podcast" to create your first audio study
+                    material.
+                  </p>
+                  <Button
+                    onClick={() => setActiveMainTab("files")}
+                    className="bg-purple-600 hover:bg-purple-700"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Go to Files
+                  </Button>
+                </div>
               </div>
             </div>
           </TabsContent>

@@ -23,12 +23,20 @@ StudySync is a modern flashcard application built with Next.js that implements a
 - **Real-time countdown**: Timer showing time remaining to maintain current streak
 - **Practice history**: Calendar view showing all practice days with visual indicators
 
-### ✅ Spaced Repetition Algorithm
+### 🎧 PDF → Podcast Pipeline
 
-- **Evidence-based intervals**: [1, 3, 7, 14, 30, 60, 120, 240] days
-- **Adaptive scheduling**: Interval progression based on correctness
-- **Daily session management**: Intelligent card selection with limits
-- **Pull-forward logic**: Cards due within 24 hours are included in today's session
+A unique feature that converts PDF text into audio podcasts using:
+
+- **Free TTS**: Google TTS API for text-to-speech conversion
+- **Smart Chunking**: Sentence-aware text splitting for natural audio flow
+- **Audio Processing**: FFmpeg for concatenation and normalization
+- **Chapter Navigation**: Built-in player with chapter jumping and download
+- **Local Storage**: Content-based caching for efficient regeneration
+- **University Project**: Designed for local development and demonstration
+
+### 📊 Spaced Repetition Learning
+
+Based on SuperMemo algorithm with modern enhancements:
 
 ### ✅ Enhanced Analytics Dashboard
 
@@ -59,6 +67,18 @@ StudySync is a modern flashcard application built with Next.js that implements a
 - **Success rate display**: Per-card performance metrics
 - **Learning stages**: Visual representation of mastery progress
 - **Session completion**: Detailed results and continuation options
+
+### ✅ PDF → Podcast Generation (Local Demo)
+
+- **Text-to-Speech Conversion**: Transform extracted PDF text into high-quality audio podcasts
+- **Chapter-based Structure**: Automatically splits content into manageable audio chapters
+- **Local Processing**: Uses `google-tts-api` + `ffmpeg-static` for local audio generation and stitching
+- **Interactive Player**: Built-in audio player with chapter navigation, speed control, and download
+- **Caching System**: Content-based caching to avoid re-generating identical podcasts
+- **User Consent**: Confirmation dialog ensuring users have rights to convert content to audio
+- **File Integration**: Generate podcasts directly from extracted PDF text in "My Files" section
+
+**Note**: This feature is intended for local/demo use only. Ensure you have rights to convert content to audio before generation.
 
 ## Technical Architecture
 
@@ -96,7 +116,16 @@ StudySync is a modern flashcard application built with Next.js that implements a
 
 ## Usage
 
-1. **Start Development Server**:
+1. **Install Dependencies**:
+
+   Server (for podcast generation):
+
+   ```bash
+   cd server
+   npm install google-tts-api fluent-ffmpeg ffmpeg-static --legacy-peer-deps
+   ```
+
+   Client:
 
    ```bash
    cd client
@@ -106,12 +135,21 @@ StudySync is a modern flashcard application built with Next.js that implements a
 2. **Access Application**: http://localhost:3001
 
 3. **Study Flow**:
+
    - Cards are automatically selected based on spaced repetition
    - Answer cards to advance through learning stages
    - Earn XP and level up based on performance
    - Track progress with detailed analytics
 
+4. **Podcast Generation**:
+   - Go to "My Files" and upload a PDF
+   - Extract text from the PDF
+   - Click "Generate Podcast" to create audio version
+   - Play in the built-in player or download the MP3
+
 ## API Endpoints
+
+### Flashcards & Learning
 
 - `PUT /flashcards/card/:id` - Update individual card learning state
 - `PUT /flashcards/cards/batch` - Batch update multiple cards
@@ -119,6 +157,13 @@ StudySync is a modern flashcard application built with Next.js that implements a
 - `GET /flashcards/stats/:deckId?` - Retrieve learning statistics
 - `GET /flashcards/streak` - Get user streak data and history
 - `POST /flashcards/streak` - Update streak information
+
+### Podcast Generation
+
+- `POST /api/podcasts/generate` - Generate podcast from text or fileId
+- `GET /api/podcasts/download/[episodeId]` - Download or stream generated MP3
+- `GET /api/podcasts/metadata/[episodeId]` - Get podcast metadata and chapters
+- `GET /api/podcasts/generate` - List all generated podcast episodes
 
 ## Testing
 

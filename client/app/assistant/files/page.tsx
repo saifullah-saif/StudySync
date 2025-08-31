@@ -49,14 +49,18 @@ import {
   RefreshCw,
   Zap,
   Clock,
+  Headphones,
 } from "lucide-react";
 import { toast } from "sonner";
 import { fileAPI, generationAPI, flashcardAPI } from "@/lib/api";
+import { podcastAPI } from "@/lib/podcasts";
 import { useAuth } from "@/contexts/auth-context";
 import FileUpload from "../components/file-upload";
 import { langchainAPI } from "@/lib/api";
 import { generateQsAns } from "@/actions/upload-actions";
 import FlashcardsPanel from "@/components/FlashcardsPanel";
+import PodcastPlayer from "@/components/PodcastPlayer";
+import LiveTTSPlayer from "@/components/LiveTTSPlayer";
 interface FileItem {
   id: number;
   title: string;
@@ -110,6 +114,25 @@ export default function FilesPage() {
     new Map()
   );
   const [generatingFlashcards, setGeneratingFlashcards] = useState(false);
+
+  // Podcast-related states
+  const [generatingPodcast, setGeneratingPodcast] = useState(false);
+  const [podcastData, setPodcastData] = useState<{
+    episodeId: string;
+    audioUrl: string;
+    downloadUrl: string;
+    chapters: Array<{
+      title: string;
+      startSec: number;
+      durationSec: number;
+      chunkIndex: number;
+    }>;
+    title: string;
+    fileId?: number;
+    demoMode?: boolean;
+    textChunks?: string[];
+    extractedText?: string;
+  } | null>(null);
 
   const router = useRouter();
   const { user } = useAuth();
@@ -498,6 +521,75 @@ export default function FilesPage() {
       toast.error(`Failed to generate flashcards: ${error.message}`);
     } finally {
       setGeneratingFlashcards(false);
+    }
+  };
+
+  const handleGeneratePodcast = async (file: FileItem) => {
+    // Check if we have Q&A data for this file (which means we have extracted text)
+    const qsAnsData = extractedQsAns.get(file.id);
+
+    if (!qsAnsData || !qsAnsData.extractedText) {
+      toast.error("Please extract PDF text first to generate podcast");
+      return;
+    }
+
+    // Show consent confirmation
+    const userConsent = window.confirm(
+      "By generating this podcast, you confirm that you have the rights to convert and distribute this document's content as audio. Do you want to proceed?"
+    );
+
+    if (!userConsent) {
+      return;
+    }
+
+    try {
+      setGeneratingPodcast(true);
+
+      toast.info(`Generating podcast from "${file.title}"...`, {
+        duration: 3000,
+      });
+
+      console.log("🎙️ Starting podcast generation for file:", file.id);
+
+      // Generate podcast using the extracted text
+      const result = await podcastAPI.generatePodcast({
+        text: qsAnsData.extractedText,
+        title: `${file.title} - StudySync Podcast`,
+        lang: "en",
+      });
+
+      if (result.success && result.episodeId) {
+        toast.success(
+          `Successfully generated podcast! Duration: ${Math.round(
+            result.duration || 0
+          )}s`,
+          {
+            duration: 5000,
+          }
+        );
+
+        console.log("🎵 Generated podcast:", result);
+
+        // Store podcast data to show player
+        setPodcastData({
+          episodeId: result.episodeId,
+          audioUrl: result.audioUrl || "",
+          downloadUrl: result.audioUrl || "",
+          chapters: result.chapters || [],
+          title: result.title || file.title,
+          fileId: file.id,
+          demoMode: result.demoMode || false, // Flag from API response
+          textChunks: result.textChunks || [], // Text content for each chapter
+          extractedText: qsAnsData.extractedText, // Full text for TTS
+        });
+      } else {
+        throw new Error(result.error || "Failed to generate podcast");
+      }
+    } catch (error: any) {
+      console.error("Generate podcast error:", error);
+      toast.error(`Failed to generate podcast: ${error.message}`);
+    } finally {
+      setGeneratingPodcast(false);
     }
   };
 
@@ -1048,6 +1140,33 @@ export default function FilesPage() {
                     </Button>
                   )}
 
+                  {/* Generate Podcast Button */}
+                  {(() => {
+                    const hasQsAns = extractedQsAns.has(file.id);
+                    return (
+                      hasQsAns && extractedQsAns.get(file.id)?.extractedText
+                    );
+                  })() && (
+                    <Button
+                      size="sm"
+                      onClick={() => handleGeneratePodcast(file)}
+                      disabled={generatingPodcast}
+                      className="w-full bg-purple-600 hover:bg-purple-700"
+                    >
+                      {generatingPodcast ? (
+                        <>
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          Generating Podcast...
+                        </>
+                      ) : (
+                        <>
+                          <Headphones className="h-3 w-3 mr-1" />
+                          Generate Podcast
+                        </>
+                      )}
+                    </Button>
+                  )}
+
                   {/* Extract PDF Text Button - MOVED TO BOTTOM */}
                   <Button
                     size="sm"
@@ -1419,6 +1538,62 @@ export default function FilesPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Podcast Player Dialog */}
+      {podcastData && (
+        <Dialog open={!!podcastData} onOpenChange={() => setPodcastData(null)}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle className="flex items-center space-x-2">
+                <Headphones className="h-5 w-5 text-purple-500" />
+                <span>Generated Podcast</span>
+              </DialogTitle>
+              <DialogDescription>
+                Your podcast has been generated successfully! This uses live
+                text-to-speech for real audio playback. Click play to hear your
+                content.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              {podcastData.demoMode ? (
+                <LiveTTSPlayer
+                  chapters={podcastData.chapters}
+                  title={podcastData.title}
+                  episodeId={podcastData.episodeId}
+                  textChunks={podcastData.textChunks || []}
+                />
+              ) : (
+                <PodcastPlayer
+                  audioUrl={podcastData.audioUrl}
+                  chapters={podcastData.chapters}
+                  title={podcastData.title}
+                  episodeId={podcastData.episodeId}
+                  downloadUrl={podcastData.downloadUrl}
+                  demoMode={podcastData.demoMode}
+                />
+              )}
+
+              <div className="flex justify-between items-center pt-4 border-t">
+                <div className="text-sm text-gray-600">
+                  📝 Generated from:{" "}
+                  {files.find((f) => f.id === podcastData.fileId)?.title ||
+                    "Unknown file"}
+                </div>
+                <div className="text-sm text-gray-600">
+                  🎵 {podcastData.chapters.length} chapters
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4">
+              <Button variant="outline" onClick={() => setPodcastData(null)}>
+                Close
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }
