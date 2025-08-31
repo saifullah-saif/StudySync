@@ -569,6 +569,39 @@ export function getStreakStats(): {
 }
 
 /**
+ * Get streak statistics from database
+ */
+export async function getStreakStatsFromDB(): Promise<{
+  currentStreak: number;
+  longestStreak: number;
+  totalPracticeDays: number;
+  averagePerWeek: number;
+  lastPracticeDate: string;
+  streakStatus: "active" | "broken" | "frozen";
+}> {
+  try {
+    const { statsAPI } = await import("./api");
+    const response = await statsAPI.getUserStats();
+
+    if (response.success) {
+      return {
+        currentStreak: response.data.currentStreak || 0,
+        longestStreak: response.data.longestStreak || 0,
+        totalPracticeDays: response.data.totalCardsReviewed || 0, // Approximate
+        averagePerWeek: 0, // Would need more complex calculation
+        lastPracticeDate: response.data.lastStudyDate || "",
+        streakStatus: response.data.currentStreak > 0 ? "active" : "broken",
+      };
+    }
+  } catch (error) {
+    console.warn("Failed to load streak stats from database:", error);
+  }
+
+  // Fallback to localStorage
+  return getStreakStats();
+}
+
+/**
  * Get today's study statistics from localStorage
  */
 export function getTodayStats(): {
@@ -610,6 +643,36 @@ export function getTodayStats(): {
     incorrectToday: 0,
     accuracyToday: 0,
   };
+}
+
+/**
+ * Get today's study statistics from database
+ */
+export async function getTodayStatsFromDB(): Promise<{
+  cardsToday: number;
+  correctToday: number;
+  incorrectToday: number;
+  accuracyToday: number;
+}> {
+  try {
+    const { statsAPI } = await import("./api");
+    const response = await statsAPI.getUserStats();
+
+    if (response.success) {
+      return {
+        cardsToday: response.data.cardsToday || 0,
+        correctToday: response.data.correctToday || 0,
+        incorrectToday:
+          response.data.cardsToday - response.data.correctToday || 0,
+        accuracyToday: response.data.accuracyToday || 0,
+      };
+    }
+  } catch (error) {
+    console.warn("Failed to load today's stats from database:", error);
+  }
+
+  // Fallback to localStorage
+  return getTodayStats();
 }
 
 /**
@@ -682,6 +745,46 @@ export function getUserStats(): {
       overallAccuracy: 0,
     };
   }
+}
+
+/**
+ * Get comprehensive user stats from database
+ */
+export async function getUserStatsFromDB(): Promise<{
+  xp: number;
+  level: number;
+  flashcardsReviewed: number;
+  totalCorrect: number;
+  totalIncorrect: number;
+  overallAccuracy: number;
+}> {
+  try {
+    const { statsAPI } = await import("./api");
+    const response = await statsAPI.getUserStats();
+
+    if (response.success) {
+      const totalCards = response.data.totalCardsReviewed || 0;
+      const accuracy = response.data.overallAccuracy || 0;
+
+      // XP calculation: 5 XP per reviewed card + accuracy bonus
+      const xp = totalCards * 5 + Math.floor(accuracy);
+      const level = Math.floor(xp / 100) + 1;
+
+      return {
+        xp,
+        level,
+        flashcardsReviewed: totalCards,
+        totalCorrect: Math.floor((totalCards * accuracy) / 100),
+        totalIncorrect: totalCards - Math.floor((totalCards * accuracy) / 100),
+        overallAccuracy: accuracy,
+      };
+    }
+  } catch (error) {
+    console.warn("Failed to load user stats from database:", error);
+  }
+
+  // Fallback to localStorage
+  return getUserStats();
 }
 
 /**

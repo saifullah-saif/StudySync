@@ -61,8 +61,8 @@ export function StudyQuickStart() {
 
     setLoading(true);
     try {
-      // Navigate to the study page for the selected deck
-      router.push(`/notes/study/${selectedDeckId}`);
+      // Navigate to the flashcard deck page for the selected deck
+      router.push(`/flashcards/deck/${selectedDeckId}`);
     } catch (error) {
       console.error("Failed to start study session:", error);
     } finally {

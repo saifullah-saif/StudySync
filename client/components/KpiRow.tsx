@@ -4,8 +4,11 @@ import { Flame, Target, TrendingUp, Trophy } from "lucide-react";
 import { useState, useEffect } from "react";
 import {
   getStreakStats,
+  getStreakStatsFromDB,
   getTodayStats,
+  getTodayStatsFromDB,
   getUserStats,
+  getUserStatsFromDB,
   calcLevelFromXP,
 } from "@/lib/learning";
 
@@ -20,14 +23,33 @@ export function KpiRow() {
   });
   const [userStats, setUserStats] = useState({ level: 1, xp: 0 });
 
-  const loadStats = () => {
-    const streak = getStreakStats();
-    const today = getTodayStats();
-    const user = getUserStats();
+  const loadStats = async () => {
+    try {
+      // Try to load from database first, with localStorage fallback
+      const [streak, today, user] = await Promise.all([
+        getStreakStatsFromDB(),
+        getTodayStatsFromDB(),
+        getUserStatsFromDB(),
+      ]);
 
-    setStreakStats(streak);
-    setTodayStats(today);
-    setUserStats(user);
+      setStreakStats(streak);
+      setTodayStats(today);
+      setUserStats(user);
+    } catch (error) {
+      console.warn(
+        "Failed to load stats from database, using localStorage:",
+        error
+      );
+
+      // Fallback to localStorage
+      const streak = getStreakStats();
+      const today = getTodayStats();
+      const user = getUserStats();
+
+      setStreakStats(streak);
+      setTodayStats(today);
+      setUserStats(user);
+    }
   };
 
   useEffect(() => {

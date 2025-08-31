@@ -4,13 +4,13 @@ import React, { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  RotateCcw, 
-  CheckCircle, 
-  XCircle, 
+import {
+  RotateCcw,
+  CheckCircle,
+  XCircle,
   Clock,
   Eye,
-  EyeOff 
+  EyeOff,
 } from "lucide-react";
 
 interface FlashcardOption {
@@ -49,41 +49,55 @@ export default function PracticeCard({
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [startTime, setStartTime] = useState<number>(Date.now());
+  const [answerGiven, setAnswerGiven] = useState<boolean | null>(null);
+  const [showNextButton, setShowNextButton] = useState(false);
 
   useEffect(() => {
     setIsFlipped(showAnswer);
     setSelectedOption(null);
     setShowResult(false);
+    setAnswerGiven(null);
+    setShowNextButton(false);
     setStartTime(Date.now());
   }, [flashcard.id, showAnswer]);
 
   const handleFlip = () => {
     if (disabled) return;
-    
+
     const newFlipped = !isFlipped;
     setIsFlipped(newFlipped);
-    
+
     if (onFlip) {
       onFlip();
     }
   };
 
   const handleResult = (isCorrect: boolean) => {
-    if (disabled) return;
-    
+    if (disabled || answerGiven !== null) return;
+
     const responseTime = (Date.now() - startTime) / 1000;
-    onResult(isCorrect, responseTime);
+    setAnswerGiven(isCorrect);
+    setShowNextButton(true);
+    // Don't call onResult immediately - wait for Next button click
+  };
+
+  const handleNextCard = () => {
+    if (answerGiven === null) return;
+
+    const responseTime = (Date.now() - startTime) / 1000;
+    onResult(answerGiven, responseTime);
   };
 
   const handleMultipleChoiceSelect = (optionId: number, isCorrect: boolean) => {
     if (disabled || showResult) return;
-    
+
     setSelectedOption(optionId);
     setShowResult(true);
-    
-    // Auto-submit after showing result
+    setAnswerGiven(isCorrect);
+
+    // For multiple choice, show result briefly then show Next button
     setTimeout(() => {
-      handleResult(isCorrect);
+      setShowNextButton(true);
     }, 1500);
   };
 
@@ -129,7 +143,9 @@ export default function PracticeCard({
               {getDifficultyLabel(flashcard.difficulty_level)}
             </Badge>
             <Badge variant="outline" className="text-xs">
-              {flashcard.card_type === "multiple_choice" ? "Multiple Choice" : "Basic"}
+              {flashcard.card_type === "multiple_choice"
+                ? "Multiple Choice"
+                : "Basic"}
             </Badge>
           </div>
 
@@ -143,38 +159,62 @@ export default function PracticeCard({
               </div>
 
               {/* Multiple Choice Options */}
-              {flashcard.card_type === "multiple_choice" && flashcard.flashcard_options.length > 0 && (
-                <div className="space-y-3">
-                  {flashcard.flashcard_options.map((option) => (
-                    <Button
-                      key={option.id}
-                      variant={selectedOption === option.id ? "default" : "outline"}
-                      className={`w-full text-left justify-start p-4 h-auto ${
-                        showResult
-                          ? option.is_correct
-                            ? "bg-green-100 border-green-500 text-green-800"
-                            : selectedOption === option.id
-                            ? "bg-red-100 border-red-500 text-red-800"
+              {flashcard.card_type === "multiple_choice" &&
+                flashcard.flashcard_options.length > 0 && (
+                  <div className="space-y-3">
+                    {flashcard.flashcard_options.map((option) => (
+                      <Button
+                        key={option.id}
+                        variant={
+                          selectedOption === option.id ? "default" : "outline"
+                        }
+                        className={`w-full text-left justify-start p-4 h-auto ${
+                          showResult
+                            ? option.is_correct
+                              ? "bg-green-100 border-green-500 text-green-800"
+                              : selectedOption === option.id
+                              ? "bg-red-100 border-red-500 text-red-800"
+                              : ""
                             : ""
-                          : ""
-                      }`}
-                      onClick={() => handleMultipleChoiceSelect(option.id, option.is_correct)}
-                      disabled={disabled || showResult}
-                    >
-                      <span className="mr-3 font-medium">
-                        {String.fromCharCode(65 + option.option_order)}
-                      </span>
-                      {option.option_text}
-                      {showResult && option.is_correct && (
-                        <CheckCircle className="w-5 h-5 ml-auto text-green-600" />
-                      )}
-                      {showResult && selectedOption === option.id && !option.is_correct && (
-                        <XCircle className="w-5 h-5 ml-auto text-red-600" />
-                      )}
-                    </Button>
-                  ))}
-                </div>
-              )}
+                        }`}
+                        onClick={() =>
+                          handleMultipleChoiceSelect(
+                            option.id,
+                            option.is_correct
+                          )
+                        }
+                        disabled={disabled || showResult}
+                      >
+                        <span className="mr-3 font-medium">
+                          {String.fromCharCode(65 + option.option_order)}
+                        </span>
+                        {option.option_text}
+                        {showResult && option.is_correct && (
+                          <CheckCircle className="w-5 h-5 ml-auto text-green-600" />
+                        )}
+                        {showResult &&
+                          selectedOption === option.id &&
+                          !option.is_correct && (
+                            <XCircle className="w-5 h-5 ml-auto text-red-600" />
+                          )}
+                      </Button>
+                    ))}
+
+                    {/* Next Card Button for Multiple Choice - appears after selection */}
+                    {showNextButton && (
+                      <div className="text-center pt-4">
+                        <Button
+                          onClick={handleNextCard}
+                          size="lg"
+                          disabled={disabled}
+                          className="px-8 bg-blue-600 hover:bg-blue-700"
+                        >
+                          Next Card →
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                )}
 
               {/* Flip Button for Basic Cards */}
               {flashcard.card_type === "basic" && (
@@ -198,9 +238,11 @@ export default function PracticeCard({
           {isFlipped && flashcard.card_type === "basic" && (
             <div className="space-y-6">
               <div className="text-center">
-                <h3 className="text-lg font-medium text-gray-700 mb-4">Answer:</h3>
+                <h3 className="text-lg font-medium text-gray-700 mb-4">
+                  Answer:
+                </h3>
                 <p className="text-xl text-gray-900 mb-4">{flashcard.answer}</p>
-                
+
                 {flashcard.explanation && (
                   <div className="bg-blue-50 p-4 rounded-lg">
                     <p className="text-sm text-blue-800">
@@ -216,8 +258,10 @@ export default function PracticeCard({
                   onClick={() => handleResult(false)}
                   variant="outline"
                   size="lg"
-                  disabled={disabled}
-                  className="px-8 border-red-300 text-red-700 hover:bg-red-50"
+                  disabled={disabled || answerGiven !== null}
+                  className={`px-8 border-red-300 text-red-700 hover:bg-red-50 ${
+                    answerGiven === false ? "bg-red-100 border-red-500" : ""
+                  }`}
                 >
                   <XCircle className="w-5 h-5 mr-2" />
                   Incorrect
@@ -225,13 +269,29 @@ export default function PracticeCard({
                 <Button
                   onClick={() => handleResult(true)}
                   size="lg"
-                  disabled={disabled}
-                  className="px-8 bg-green-600 hover:bg-green-700"
+                  disabled={disabled || answerGiven !== null}
+                  className={`px-8 bg-green-600 hover:bg-green-700 ${
+                    answerGiven === true ? "bg-green-700" : ""
+                  }`}
                 >
                   <CheckCircle className="w-5 h-5 mr-2" />
                   Correct
                 </Button>
               </div>
+
+              {/* Next Card Button - appears after marking correct/incorrect */}
+              {showNextButton && (
+                <div className="text-center">
+                  <Button
+                    onClick={handleNextCard}
+                    size="lg"
+                    disabled={disabled}
+                    className="px-8 bg-blue-600 hover:bg-blue-700"
+                  >
+                    Next Card →
+                  </Button>
+                </div>
+              )}
 
               {/* Hide Answer Button */}
               <div className="text-center">

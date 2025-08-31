@@ -69,6 +69,23 @@ export default function PracticeSummaryPage() {
     loadPracticeSession();
   }, [sessionId, user]);
 
+  // Log for debugging counting issues
+  useEffect(() => {
+    if (session && (urlCardsStudied || urlCardsCorrect)) {
+      console.log("Summary page data comparison:");
+      console.log("URL params:", {
+        cardsStudied: urlCardsStudied,
+        cardsCorrect: urlCardsCorrect,
+        totalTime: urlTotalTime,
+      });
+      console.log("Database session:", {
+        cardsStudied: session.cardsStudied,
+        cardsCorrect: session.cardsCorrect,
+        totalTime: session.totalTimeSeconds,
+      });
+    }
+  }, [session, urlCardsStudied, urlCardsCorrect, urlTotalTime]);
+
   const loadPracticeSession = async () => {
     try {
       setLoading(true);
@@ -200,11 +217,11 @@ export default function PracticeSummaryPage() {
 
   // Use URL params for immediate display if session data isn't loaded yet
   const displayCardsStudied =
-    session.cardsStudied || parseInt(urlCardsStudied || "0");
+    session?.cardsStudied ?? parseInt(urlCardsStudied || "0");
   const displayCardsCorrect =
-    session.cardsCorrect || parseInt(urlCardsCorrect || "0");
+    session?.cardsCorrect ?? parseInt(urlCardsCorrect || "0");
   const displayTotalTime =
-    session.totalTimeSeconds || parseInt(urlTotalTime || "0");
+    session?.totalTimeSeconds ?? parseInt(urlTotalTime || "0");
 
   return (
     <div className="min-h-screen bg-gray-50">

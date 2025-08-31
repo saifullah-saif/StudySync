@@ -415,13 +415,55 @@ export const practiceAPI = {
     isCorrect,
     responseTimeSeconds
   ) => {
-    const response = await api.post("/practice/flashcard-attempts", {
+    console.log("🎯 API: Recording flashcard attempt", {
       sessionId,
       flashcardId,
       isCorrect,
       responseTimeSeconds,
     });
-    return response.data;
+
+    try {
+      const response = await api.post("/practice/flashcard-attempts", {
+        sessionId,
+        flashcardId,
+        isCorrect,
+        responseTimeSeconds,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("🔥 API Error Details:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          data: error.config?.data,
+        },
+      });
+
+      // Provide more specific error messages for authentication issues
+      if (error.response?.status === 401) {
+        throw new Error(
+          "Your session has expired. Please log in again to continue studying."
+        );
+      } else if (error.response?.status === 403) {
+        throw new Error(
+          "You don't have permission to access this study session."
+        );
+      } else if (error.response?.status === 404) {
+        throw new Error("The flashcard or session could not be found.");
+      } else if (error.response?.status >= 500) {
+        console.error("🔥 Server Error Response:", error.response?.data);
+        throw new Error(
+          `Server error (${error.response?.status}): ${
+            error.response?.data?.message || error.message
+          }`
+        );
+      }
+      throw error;
+    }
   },
 
   // Complete practice session
@@ -431,15 +473,35 @@ export const practiceAPI = {
     cardsCorrect,
     totalTimeSeconds
   ) => {
-    const response = await api.post(
-      `/practice/flashcard-sessions/${sessionId}/complete`,
-      {
-        cardsStudied,
-        cardsCorrect,
-        totalTimeSeconds,
+    try {
+      const response = await api.post(
+        `/practice/flashcard-sessions/${sessionId}/complete`,
+        {
+          cardsStudied,
+          cardsCorrect,
+          totalTimeSeconds,
+        }
+      );
+      return response.data;
+    } catch (error) {
+      // Provide more specific error messages for authentication issues
+      if (error.response?.status === 401) {
+        throw new Error(
+          "Your session has expired. Please log in again to complete the study session."
+        );
+      } else if (error.response?.status === 403) {
+        throw new Error(
+          "You don't have permission to access this study session."
+        );
+      } else if (error.response?.status === 404) {
+        throw new Error("The study session could not be found.");
+      } else if (error.response?.status >= 500) {
+        throw new Error(
+          "Server error occurred while completing the session. Please try again."
+        );
       }
-    );
-    return response.data;
+      throw error;
+    }
   },
 };
 
@@ -550,6 +612,21 @@ export const flashcardAPI = {
       console.warn("Failed to update streak:", error);
       return { success: false, error: error.message };
     }
+  },
+};
+
+// User Stats API
+export const statsAPI = {
+  // Get user statistics
+  getUserStats: async () => {
+    const response = await api.get("/stats/user");
+    return response.data;
+  },
+
+  // Update user statistics after study session
+  updateUserStats: async (statsData) => {
+    const response = await api.post("/stats/user", statsData);
+    return response.data;
   },
 };
 

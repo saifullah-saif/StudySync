@@ -263,12 +263,8 @@ const getPracticeSession = async (req, res) => {
  */
 const recordFlashcardAttempt = async (req, res) => {
   try {
-    console.log("recordFlashcardAttempt called with:", req.body);
-    
     const { sessionId, flashcardId, isCorrect, responseTimeSeconds } = req.body;
     const userId = req.user.id;
-
-    console.log("Extracted data:", { sessionId, flashcardId, isCorrect, responseTimeSeconds, userId });
 
     // Verify session ownership
     const session = await prisma.study_sessions.findFirst({
@@ -279,15 +275,46 @@ const recordFlashcardAttempt = async (req, res) => {
     });
 
     if (!session) {
-      console.log("Session not found or access denied");
       return res.status(404).json({
         success: false,
         message: "Practice session not found or access denied",
       });
     }
 
-    console.log("Session found:", session);
+    // Send response immediately to avoid UI delay
+    res.json({
+      success: true,
+      message: "Attempt recorded successfully",
+    });
 
+    // Continue processing in background
+    processFlashcardAttemptBackground(
+      userId,
+      sessionId,
+      flashcardId,
+      isCorrect,
+      responseTimeSeconds
+    );
+  } catch (error) {
+    console.error("Error recording flashcard attempt:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to record flashcard attempt",
+    });
+  }
+};
+
+/**
+ * Background processing for flashcard attempts to avoid UI delays
+ */
+const processFlashcardAttemptBackground = async (
+  userId,
+  sessionId,
+  flashcardId,
+  isCorrect,
+  responseTimeSeconds
+) => {
+  try {
     // Get or create card progress for this user and flashcard
     let cardProgress = await prisma.card_progress.findFirst({
       where: {
@@ -297,14 +324,13 @@ const recordFlashcardAttempt = async (req, res) => {
     });
 
     if (!cardProgress) {
-      console.log("Creating new card progress");
       cardProgress = await prisma.card_progress.create({
         data: {
           user_id: userId,
           flashcard_id: parseInt(flashcardId),
-          algorithm_id: 1,
+          algorithm_id: null, // Set to null to avoid foreign key constraint
           current_interval: 1,
-          ease_factor: 2.50,
+          ease_factor: 2.5,
           total_reviews: 0,
           correct_reviews: 0,
           consecutive_correct: 0,
@@ -314,57 +340,49 @@ const recordFlashcardAttempt = async (req, res) => {
       });
     }
 
-    console.log("Card progress:", cardProgress);
-
-    // Update card progress statistics
+    // Process updates in parallel for better performance
     const wasCorrect = Boolean(isCorrect);
-    const updatedCardProgress = await prisma.card_progress.update({
-      where: { id: cardProgress.id },
-      data: {
-        total_reviews: cardProgress.total_reviews + 1,
-        correct_reviews: cardProgress.correct_reviews + (wasCorrect ? 1 : 0),
-        consecutive_correct: wasCorrect ? cardProgress.consecutive_correct + 1 : 0,
-        last_review_date: new Date(),
-        last_response: wasCorrect ? "correct" : "incorrect",
-        updated_at: new Date(),
-      },
-    });
 
-    console.log("Updated card progress:", updatedCardProgress);
+    const [updatedCardProgress, cardReview] = await Promise.all([
+      // Update card progress statistics
+      prisma.card_progress.update({
+        where: { id: cardProgress.id },
+        data: {
+          total_reviews: cardProgress.total_reviews + 1,
+          correct_reviews: cardProgress.correct_reviews + (wasCorrect ? 1 : 0),
+          consecutive_correct: wasCorrect
+            ? cardProgress.consecutive_correct + 1
+            : 0,
+          last_review_date: new Date(),
+          last_response: wasCorrect ? "correct" : "incorrect",
+          updated_at: new Date(),
+        },
+      }),
 
-    // Record the review
-    const cardReview = await prisma.card_reviews.create({
-      data: {
-        session_id: parseInt(sessionId),
-        card_progress_id: cardProgress.id,
-        user_response: wasCorrect ? "correct" : "incorrect",
-        response_time_ms: Math.round((parseFloat(responseTimeSeconds) || 0) * 1000),
-        previous_interval: cardProgress.current_interval,
-        new_interval: cardProgress.current_interval, // For now, keep the same interval
-        previous_ease_factor: cardProgress.ease_factor,
-        new_ease_factor: cardProgress.ease_factor, // For now, keep the same ease factor
-        reviewed_at: new Date(),
-      },
-    });
+      // Record the review
+      prisma.card_reviews.create({
+        data: {
+          session_id: parseInt(sessionId),
+          card_progress_id: cardProgress.id,
+          user_response: wasCorrect ? "correct" : "incorrect",
+          response_time_ms: Math.round(
+            (parseFloat(responseTimeSeconds) || 0) * 1000
+          ),
+          previous_interval: cardProgress.current_interval,
+          new_interval: cardProgress.current_interval,
+          previous_ease_factor: cardProgress.ease_factor,
+          new_ease_factor: cardProgress.ease_factor,
+          reviewed_at: new Date(),
+        },
+      }),
+    ]);
 
-    console.log("Card review created:", cardReview);
-
-    res.json({
-      success: true,
-      message: "Attempt recorded successfully",
-      data: {
-        cardProgress: updatedCardProgress,
-        review: cardReview,
-      },
+    // Update user stats in background (don't wait for it)
+    updateUserStatsRealTime(userId, isCorrect).catch((statsError) => {
+      console.error("Failed to update user stats:", statsError);
     });
   } catch (error) {
-    console.error("Record flashcard attempt error - Full error:", error);
-    console.error("Error stack:", error.stack);
-    res.status(500).json({
-      success: false,
-      message: "Failed to record attempt",
-      error: error.message,
-    });
+    console.error("Background processing error:", error);
   }
 };
 
@@ -392,14 +410,32 @@ const completePracticeSession = async (req, res) => {
       });
     }
 
-    // Update session with completion data
+    // Get actual count from database records instead of trusting client
+    const actualReviewCount = await prisma.card_reviews.count({
+      where: {
+        session_id: parseInt(sessionId),
+      },
+    });
+
+    const correctReviewCount = await prisma.card_reviews.count({
+      where: {
+        session_id: parseInt(sessionId),
+        user_response: "correct",
+      },
+    });
+
+    console.log(
+      `Session ${sessionId}: Client reported ${cardsStudied} cards, DB shows ${actualReviewCount} reviews`
+    );
+
+    // Update session with actual database counts
     const updatedSession = await prisma.study_sessions.update({
       where: {
         id: parseInt(sessionId),
       },
       data: {
-        cards_studied: parseInt(cardsStudied),
-        cards_correct: parseInt(cardsCorrect),
+        cards_studied: actualReviewCount, // Use database count
+        cards_correct: correctReviewCount, // Use database count
         total_time_seconds: parseInt(totalTimeSeconds),
         ended_at: new Date(),
         is_completed: true,
@@ -409,13 +445,12 @@ const completePracticeSession = async (req, res) => {
     res.json({
       success: true,
       data: {
-        sessionId: updatedSession.id,
-        cardsStudied: updatedSession.cards_studied,
-        cardsCorrect: updatedSession.cards_correct,
-        accuracy: updatedSession.cards_studied > 0 
-          ? Math.round((updatedSession.cards_correct / updatedSession.cards_studied) * 100)
-          : 0,
-        totalTimeSeconds: updatedSession.total_time_seconds,
+        session: {
+          id: updatedSession.id,
+          cardsStudied: actualReviewCount, // Return actual count
+          cardsCorrect: correctReviewCount, // Return actual count
+          totalTimeSeconds: updatedSession.total_time_seconds,
+        },
       },
     });
   } catch (error) {
@@ -434,7 +469,7 @@ const createDeck = async (req, res) => {
   try {
     console.log("createDeck called with body:", req.body);
     console.log("User:", req.user);
-    
+
     const userId = req.user.id;
     const { title, description, flashcards } = req.body;
 
@@ -445,7 +480,7 @@ const createDeck = async (req, res) => {
       console.log("Validation failed: Title is required");
       return res.status(400).json({
         success: false,
-        message: "Title is required"
+        message: "Title is required",
       });
     }
 
@@ -453,18 +488,23 @@ const createDeck = async (req, res) => {
       console.log("Validation failed: No flashcards provided");
       return res.status(400).json({
         success: false,
-        message: "At least one flashcard is required"
+        message: "At least one flashcard is required",
       });
     }
 
     // Validate flashcards
     for (let i = 0; i < flashcards.length; i++) {
       const card = flashcards[i];
-      if (!card.question || !card.question.trim() || !card.answer || !card.answer.trim()) {
+      if (
+        !card.question ||
+        !card.question.trim() ||
+        !card.answer ||
+        !card.answer.trim()
+      ) {
         console.log(`Validation failed: Flashcard ${i + 1} invalid:`, card);
         return res.status(400).json({
           success: false,
-          message: `Flashcard ${i + 1} must have both question and answer`
+          message: `Flashcard ${i + 1} must have both question and answer`,
         });
       }
     }
@@ -477,7 +517,7 @@ const createDeck = async (req, res) => {
         title: title.trim(),
         description: description?.trim() || null,
         user_id: userId,
-        creation_method: 'manual',
+        creation_method: "manual",
         created_at: new Date(),
       });
 
@@ -487,9 +527,9 @@ const createDeck = async (req, res) => {
           title: title.trim(),
           description: description?.trim() || null,
           user_id: userId,
-          creation_method: 'manual',
+          creation_method: "manual",
           created_at: new Date(),
-        }
+        },
       });
 
       console.log("Deck created:", deck);
@@ -525,11 +565,10 @@ const createDeck = async (req, res) => {
           description: result.description,
           cardCount: flashcards.length,
           createdAt: result.created_at,
-        }
+        },
       },
-      message: "Deck created successfully"
+      message: "Deck created successfully",
     });
-
   } catch (error) {
     console.error("Error creating deck - Full error:", error);
     console.error("Error stack:", error.stack);
@@ -540,6 +579,104 @@ const createDeck = async (req, res) => {
     });
   }
 };
+
+/**
+ * Helper function to update user stats in real-time
+ */
+async function updateUserStatsRealTime(userId, isCorrect) {
+  try {
+    // Get or create user stats
+    let userStats = await prisma.user_stats.findUnique({
+      where: { user_id: userId },
+    });
+
+    if (!userStats) {
+      userStats = await prisma.user_stats.create({
+        data: {
+          user_id: userId,
+          total_cards_created: 0,
+          total_decks_created: 0,
+          total_notes_processed: 0,
+          total_study_time_minutes: 0,
+          total_cards_reviewed: 0,
+          current_study_streak_days: 0,
+          longest_study_streak_days: 0,
+          overall_accuracy: 0.0,
+          cards_mastered: 0,
+          cards_learning: 0,
+          cards_new: 0,
+          last_study_date: null,
+        },
+      });
+    }
+
+    // Calculate new totals
+    const newTotalReviewed = (userStats.total_cards_reviewed || 0) + 1;
+    const currentCorrect =
+      ((userStats.overall_accuracy || 0) / 100) *
+      (userStats.total_cards_reviewed || 0);
+    const newTotalCorrect = currentCorrect + (isCorrect ? 1 : 0);
+    const newAccuracy =
+      newTotalReviewed > 0 ? (newTotalCorrect / newTotalReviewed) * 100 : 0;
+
+    // Check for streak update
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const lastStudyDate = userStats.last_study_date
+      ? new Date(userStats.last_study_date)
+      : null;
+
+    let currentStreak = userStats.current_study_streak_days || 0;
+    let longestStreak = userStats.longest_study_streak_days || 0;
+    let shouldUpdateStreak = false;
+
+    if (!lastStudyDate || lastStudyDate.getTime() !== today.getTime()) {
+      shouldUpdateStreak = true;
+
+      if (lastStudyDate) {
+        const daysDiff = Math.floor(
+          (today.getTime() - lastStudyDate.getTime()) / (1000 * 60 * 60 * 24)
+        );
+
+        if (daysDiff === 1) {
+          currentStreak += 1;
+        } else if (daysDiff > 1) {
+          currentStreak = 1;
+        }
+      } else {
+        currentStreak = 1;
+      }
+
+      if (currentStreak > longestStreak) {
+        longestStreak = currentStreak;
+      }
+    }
+
+    // Update user stats
+    await prisma.user_stats.update({
+      where: { user_id: userId },
+      data: {
+        total_cards_reviewed: newTotalReviewed,
+        overall_accuracy: newAccuracy,
+        current_study_streak_days: currentStreak,
+        longest_study_streak_days: longestStreak,
+        last_study_date: shouldUpdateStreak ? today : userStats.last_study_date,
+        updated_at: new Date(),
+      },
+    });
+
+    console.log("✅ User stats updated:", {
+      userId,
+      totalReviewed: newTotalReviewed,
+      accuracy: newAccuracy,
+      streak: currentStreak,
+      isCorrect,
+    });
+  } catch (error) {
+    console.error("Failed to update user stats:", error);
+    throw error;
+  }
+}
 
 module.exports = {
   getUserDecks,

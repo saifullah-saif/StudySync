@@ -2,7 +2,11 @@ import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Flame, Calendar, Trophy, Clock } from "lucide-react";
-import { getStreakData, getStreakStats } from "@/lib/learning";
+import {
+  getStreakData,
+  getStreakStats,
+  getStreakStatsFromDB,
+} from "@/lib/learning";
 
 interface StreakHistoryProps {
   className?: string;
@@ -20,14 +24,31 @@ export default function StreakHistory({ className = "" }: StreakHistoryProps) {
     loadStreakData();
   }, []);
 
-  const loadStreakData = () => {
-    const data = getStreakData();
-    const stats = getStreakStats();
-    setStreakData({
-      streakHistory: data.streakHistory,
-      currentStreak: stats.currentStreak,
-      longestStreak: stats.longestStreak,
-    });
+  const loadStreakData = async () => {
+    try {
+      // Try to load from database first
+      const stats = await getStreakStatsFromDB();
+      const data = getStreakData(); // Still need localStorage for history array
+      setStreakData({
+        streakHistory: data.streakHistory,
+        currentStreak: stats.currentStreak,
+        longestStreak: stats.longestStreak,
+      });
+    } catch (error) {
+      console.warn(
+        "Failed to load streak from database, using localStorage:",
+        error
+      );
+
+      // Fallback to localStorage
+      const data = getStreakData();
+      const stats = getStreakStats();
+      setStreakData({
+        streakHistory: data.streakHistory,
+        currentStreak: stats.currentStreak,
+        longestStreak: stats.longestStreak,
+      });
+    }
   };
 
   const getDaysInMonth = (date: Date) => {

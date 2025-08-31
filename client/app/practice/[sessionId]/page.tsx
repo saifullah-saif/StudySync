@@ -134,27 +134,58 @@ export default function PracticeSessionPage() {
       timestamp: Date.now(),
     };
 
-    setAttempts((prev) => [...prev, attempt]);
-
-    // Record attempt on server
-    try {
-      await practiceAPI.recordFlashcardAttempt(
-        sessionId,
-        currentCard.id,
+    setAttempts((prev) => {
+      const newAttempts = [...prev, attempt];
+      console.log(`🎯 Card ${currentCardIndex + 1} result recorded:`, {
+        cardId: currentCard.id,
         isCorrect,
-        responseTime
-      );
-    } catch (error) {
-      console.error("Failed to record attempt:", error);
-      // Continue anyway - we have local record
-    }
+        totalAttempts: newAttempts.length,
+        currentCardIndex: currentCardIndex + 1,
+      });
+      return newAttempts;
+    });
 
-    // Move to next card or complete session
+    // Move to next card immediately (don't wait for server)
     if (currentCardIndex < deck.flashcards.length - 1) {
       setCurrentCardIndex((prev) => prev + 1);
+
+      // Record attempt on server in background (fire and forget) for non-final cards
+      practiceAPI
+        .recordFlashcardAttempt(
+          sessionId,
+          currentCard.id,
+          isCorrect,
+          responseTime
+        )
+        .catch((error) => {
+          console.error("Failed to record attempt:", error);
+        });
     } else {
-      // Session complete
-      await completeSession();
+      // Session complete - ensure last card is recorded before completing
+      console.log(
+        `🏁 Session completing with ${
+          attempts.length + 1
+        } total attempts (including this final card)`
+      );
+
+      // For the final card, wait for the server recording to complete
+      try {
+        await practiceAPI.recordFlashcardAttempt(
+          sessionId,
+          currentCard.id,
+          isCorrect,
+          responseTime
+        );
+        console.log("✅ Final card recorded successfully");
+      } catch (error) {
+        console.error("❌ Failed to record final card attempt:", error);
+      }
+
+      // Small delay to ensure background processing completes
+      setTimeout(async () => {
+        await completeSession();
+      }, 200);
+      return;
     }
   };
 
@@ -165,23 +196,54 @@ export default function PracticeSessionPage() {
     const cardsCorrect = attempts.filter((a) => a.isCorrect).length;
     const totalTimeSeconds = Math.floor((Date.now() - sessionStartTime) / 1000);
 
+    console.log(`📊 Completing session with local counts:`, {
+      attemptsArrayLength: attempts.length,
+      cardsStudied,
+      cardsCorrect,
+      currentCardIndex,
+      totalCardsInDeck: deck.flashcards.length,
+    });
+
     try {
-      await practiceAPI.completePracticeSession(
+      const result = await practiceAPI.completePracticeSession(
         sessionId,
         cardsStudied,
         cardsCorrect,
         totalTimeSeconds
       );
 
-      // Navigate to summary with session data
-      router.push(
-        `/practice/${sessionId}/summary?cardsStudied=${cardsStudied}&cardsCorrect=${cardsCorrect}&totalTime=${totalTimeSeconds}`
-      );
+      if (result.success) {
+        // Use the actual counts returned from the server (database-verified)
+        const actualCardsStudied = result.data.session.cardsStudied;
+        const actualCardsCorrect = result.data.session.cardsCorrect;
+        const actualTotalTime = result.data.session.totalTimeSeconds;
+
+        console.log(`✅ Server verified counts:`, {
+          client: { cardsStudied, cardsCorrect },
+          server: {
+            cardsStudied: actualCardsStudied,
+            cardsCorrect: actualCardsCorrect,
+          },
+          difference: {
+            cardsStudied: actualCardsStudied - cardsStudied,
+            cardsCorrect: actualCardsCorrect - cardsCorrect,
+          },
+        });
+
+        // Navigate to summary with server-verified data
+        router.push(
+          `/practice/${sessionId}/summary?cardsStudied=${actualCardsStudied}&cardsCorrect=${actualCardsCorrect}&totalTime=${actualTotalTime}`
+        );
+      } else {
+        throw new Error(result.message || "Failed to complete session");
+      }
     } catch (error) {
       console.error("Failed to complete session:", error);
       toast.error("Failed to save session results");
-      // Still navigate to summary with local data
-      router.push(`/practice/${sessionId}/summary`);
+      // Still navigate to summary with local data as fallback
+      router.push(
+        `/practice/${sessionId}/summary?cardsStudied=${cardsStudied}&cardsCorrect=${cardsCorrect}&totalTime=${totalTimeSeconds}`
+      );
     }
   };
 

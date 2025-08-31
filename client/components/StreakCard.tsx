@@ -2,7 +2,11 @@
 import { THEME } from "@/styles/theme";
 import { Flame, Clock, Trophy } from "lucide-react";
 import { useEffect, useState } from "react";
-import { getStreakStats, getTimeUntilMidnight } from "@/lib/learning";
+import {
+  getStreakStats,
+  getStreakStatsFromDB,
+  getTimeUntilMidnight,
+} from "@/lib/learning";
 
 function convertMilliseconds(ms: number): string {
   const hours = Math.floor(ms / (1000 * 60 * 60));
@@ -19,12 +23,27 @@ export function StreakCard() {
   });
   const [timeLeft, setTimeLeft] = useState(0);
 
-  const loadStreakData = () => {
-    const stats = getStreakStats();
-    const timeData = getTimeUntilMidnight();
+  const loadStreakData = async () => {
+    try {
+      // Try to load from database first
+      const stats = await getStreakStatsFromDB();
+      const timeData = getTimeUntilMidnight();
 
-    setStreakData(stats);
-    setTimeLeft(timeData.ms);
+      setStreakData(stats);
+      setTimeLeft(timeData.ms);
+    } catch (error) {
+      console.warn(
+        "Failed to load streak from database, using localStorage:",
+        error
+      );
+
+      // Fallback to localStorage
+      const stats = getStreakStats();
+      const timeData = getTimeUntilMidnight();
+
+      setStreakData(stats);
+      setTimeLeft(timeData.ms);
+    }
   };
 
   useEffect(() => {
