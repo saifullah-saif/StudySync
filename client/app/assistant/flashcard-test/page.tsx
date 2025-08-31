@@ -4,7 +4,15 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import FlashcardsPanel from "@/components/FlashcardsPanel";
-import StudyFlashcards, { StudyFlashcard } from "@/components/StudyFlashcards";
+import StudyFlashcards from "@/components/StudyFlashcards";
+
+interface StudyFlashcard {
+  id: string;
+  question: string;
+  answer: string;
+  shownAnswer: boolean;
+  result: null | 'correct' | 'incorrect';
+}
 import FileUpload from "../components/file-upload";
 
 interface QsAnsItem {
@@ -96,9 +104,7 @@ export default function FlashcardTestPage() {
     return (
       <StudyFlashcards
         flashcards={sampleData}
-        title="Photosynthesis Study Deck"
-        onQuit={handleStudyQuit}
-        onFinish={handleStudyFinish}
+        deckId="test-deck"
       />
     );
   }

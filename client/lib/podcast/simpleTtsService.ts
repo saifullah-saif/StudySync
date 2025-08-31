@@ -22,12 +22,16 @@ export class SimpleTTSService {
   }
 
   private loadVoices() {
+    if (!this.synth) return;
+    
     this.voices = this.synth.getVoices();
 
     // If voices aren't loaded yet, wait for the event
     if (this.voices.length === 0) {
       this.synth.addEventListener("voiceschanged", () => {
-        this.voices = this.synth.getVoices();
+        if (this.synth) {
+          this.voices = this.synth.getVoices();
+        }
       });
     }
   }
