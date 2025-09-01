@@ -160,6 +160,115 @@ export const authAPI = {
   },
 };
 
+export const profileAPI = {
+  // Get user profile with courses and reviews
+  getProfile: async () => {
+    const response = await api.get("/profile");
+    return response.data;
+  },
+
+  // Get all available courses
+  getAllCourses: async () => {
+    const response = await api.get("/profile/courses");
+    return response.data;
+  },
+
+  // Update user profile
+  updateProfile: async (profileData) => {
+    const response = await api.put("/profile", {
+      name: profileData.name,
+      email: profileData.email,
+      department: profileData.department,
+      semester: profileData.semester ? parseInt(profileData.semester) : null,
+      bio: profileData.bio,
+      courses: profileData.courses || [],
+      previousCourses: profileData.previousCourses || [],
+    });
+    return response.data;
+  },
+};
+
+export const buddyAPI = {
+  // Get study buddies (peers or mentors)
+  getBuddies: async (type = 'peers', searchQuery = '') => {
+    const params = new URLSearchParams({ type });
+    if (searchQuery && searchQuery.trim()) {
+      params.append('search', searchQuery.trim());
+    }
+    const response = await api.get(`/buddies?${params.toString()}`);
+    return response.data;
+  },
+
+  // Create a new connection request (study invite or mentoring request)
+  createConnection: async (addresseeId, requestType) => {
+    const response = await api.post('/buddies/connections', {
+      addresseeId,
+      requestType
+    });
+    return response.data;
+  },
+
+  // Get pending connection requests
+  getPendingConnections: async () => {
+    const response = await api.get('/buddies/connections');
+    return response.data;
+  },
+
+  // Get pending invitations (alias for getPendingConnections)
+  getPendingInvitations: async () => {
+    const response = await api.get('/buddies/invitations');
+    return response.data;
+  },
+
+  // Get accepted connections
+  getAcceptedConnections: async () => {
+    const response = await api.get('/buddies/connections/accepted');
+    return response.data;
+  },
+
+  // Respond to invitation (accept or reject)
+  respondToInvitation: async (invitationId, response) => {
+    const apiResponse = await api.put(`/buddies/invitations/${invitationId}/respond`, {
+      response
+    });
+    return apiResponse.data;
+  },
+
+  // Update connection status (accept or reject)
+  updateConnectionStatus: async (connectionId, status) => {
+    const response = await api.put(`/buddies/connections/${connectionId}`, {
+      status
+    });
+    return response.data;
+  },
+};
+
+export const chatAPI = {
+  // Get chat history with a specific user
+  getChatHistory: async (userId) => {
+    const response = await api.get(`/chats/${userId}`);
+    return response.data;
+  },
+
+  // Send a message to a specific user
+  sendMessage: async (userId, content) => {
+    const response = await api.post(`/chats/${userId}`, { content });
+    return response.data;
+  },
+
+  // Get all conversations for the current user
+  getConversations: async () => {
+    const response = await api.get('/chats/conversations');
+    return response.data;
+  },
+
+  // Mark messages from a specific user as read
+  markAsRead: async (userId) => {
+    const response = await api.put(`/chats/${userId}/read`);
+    return response.data;
+  },
+};
+
 // Document API for flashcard generation
 export const documentAPI = {
   // Upload document (PDF, DOCX, TXT)

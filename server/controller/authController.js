@@ -90,8 +90,6 @@ class AuthController {
     try {
       const { email, password } = req.body;
 
-      console.log("Login attempt for email:", email);
-
       // Validate required fields
       if (!email || !password) {
         return res.status(400).json({
