@@ -131,24 +131,30 @@ async function createRoomReservation(roomId, userId, startTime, endTime, purpose
   // Create reservations based on room type
   console.log(`Room capacity: ${roomCapacity}, Selected seats: ${selectedSeats.length}`);
 
-  if (roomCapacity < 10) {
-    // For small rooms, create one reservation for the entire room
-    const reservation = await prisma.reservations.create({
-      data: {
-        room_id: roomIdNum,
-        user_id: userIdNum,
-        start_time: startTime,
-        end_time: endTime,
-        status: 'reserved',
-        purpose: purpose || 'Room reservation'
-      },
-      include: {
-        library_rooms: true
-      }
-    });
+        if (roomCapacity < 10) {
+        // For small rooms, create one reservation for the entire room
+        const reservation = await prisma.reservations.create({
+          data: {
+            room_id: roomIdNum,
+            user_id: userIdNum,
+            start_time: startTime,
+            end_time: endTime,
+            status: 'reserved',
+            purpose: purpose || 'Room reservation'
+          },
+          include: {
+            library_rooms: true
+          }
+        });
 
-    return [reservation];
-  } else {
+        // Make all seats in the room inaccessible
+        await prisma.seats.updateMany({
+          where: { room_id: roomIdNum },
+          data: { is_accessible: false }
+        });
+
+        return [reservation];
+      } else {
     // For large rooms, limit to maximum 3 seats per booking
     if (selectedSeats.length > 3) {
       throw new Error('You can only book up to 3 seats at a time');
@@ -237,6 +243,12 @@ async function createRoomReservation(roomId, userId, startTime, endTime, purpose
         include: {
           library_rooms: true
         }
+      });
+
+      // Make this specific seat inaccessible
+      await prisma.seats.update({
+        where: { id: seat.id },
+        data: { is_accessible: false }
       });
 
       reservations.push(reservation);

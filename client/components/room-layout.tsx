@@ -248,58 +248,63 @@ export function RoomLayout({ mode, selectedSeats = [], onSeatClick, capacity = 1
             >
               {seat.seatNumber}
             </text>
+          </g>
+        ))}
 
-            {/* Computer icon - desktop monitor */}
+        {/* Icons on top of seats */}
+        {seats.map((seat) => (
+          <g key={`icons-${seat.id}`}>
+            {/* Computer icon - smaller desktop monitor */}
             {seat.hasComputer && (
               <g className="pointer-events-none">
                 {/* Monitor screen */}
                 <rect
-                  x={seat.x - 8}
-                  y={seat.y - 35}
-                  width="16"
-                  height="12"
+                  x={seat.x - 6}
+                  y={seat.y - 25}
+                  width="12"
+                  height="8"
                   fill="#374151"
                   stroke="#1F2937"
                   strokeWidth="1"
-                  rx="2"
+                  rx="1"
                 />
                 {/* Monitor stand */}
                 <rect
-                  x={seat.x - 2}
-                  y={seat.y - 23}
-                  width="4"
-                  height="6"
+                  x={seat.x - 1.5}
+                  y={seat.y - 17}
+                  width="3"
+                  height="4"
                   fill="#374151"
                 />
                 {/* Monitor base */}
                 <rect
-                  x={seat.x - 6}
-                  y={seat.y - 17}
-                  width="12"
-                  height="2"
+                  x={seat.x - 4.5}
+                  y={seat.y - 13}
+                  width="9"
+                  height="1.5"
                   fill="#374151"
-                  rx="1"
+                  rx="0.5"
                 />
               </g>
             )}
 
-            {/* Power outlet icon - electricity symbol */}
+            {/* Power outlet icon - smaller electricity symbol */}
             {seat.hasPowerOutlet && (
               <g className="pointer-events-none">
                 {/* Outlet background */}
                 <rect
-                  x={seat.x + 15}
-                  y={seat.y - 35}
-                  width="12"
-                  height="12"
+                  x={seat.x + 12}
+                  y={seat.y - 25}
+                  width="8"
+                  height="8"
                   fill="#FBBF24"
                   stroke="#F59E0B"
                   strokeWidth="1"
-                  rx="2"
+                  rx="1"
                 />
                 {/* Lightning bolt */}
                 <path
-                  d={`M${seat.x + 19} ${seat.y - 32} L${seat.x + 22} ${seat.y - 29} L${seat.x + 20} ${seat.y - 29} L${seat.x + 23} ${seat.y - 26} L${seat.x + 20} ${seat.y - 26} L${seat.x + 22} ${seat.y - 24}`}
+                  d={`M${seat.x + 15} ${seat.y - 23} L${seat.x + 17} ${seat.y - 21} L${seat.x + 16} ${seat.y - 21} L${seat.x + 18} ${seat.y - 19} L${seat.x + 16} ${seat.y - 19} L${seat.x + 17} ${seat.y - 18}`}
                   fill="#FFFFFF"
                   stroke="#FFFFFF"
                   strokeWidth="0.5"

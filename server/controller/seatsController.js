@@ -1,4 +1,6 @@
 const seatsService = require("../services/seatsService");
+const { PrismaClient } = require("@prisma/client");
+const prisma = new PrismaClient();
 
 async function getSeatsByRoom(req, res) {
   try {
