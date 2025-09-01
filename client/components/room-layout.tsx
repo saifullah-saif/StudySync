@@ -40,7 +40,9 @@ export function RoomLayout({ mode, selectedSeats = [], onSeatClick, capacity = 1
     setError(null)
 
     try {
-      const response = await fetch(`http://localhost:5000/api/seats/room/${roomId}`)
+      const response = await fetch(`http://localhost:5000/api/seats/room/${roomId}`, {
+        credentials: 'include'
+      })
       const data = await response.json()
 
       if (data.success) {
@@ -65,7 +67,9 @@ export function RoomLayout({ mode, selectedSeats = [], onSeatClick, capacity = 1
 
     try {
       console.log(`Fetching booked seats for room ${roomId} from ${startTime} to ${endTime}`)
-      const response = await fetch(`http://localhost:5000/api/seats/room/${roomId}/booked?start_time=${encodeURIComponent(startTime)}&end_time=${encodeURIComponent(endTime)}`)
+      const response = await fetch(`http://localhost:5000/api/seats/room/${roomId}/booked?start_time=${encodeURIComponent(startTime)}&end_time=${encodeURIComponent(endTime)}`, {
+        credentials: 'include'
+      })
       const data = await response.json()
       console.log('Booked seats response:', data)
       if (data.success) {

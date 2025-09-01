@@ -23,53 +23,49 @@ async function createRoomReservation(roomId, userId, startTime, endTime, purpose
     throw new Error("Room not found");
   }
 
-  // For rooms with capacity < 10, check if any seat is not accessible (room is occupied)
+  // For rooms with capacity < 10, check if there are any active reservations for the room
   if (roomCapacity < 10) {
-    const occupiedSeats = room.seats.filter(seat => !seat.is_accessible);
-    if (occupiedSeats.length > 0) {
-      throw new Error("Room is currently occupied");
+    const activeRoomReservations = await prisma.reservations.findFirst({
+      where: {
+        room_id: roomIdNum,
+        status: {
+          in: ['reserved', 'occupied']
+        },
+        OR: [
+          {
+            start_time: {
+              lte: startTime
+            },
+            end_time: {
+              gt: startTime
+            }
+          },
+          {
+            start_time: {
+              lt: endTime
+            },
+            end_time: {
+              gte: endTime
+            }
+          },
+          {
+            start_time: {
+              gte: startTime
+            },
+            end_time: {
+              lte: endTime
+            }
+          }
+        ]
+      }
+    });
+
+    if (activeRoomReservations) {
+      throw new Error("Room is already reserved for the selected time period");
     }
   }
 
-  // Check for conflicting reservations
-  const conflictingReservation = await prisma.reservations.findFirst({
-    where: {
-      room_id: roomIdNum,
-      status: {
-        in: ['reserved', 'occupied']
-      },
-      OR: [
-        {
-          start_time: {
-            lte: startTime
-          },
-          end_time: {
-            gt: startTime
-          }
-        },
-        {
-          start_time: {
-            lt: endTime
-          },
-          end_time: {
-            gte: endTime
-          }
-        },
-        {
-          start_time: {
-            gte: startTime
-          },
-          end_time: {
-            lte: endTime
-          }
-        }
-      ]
-    }
-  });
-
-  if (conflictingReservation) {
-    throw new Error("Room is already reserved for the selected time period");
-  }
+  // Note: Conflict checking is now handled above for small rooms and below for large rooms
 
   // Check if user has conflicting reservations (can't book multiple rooms at same time)
   const userConflictingReservation = await prisma.reservations.findFirst({
@@ -155,106 +151,147 @@ async function createRoomReservation(roomId, userId, startTime, endTime, purpose
 
         return [reservation];
       } else {
-    // For large rooms, limit to maximum 3 seats per booking
-    if (selectedSeats.length > 3) {
-      throw new Error('You can only book up to 3 seats at a time');
-    }
-
-    const reservations = [];
-
-    // Create separate reservations for each selected seat
-    for (const seatNumber of selectedSeats) {
-      console.log(`Processing seat: ${seatNumber} for room ${roomIdNum}`);
-
-      // Find the actual seat in the database using the seat number directly
-      const seat = await prisma.seats.findFirst({
-        where: {
-          room_id: roomIdNum,
-          seat_number: seatNumber
-        }
-      });
-
-      if (!seat) {
-        console.error(`Seat lookup failed for seatNumber: ${seatNumber}, roomId: ${roomIdNum}`);
-
-        // Try to find all seats in this room for debugging
-        const allSeats = await prisma.seats.findMany({
-          where: { room_id: roomIdNum },
-          select: { id: true, seat_number: true }
+        // For large rooms, check for conflicting room-level reservations first
+        const conflictingRoomReservation = await prisma.reservations.findFirst({
+          where: {
+            room_id: roomIdNum,
+            seat_id: null, // Room-level reservation (no specific seat)
+            status: {
+              in: ['reserved', 'occupied']
+            },
+            OR: [
+              {
+                start_time: {
+                  lte: startTime
+                },
+                end_time: {
+                  gt: startTime
+                }
+              },
+              {
+                start_time: {
+                  lt: endTime
+                },
+                end_time: {
+                  gte: endTime
+                }
+              },
+              {
+                start_time: {
+                  gte: startTime
+                },
+                end_time: {
+                  lte: endTime
+                }
+              }
+            ]
+          }
         });
-        console.error(`Available seats in room ${roomIdNum}:`, allSeats);
 
-        throw new Error(`Seat ${seatNumber} not found in room ${roomIdNum}`);
-      }
+        if (conflictingRoomReservation) {
+          throw new Error("Room is already reserved for the selected time period");
+        }
 
-      console.log(`Found seat in database:`, seat);
+        // For large rooms, limit to maximum 3 seats per booking
+        if (selectedSeats.length > 3) {
+          throw new Error('You can only book up to 3 seats at a time');
+        }
 
-      // Check if seat is already booked by looking for active reservations
-      const existingReservation = await prisma.reservations.findFirst({
-        where: {
-          seat_id: seat.id,
-          status: {
-            in: ['reserved', 'occupied']
-          },
-          OR: [
-            {
-              start_time: {
-                lte: startTime
-              },
-              end_time: {
-                gt: startTime
-              }
-            },
-            {
-              start_time: {
-                lt: endTime
-              },
-              end_time: {
-                gte: endTime
-              }
-            },
-            {
-              start_time: {
-                gte: startTime
-              },
-              end_time: {
-                lte: endTime
-              }
+        const reservations = [];
+
+        // Create separate reservations for each selected seat
+        for (const seatNumber of selectedSeats) {
+          console.log(`Processing seat: ${seatNumber} for room ${roomIdNum}`);
+
+          // Find the actual seat in the database using the seat number directly
+          const seat = await prisma.seats.findFirst({
+            where: {
+              room_id: roomIdNum,
+              seat_number: seatNumber
             }
-          ]
+          });
+
+          if (!seat) {
+            console.error(`Seat lookup failed for seatNumber: ${seatNumber}, roomId: ${roomIdNum}`);
+
+            // Try to find all seats in this room for debugging
+            const allSeats = await prisma.seats.findMany({
+              where: { room_id: roomIdNum },
+              select: { id: true, seat_number: true }
+            });
+            console.error(`Available seats in room ${roomIdNum}:`, allSeats);
+
+            throw new Error(`Seat ${seatNumber} not found in room ${roomIdNum}`);
+          }
+
+          console.log(`Found seat in database:`, seat);
+
+          // Check if seat is already booked by looking for active reservations
+          const existingReservation = await prisma.reservations.findFirst({
+            where: {
+              seat_id: seat.id,
+              status: {
+                in: ['reserved', 'occupied']
+              },
+              OR: [
+                {
+                  start_time: {
+                    lte: startTime
+                  },
+                  end_time: {
+                    gt: startTime
+                  }
+                },
+                {
+                  start_time: {
+                    lt: endTime
+                  },
+                  end_time: {
+                    gte: endTime
+                  }
+                },
+                {
+                  start_time: {
+                    gte: startTime
+                  },
+                  end_time: {
+                    lte: endTime
+                  }
+                }
+              ]
+            }
+          });
+
+          if (existingReservation) {
+            throw new Error(`Seat ${seatNumber} is already booked for the selected time period`);
+          }
+
+          // Create reservation for this seat (store seat info in purpose and seat_id)
+          const reservation = await prisma.reservations.create({
+            data: {
+              room_id: roomIdNum,
+              user_id: userIdNum,
+                             seat_id: seat.id,
+              start_time: startTime,
+              end_time: endTime,
+              status: 'reserved',
+              purpose: `${purpose || 'Seat reservation'} - Seat ${seatNumber}`
+            },
+            include: {
+              library_rooms: true
+            }
+          });
+
+          // Make this specific seat inaccessible
+          await prisma.seats.update({
+            where: { id: seat.id },
+            data: { is_accessible: false }
+          });
+
+          reservations.push(reservation);
         }
-      });
 
-      if (existingReservation) {
-        throw new Error(`Seat ${seatNumber} is already booked for the selected time period`);
-      }
-
-      // Create reservation for this seat (store seat info in purpose and seat_id)
-      const reservation = await prisma.reservations.create({
-        data: {
-          room_id: roomIdNum,
-          user_id: userIdNum,
-          seat_id: seat.id,
-          start_time: startTime,
-          end_time: endTime,
-          status: 'reserved',
-          purpose: `${purpose || 'Seat reservation'} - Seat ${seatNumber}`
-        },
-        include: {
-          library_rooms: true
-        }
-      });
-
-      // Make this specific seat inaccessible
-      await prisma.seats.update({
-        where: { id: seat.id },
-        data: { is_accessible: false }
-      });
-
-      reservations.push(reservation);
-    }
-
-    return reservations;
+        return reservations;
   }
 }
 
