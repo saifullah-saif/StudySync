@@ -1,13 +1,28 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Filter, Grid3X3, List, Heart, User, Calendar, Download } from "lucide-react"
-import { notesAPI } from "@/lib/api"
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Search,
+  Filter,
+  Grid3X3,
+  List,
+  Heart,
+  User,
+  Calendar,
+  Download,
+} from "lucide-react";
+import { notesAPI } from "@/lib/api";
 
 interface Note {
   id: number;
@@ -40,97 +55,102 @@ interface Course {
 }
 
 export default function BrowseNotes() {
-  const router = useRouter()
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCourse, setSelectedCourse] = useState("all")
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  const [notes, setNotes] = useState<Note[]>([])
-  const [courses, setCourses] = useState<Course[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState("")
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCourse, setSelectedCourse] = useState("all");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
 
   // Fetch courses on component mount
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const response = await notesAPI.getCourses()
+        const response = await notesAPI.getCourses();
         if (response.success) {
-          setCourses(response.data)
+          setCourses(response.data);
         }
       } catch (error) {
-        console.error("Error fetching courses:", error)
+        console.error("Error fetching courses:", error);
       }
-    }
+    };
 
-    fetchCourses()
-  }, [])
+    fetchCourses();
+  }, []);
 
   // Fetch notes when filters change
   useEffect(() => {
     const fetchNotes = async () => {
-      setIsLoading(true)
-      setError("")
-      
+      setIsLoading(true);
+      setError("");
+
       try {
         const filters: any = {
           visibility: "public",
           limit: 20,
           offset: 0,
-        }
+        };
 
         if (selectedCourse !== "all") {
-          filters.course = selectedCourse
+          filters.course = selectedCourse;
         }
 
         if (searchQuery.trim()) {
-          filters.search = searchQuery.trim()
+          filters.search = searchQuery.trim();
         }
 
-        const response = await notesAPI.getAllNotes(filters)
-        
+        const response = await notesAPI.getAllNotes(filters);
+
         if (response.success) {
-          setNotes(response.data)
+          setNotes(response.data);
         } else {
-          setError("Failed to fetch notes")
+          setError("Failed to fetch notes");
         }
       } catch (error: any) {
-        console.error("Error fetching notes:", error)
-        setError("Failed to fetch notes")
+        console.error("Error fetching notes:", error);
+        setError("Failed to fetch notes");
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
-    }
+    };
 
-    fetchNotes()
-  }, [selectedCourse, searchQuery])
+    fetchNotes();
+  }, [selectedCourse, searchQuery]);
 
   const formatFileSize = (bytes: string) => {
-    const size = parseInt(bytes)
-    if (size < 1024) return `${size} B`
-    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
-    return `${(size / (1024 * 1024)).toFixed(1)} MB`
-  }
+    const size = parseInt(bytes);
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric'
-    })
-  }
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+  };
 
   const handleNoteClick = (noteId: number) => {
-    router.push(`/view-notes/${noteId}`)
-  }
+    router.push(`/view-notes/${noteId}`);
+  };
 
   const handleDownload = async (noteId: number) => {
     try {
       // This would typically open a download link
-      window.open(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"}/notes/${noteId}/download`, '_blank')
+      window.open(
+        `${
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
+        }/notes/${noteId}/download`,
+        "_blank"
+      );
     } catch (error) {
-      console.error("Download error:", error)
+      console.error("Download error:", error);
     }
-  }
+  };
 
   return (
     <div className="space-y-8">
@@ -160,7 +180,9 @@ export default function BrowseNotes() {
                   variant={viewMode === "grid" ? "default" : "ghost"}
                   size="icon"
                   onClick={() => setViewMode("grid")}
-                  className={viewMode === "grid" ? "bg-blue-600 hover:bg-blue-700" : ""}
+                  className={
+                    viewMode === "grid" ? "bg-blue-600 hover:bg-blue-700" : ""
+                  }
                 >
                   <Grid3X3 className="w-4 h-4" />
                 </Button>
@@ -180,7 +202,7 @@ export default function BrowseNotes() {
                 <SelectTrigger className="w-48 bg-white">
                   <SelectValue placeholder="All Courses" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white max-h-60">
                   <SelectItem value="all">All Courses</SelectItem>
                   {courses.map((course) => (
                     <SelectItem key={course.id} value={course.course_code}>
@@ -227,24 +249,36 @@ export default function BrowseNotes() {
         </div>
       ) : (
         /* Notes Grid */
-        <div className={`grid gap-6 ${viewMode === "grid" ? "md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"}`}>
+        <div
+          className={`grid gap-6 ${
+            viewMode === "grid"
+              ? "md:grid-cols-2 lg:grid-cols-3"
+              : "grid-cols-1"
+          }`}
+        >
           {notes.length === 0 ? (
             <div className="col-span-full text-center py-12">
-              <p className="text-gray-500 text-lg">No notes found matching your criteria.</p>
+              <p className="text-gray-500 text-lg">
+                No notes found matching your criteria.
+              </p>
             </div>
           ) : (
             notes.map((note) => (
-              <Card 
-                key={note.id} 
+              <Card
+                key={note.id}
                 className="bg-blue-50 border-blue-200 hover:shadow-lg transition-shadow cursor-pointer"
                 onClick={() => handleNoteClick(note.id)}
               >
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between mb-3">
-                    <h3 className="text-lg font-semibold text-gray-900 flex-1 line-clamp-2">{note.title}</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 flex-1 line-clamp-2">
+                      {note.title}
+                    </h3>
                     <div className="flex items-center space-x-1 text-red-500 ml-2">
                       <Heart className="w-4 h-4" />
-                      <span className="text-sm font-medium">{note.like_count || 0}</span>
+                      <span className="text-sm font-medium">
+                        {note.like_count || 0}
+                      </span>
                     </div>
                   </div>
 
@@ -261,7 +295,9 @@ export default function BrowseNotes() {
                   </div>
 
                   {note.description && (
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">{note.description}</p>
+                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                      {note.description}
+                    </p>
                   )}
 
                   <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
@@ -278,16 +314,18 @@ export default function BrowseNotes() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-1 text-gray-500">
                       <Download className="w-4 h-4" />
-                      <span className="text-xs">{note.download_count || 0} downloads</span>
+                      <span className="text-xs">
+                        {note.download_count || 0} downloads
+                      </span>
                     </div>
-                    
+
                     <div className="flex gap-2">
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
                         onClick={(e) => {
-                          e.stopPropagation()
-                          handleDownload(note.id)
+                          e.stopPropagation();
+                          handleDownload(note.id);
                         }}
                       >
                         <Download className="w-4 h-4 mr-1" />
@@ -302,5 +340,5 @@ export default function BrowseNotes() {
         </div>
       )}
     </div>
-  )
+  );
 }

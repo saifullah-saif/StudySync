@@ -225,6 +225,12 @@ rules
 .rules.
 
 
+package-lock.json
+package.json
+.package
+
+
+
 # Documentation builds
 docs/build/
 
