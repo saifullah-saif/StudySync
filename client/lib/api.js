@@ -2,7 +2,7 @@ import axios from "axios";
 
 // Create axios instance with default config
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api",
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001/api",
   withCredentials: true,
   crossDomain: true,
   credentials: "include",
@@ -41,7 +41,7 @@ api.interceptors.response.use(
         // Try to validate session - create a new request without interceptors to avoid infinite loop
         const validateResponse = await axios.get(
           `${
-            process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
+            process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001/api"
           }/auth/validate-session`,
           {
             withCredentials: true,
@@ -135,7 +135,7 @@ export const authAPI = {
     try {
       const response = await axios.get(
         `${
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001/api"
         }/auth/validate-session`,
         {
           withCredentials: true,
@@ -157,6 +157,507 @@ export const authAPI = {
       // Re-throw other errors
       throw error;
     }
+  },
+};
+
+// Document API for flashcard generation
+export const documentAPI = {
+  // Upload document (PDF, DOCX, TXT)
+  uploadDocument: async (file, title) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("title", title);
+
+    const response = await api.post("/documents/upload", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  },
+
+  // Paste text content
+  pasteDocument: async (title, text) => {
+    const response = await api.post("/documents/paste", {
+      title,
+      text,
+    });
+    return response.data;
+  },
+
+  // Generate flashcards from document
+  generateFlashcards: async (data) => {
+    const response = await api.post("/documents/generate-flashcards", data);
+    return response.data;
+  },
+
+  // Get deck details (authenticated endpoint)
+  getDeck: async (deckId) => {
+    const response = await api.get(`/practice/decks/${deckId}`);
+    return response.data;
+  },
+};
+
+// File Management API
+export const fileAPI = {
+  // Upload file
+  uploadFile: async (file, title) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("title", title);
+
+    const response = await api.post("/files/upload", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  },
+
+  // Get all user files
+  getUserFiles: async (
+    page = 1,
+    limit = 10,
+    search = "",
+    fileType = "",
+    sortBy = "uploadDate",
+    sortOrder = "desc"
+  ) => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+      sortBy,
+      sortOrder,
+    });
+
+    if (search) params.append("search", search);
+    if (fileType) params.append("fileType", fileType);
+
+    const response = await api.get(`/files?${params.toString()}`);
+    return response.data;
+  },
+
+  // Get file details
+  getFileDetails: async (fileId) => {
+    const response = await api.get(`/files/${fileId}`);
+    return response.data;
+  },
+
+  // Delete file
+  deleteFile: async (fileId) => {
+    const response = await api.delete(`/files/${fileId}`);
+    return response.data;
+  },
+
+  // Download file
+  downloadFile: async (fileId) => {
+    console.log("🔍 API Debug - Making download request for fileId:", fileId);
+    // Remove responseType: "blob" to get JSON response with signed URL
+    const response = await api.get(`/files/${fileId}/download`);
+    console.log("🔍 API Debug - Raw response:", response);
+    console.log("🔍 API Debug - Response data:", response.data);
+    console.log("🔍 API Debug - Response status:", response.status);
+    return response;
+  },
+
+  // Update file metadata
+  updateFile: async (fileId, data) => {
+    const response = await api.put(`/files/${fileId}`, data);
+    return response.data;
+  },
+
+  // Get file statistics
+  getFileStats: async () => {
+    const response = await api.get("/files/stats");
+    return response.data;
+  },
+};
+
+// Add this langchainAPI object to your existing api.js
+export const langchainAPI = {
+  // Process file with LangChain
+  processFile: async (fileId) => {
+    const response = await api.post(`/langchain/process/${fileId}`);
+    return response.data;
+  },
+
+  // Get processed file content
+  getFileContent: async (fileId) => {
+    const response = await api.get(`/langchain/content/${fileId}`);
+    return response.data;
+  },
+
+  // Extract chunks from text
+  extractChunks: async (text, options = {}) => {
+    const response = await api.post("/langchain/extract-chunks", {
+      text,
+      options,
+    });
+    return response.data;
+  },
+
+  // Process file from URL with LangChain
+  processFileFromUrl: async (fileUrl, fileName) => {
+    const response = await api.post("/langchain/process-url", {
+      fileUrl,
+      fileName,
+    });
+    return response.data;
+  },
+};
+
+// Flashcard Generation API
+export const generationAPI = {
+  // Generate flashcards from a file
+  generateFlashcardsFromFile: async (documentId, options = {}) => {
+    const {
+      deckTitle,
+      cardType = "basic",
+      targetDifficulty = 3,
+      maxCards = 20,
+      templateId = null,
+    } = options;
+
+    const response = await api.post(
+      `/generation/files/${documentId}/flashcards`,
+      {
+        deckTitle,
+        cardType,
+        targetDifficulty,
+        maxCards,
+        templateId,
+      }
+    );
+    return response.data;
+  },
+
+  // Get generation job status
+  getJobStatus: async (jobId) => {
+    const response = await api.get(`/generation/jobs/${jobId}`);
+    return response.data;
+  },
+
+  // Get user's generation jobs
+  getUserJobs: async (
+    page = 1,
+    limit = 10,
+    status = "",
+    sortBy = "created_at",
+    sortOrder = "desc"
+  ) => {
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+      sortBy,
+      sortOrder,
+    });
+
+    if (status) params.append("status", status);
+
+    const response = await api.get(`/generation/jobs?${params.toString()}`);
+    return response.data;
+  },
+
+  // Cancel a generation job
+  cancelJob: async (jobId) => {
+    const response = await api.delete(`/generation/jobs/${jobId}`);
+    return response.data;
+  },
+
+  // Get available generation templates
+  getGenerationTemplates: async () => {
+    const response = await api.get("/generation/templates");
+    return response.data;
+  },
+};
+
+// Practice API
+export const practiceAPI = {
+  // Get user's decks
+  getUserDecks: async (page = 1, limit = 10) => {
+    const response = await api.get(
+      `/practice/decks?page=${page}&limit=${limit}`
+    );
+    return response.data;
+  },
+
+  // Create manual deck
+  createDeck: async (deckData) => {
+    const response = await api.post("/practice/decks", deckData);
+    return response.data;
+  },
+
+  // Get deck details
+  getDeck: async (deckId) => {
+    const response = await api.get(`/practice/decks/${deckId}`);
+    return response.data;
+  },
+
+  // Create practice session
+  createPracticeSession: async (deckId, sessionType = "all_cards") => {
+    const response = await api.post("/practice/flashcard-sessions", {
+      deckId,
+      sessionType,
+    });
+    return response.data;
+  },
+
+  // Get practice session
+  getPracticeSession: async (sessionId) => {
+    const response = await api.get(`/practice/practice-sessions/${sessionId}`);
+    return response.data;
+  },
+
+  // Record flashcard attempt
+  recordFlashcardAttempt: async (
+    sessionId,
+    flashcardId,
+    isCorrect,
+    responseTimeSeconds
+  ) => {
+    console.log("🎯 API: Recording flashcard attempt", {
+      sessionId,
+      flashcardId,
+      isCorrect,
+      responseTimeSeconds,
+    });
+
+    try {
+      const response = await api.post("/practice/flashcard-attempts", {
+        sessionId,
+        flashcardId,
+        isCorrect,
+        responseTimeSeconds,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("🔥 API Error Details:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        message: error.message,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          data: error.config?.data,
+        },
+      });
+
+      // Provide more specific error messages for authentication issues
+      if (error.response?.status === 401) {
+        throw new Error(
+          "Your session has expired. Please log in again to continue studying."
+        );
+      } else if (error.response?.status === 403) {
+        throw new Error(
+          "You don't have permission to access this study session."
+        );
+      } else if (error.response?.status === 404) {
+        throw new Error("The flashcard or session could not be found.");
+      } else if (error.response?.status >= 500) {
+        console.error("🔥 Server Error Response:", error.response?.data);
+        throw new Error(
+          `Server error (${error.response?.status}): ${
+            error.response?.data?.message || error.message
+          }`
+        );
+      }
+      throw error;
+    }
+  },
+
+  // Complete practice session
+  completePracticeSession: async (
+    sessionId,
+    cardsStudied,
+    cardsCorrect,
+    totalTimeSeconds
+  ) => {
+    try {
+      const response = await api.post(
+        `/practice/flashcard-sessions/${sessionId}/complete`,
+        {
+          cardsStudied,
+          cardsCorrect,
+          totalTimeSeconds,
+        }
+      );
+      return response.data;
+    } catch (error) {
+      // Provide more specific error messages for authentication issues
+      if (error.response?.status === 401) {
+        throw new Error(
+          "Your session has expired. Please log in again to complete the study session."
+        );
+      } else if (error.response?.status === 403) {
+        throw new Error(
+          "You don't have permission to access this study session."
+        );
+      } else if (error.response?.status === 404) {
+        throw new Error("The study session could not be found.");
+      } else if (error.response?.status >= 500) {
+        throw new Error(
+          "Server error occurred while completing the session. Please try again."
+        );
+      }
+      throw error;
+    }
+  },
+};
+
+export const flashcardAPI = {
+  // Generate flashcards from Q&A data
+  generateFlashcards: async (qsAns, title, sourceFileId) => {
+    const response = await api.post("/flashcards/generate", {
+      qsAns,
+      title,
+      sourceFileId: sourceFileId || null,
+    });
+    return response.data;
+  },
+
+  // Get user's flashcard decks
+  getUserDecks: async () => {
+    const response = await api.get("/flashcards/decks");
+    return response.data;
+  },
+
+  // Get specific flashcard deck
+  getDeck: async (deckId) => {
+    const response = await api.get(`/flashcards/deck/${deckId}`);
+    return response.data;
+  },
+
+  // Update flashcard deck progress
+  updateDeck: async (deckId, updateData) => {
+    const response = await api.put(`/flashcards/deck/${deckId}`, updateData);
+    return response.data;
+  },
+
+  // Add saveDeck method
+  saveDeck: async (deckData) => {
+    const response = await api.post("/flashcard/save", deckData);
+    return response.data;
+  },
+
+  // Delete flashcard deck
+  deleteDeck: async (deckId) => {
+    const response = await api.delete(`/flashcards/deck/${deckId}`);
+    return response.data;
+  },
+
+  // Update individual flashcard learning state
+  updateCard: async (cardId, updateData) => {
+    try {
+      const response = await api.put(`/flashcards/card/${cardId}`, updateData);
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.warn("Failed to update card on server:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Batch update multiple cards
+  updateCards: async (cardUpdates) => {
+    try {
+      const response = await api.put("/flashcards/cards/batch", {
+        cards: cardUpdates,
+      });
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.warn("Failed to batch update cards on server:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Save learning session progress
+  saveSessionProgress: async (sessionData) => {
+    try {
+      const response = await api.post("/flashcards/session", sessionData);
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.warn("Failed to save session progress:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Get learning statistics
+  getLearningStats: async (deckId = null) => {
+    try {
+      const url = deckId ? `/flashcards/stats/${deckId}` : "/flashcards/stats";
+      const response = await api.get(url);
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.warn("Failed to fetch learning stats:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Streak management endpoints
+  getStreakData: async () => {
+    try {
+      const response = await api.get("/flashcards/streak");
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.warn("Failed to fetch streak data:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  updateStreak: async (streakData) => {
+    try {
+      const response = await api.post("/flashcards/streak", streakData);
+      return { success: true, data: response.data };
+    } catch (error) {
+      console.warn("Failed to update streak:", error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Create practice session
+  createPracticeSession: async (deckId, sessionType = "all_cards") => {
+    const response = await api.post("/practice/flashcard-sessions", {
+      deckId,
+      sessionType,
+    });
+    return response.data;
+  },
+
+  // Get practice session
+  getPracticeSession: async (sessionId) => {
+    const response = await api.get(`/practice/practice-sessions/${sessionId}`);
+    return response.data;
+  },
+
+  // Complete practice session
+  completePracticeSession: async (
+    sessionId,
+    sessionData,
+    includeUsageUpdates = true
+  ) => {
+    const response = await api.post(
+      `/practice/practice-sessions/${sessionId}/complete`,
+      {
+        ...sessionData,
+        includeUsageUpdates,
+      }
+    );
+    return response.data;
+  },
+};
+
+// User Stats API
+export const statsAPI = {
+  // Get user statistics
+  getUserStats: async () => {
+    const response = await api.get("/stats/user");
+    return response.data;
+  },
+
+  // Update user statistics after study session
+  updateUserStats: async (statsData) => {
+    const response = await api.post("/stats/user", statsData);
+    return response.data;
   },
 };
 

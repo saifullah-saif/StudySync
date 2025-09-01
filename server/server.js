@@ -27,9 +27,25 @@ app.use(express.urlencoded({ extended: true }));
 // Import routes
 const authRoutes = require("./routes/auth");
 const notesRoutes = require("./routes/notes");
+const documentRoutes = require("./routes/documents");
+const fileRoutes = require("./routes/files");
+const practiceRoutes = require("./routes/practice");
+const generationRoutes = require("./routes/generation");
+const langchainRoutes = require("./routes/langchain");
+const flashcardRoutes = require("./routes/flashcards");
+const statsRoutes = require("./routes/stats");
 
 // Use routes
 app.use("/api/auth", authRoutes);
+app.use("/api/documents", documentRoutes);
+app.use("/api/files", fileRoutes);
+app.use("/api/practice", practiceRoutes);
+app.use("/api/generation", generationRoutes);
+app.use("/api/langchain", langchainRoutes);
+app.use("/api/flashcards", flashcardRoutes);
+app.use("/api/stats", statsRoutes);
+
+// Health check endpoint (no auth required)
 app.use("/api/notes", notesRoutes);
 
 app.get("/api/health", (req, res) => {
@@ -40,7 +56,7 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 5001;
 
 async function startServer() {
   try {

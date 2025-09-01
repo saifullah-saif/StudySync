@@ -1,50 +1,342 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Header from "@/components/header";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Upload,
+  Play,
+  Volume2,
+  FileText,
+  Loader2,
+  Files,
+  Plus,
+  X,
+  Edit,
+  Save,
+  Flame,
+  Calendar,
+  Trophy,
+} from "lucide-react";
+import { toast } from "sonner";
+import { documentAPI, practiceAPI } from "@/lib/api";
+import { useAuth } from "@/contexts/auth-context";
+import FileUpload from "./components/file-upload";
+import DeckList from "@/components/flashcards/DeckList";
+import ManualFlashcardCreator from "@/components/ManualFlashcardCreator";
+import StreakHistory from "@/components/StreakHistory";
 
-import { useState, useEffect } from "react"
-import Header from "@/components/header"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Progress } from "@/components/ui/progress"
-import { Textarea } from "@/components/ui/textarea"
-import { Upload, Play, Volume2 } from "lucide-react"
+// New minimalist dashboard components
+import { DashboardShell } from "@/components/DashboardShell";
+import { KpiRow } from "@/components/KpiRow";
+import { StudyQuickStart } from "@/components/StudyQuickStart";
+import { RecentFilesList } from "@/components/RecentFilesList";
+import { StreakCard } from "@/components/StreakCard";
 
 export default function AssistantPage() {
-  const [timeRemaining, setTimeRemaining] = useState({
-    hours: 23,
-    minutes: 59,
-    seconds: 59,
-  })
-  const [selectedTab, setSelectedTab] = useState("document")
-  const [textContent, setTextContent] = useState("")
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { user } = useAuth();
+  const [selectedTab, setSelectedTab] = useState("document");
+  const [activeMainTab, setActiveMainTab] = useState("dashboard");
+  const [textContent, setTextContent] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [title, setTitle] = useState("");
+  const [isUploading, setIsUploading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [uploadedDocumentId, setUploadedDocumentId] = useState<number | null>(
+    null
+  );
+  const [recentDecks, setRecentDecks] = useState<any[]>([]);
+  const [decksLoading, setDecksLoading] = useState(false);
 
-  // Countdown timer effect
+  // Manual flashcard states
+  const [manualFlashcards, setManualFlashcards] = useState<
+    Array<{
+      id: string;
+      question: string;
+      answer: string;
+      explanation?: string;
+    }>
+  >([]);
+  const [editingCard, setEditingCard] = useState<string | null>(null);
+  const [isCreatingManualDeck, setIsCreatingManualDeck] = useState(false);
+
+  // Load recent decks
+  const loadRecentDecks = async () => {
+    if (!user) return;
+
+    try {
+      setDecksLoading(true);
+      const result = await practiceAPI.getUserDecks(1, 6); // Get first 6 decks
+      if (result.success) {
+        setRecentDecks(result.data.decks);
+      }
+    } catch (error) {
+      console.error("Failed to load recent decks:", error);
+    } finally {
+      setDecksLoading(false);
+    }
+  };
+
+  const addManualCard = () => {
+    const newCard = {
+      id: Date.now().toString(),
+      question: "",
+      answer: "",
+      explanation: "",
+    };
+    setManualFlashcards([...manualFlashcards, newCard]);
+    setEditingCard(newCard.id);
+  };
+
+  const updateManualCard = (id: string, field: string, value: string) => {
+    setManualFlashcards(
+      manualFlashcards.map((card) =>
+        card.id === id ? { ...card, [field]: value } : card
+      )
+    );
+  };
+
+  const removeManualCard = (id: string) => {
+    setManualFlashcards(manualFlashcards.filter((card) => card.id !== id));
+    if (editingCard === id) setEditingCard(null);
+  };
+
+  const saveManualCard = (id: string) => {
+    setEditingCard(null);
+  };
+
+  const createManualDeck = async () => {
+    if (!user) {
+      alert("Please log in to create flashcard decks");
+      return;
+    }
+
+    if (!title.trim() || manualFlashcards.length === 0) {
+      alert("Please provide a title and at least one flashcard");
+      return;
+    }
+
+    const validFlashcards = manualFlashcards.filter(
+      (card) => card.question.trim() && card.answer.trim()
+    );
+
+    if (validFlashcards.length === 0) {
+      alert("Please provide valid question and answer pairs");
+      return;
+    }
+
+    try {
+      setIsCreatingManualDeck(true);
+
+      const result = await practiceAPI.createDeck({
+        title,
+        flashcards: validFlashcards.map((card) => ({
+          question: card.question,
+          answer: card.answer,
+          explanation: card.explanation || null,
+        })),
+      });
+
+      if (result.success) {
+        alert("Manual flashcard deck created successfully!");
+
+        // Reset form
+        setTitle("");
+        setManualFlashcards([]);
+        setEditingCard(null);
+
+        // Refresh recent decks
+        loadRecentDecks();
+      } else {
+        throw new Error(result.message || "Failed to create manual deck");
+      }
+    } catch (error) {
+      console.error("Error creating manual deck:", error);
+      alert("Error creating manual deck. Please try again.");
+    } finally {
+      setIsCreatingManualDeck(false);
+    }
+  };
+
+  // Load recent decks when user is available
   useEffect(() => {
-    const timer = setInterval(() => {
-      setTimeRemaining((prev) => {
-        if (prev.seconds > 0) {
-          return { ...prev, seconds: prev.seconds - 1 }
-        } else if (prev.minutes > 0) {
-          return { ...prev, minutes: prev.minutes - 1, seconds: 59 }
-        } else if (prev.hours > 0) {
-          return { hours: prev.hours - 1, minutes: 59, seconds: 59 }
-        }
-        return prev
-      })
-    }, 1000)
+    if (user) {
+      loadRecentDecks();
+    }
+  }, [user]);
 
-    return () => clearInterval(timer)
-  }, [])
+  // Handle URL parameters for tab switching
+  useEffect(() => {
+    const tab = searchParams?.get("tab");
+    if (tab && ["dashboard", "flashcards", "files", "podcasts"].includes(tab)) {
+      setActiveMainTab(tab);
+    }
+  }, [searchParams]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
+    const file = event.target.files?.[0];
     if (file) {
-      setSelectedFile(file)
+      // Validate file type
+      const validTypes = [
+        "application/pdf",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "text/plain",
+      ];
+      const validExtensions = [".pdf", ".docx", ".txt"];
+
+      const hasValidType = validTypes.includes(file.type);
+      const hasValidExtension = validExtensions.some((ext) =>
+        file.name.toLowerCase().endsWith(ext)
+      );
+
+      if (!hasValidType && !hasValidExtension) {
+        toast.error("Please select a valid file (PDF, DOCX, or TXT)");
+        return;
+      }
+
+      if (file.size > 15 * 1024 * 1024) {
+        // 15MB limit
+        toast.error("File size must be less than 15MB");
+        return;
+      }
+
+      setSelectedFile(file);
+      if (!title) {
+        setTitle(file.name.replace(/\.[^/.]+$/, "")); // Remove extension for default title
+      }
     }
-  }
+  };
+
+  const handleUploadDocument = async () => {
+    if (!selectedFile || !title.trim()) {
+      toast.error("Please select a file and enter a title");
+      return;
+    }
+
+    if (!user) {
+      toast.error("Please log in to upload documents");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const result = await documentAPI.uploadDocument(
+        selectedFile,
+        title.trim()
+      );
+
+      if (result.success) {
+        setUploadedDocumentId(result.documentId);
+        toast.success("Document uploaded successfully!");
+      } else {
+        toast.error(result.message || "Failed to upload document");
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error("Failed to upload document");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handlePasteDocument = async () => {
+    if (!textContent.trim() || !title.trim()) {
+      toast.error("Please enter both title and text content");
+      return;
+    }
+
+    if (textContent.trim().length < 100) {
+      toast.error("Text must be at least 100 characters long");
+      return;
+    }
+
+    if (!user) {
+      toast.error("Please log in to save documents");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const result = await documentAPI.pasteDocument(
+        title.trim(),
+        textContent.trim()
+      );
+
+      if (result.success) {
+        setUploadedDocumentId(result.documentId);
+        toast.success("Text saved successfully!");
+      } else {
+        toast.error(result.message || "Failed to save text");
+      }
+    } catch (error) {
+      console.error("Paste error:", error);
+      toast.error("Failed to save text");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleGenerateFlashcards = async () => {
+    if (!user) {
+      toast.error("Please log in to generate flashcards");
+      return;
+    }
+
+    // Determine what content to use
+    let requestData: any = {
+      userId: user.id,
+      deckTitle: title.trim() || "My Flashcards",
+    };
+
+    if (uploadedDocumentId) {
+      requestData.documentId = uploadedDocumentId;
+    } else if (selectedTab === "text" && textContent.trim()) {
+      if (textContent.trim().length < 100) {
+        toast.error("Text must be at least 100 characters long");
+        return;
+      }
+      requestData.text = textContent.trim();
+    } else if (selectedTab === "document" && !uploadedDocumentId) {
+      toast.error("Please upload a document first");
+      return;
+    } else {
+      toast.error("Please provide content to generate flashcards");
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const result = await documentAPI.generateFlashcards(requestData);
+
+      if (result.success) {
+        toast.success(
+          `Successfully generated ${result.cardsCreated} flashcards!`
+        );
+
+        // Redirect to the generated deck
+        setTimeout(() => {
+          router.push(`/flashcards/deck/${result.deckId}`);
+        }, 1500);
+      } else {
+        toast.error(result.message || "Failed to generate flashcards");
+      }
+    } catch (error) {
+      console.error("Generation error:", error);
+      toast.error("Failed to generate flashcards");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   const podcasts = [
     {
@@ -61,300 +353,121 @@ export default function AssistantPage() {
       course: "Database Systems",
       createdDate: "1 week ago",
     },
-  ]
+  ];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <>
       <Header />
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <Tabs defaultValue="dashboard" className="space-y-8">
-          <TabsList className="grid w-full grid-cols-3 lg:w-[600px] mx-auto">
-            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-            <TabsTrigger value="flashcards">Create Flashcards</TabsTrigger>
-            <TabsTrigger value="podcasts">Podcasts</TabsTrigger>
-          </TabsList>
+      <main>
+        <Tabs
+          value={activeMainTab}
+          onValueChange={setActiveMainTab}
+          className="w-full"
+        >
+          <div className="bg-white border-b border-slate-200 px-6 py-4">
+            <div className="max-w-7xl mx-auto">
+              <TabsList className="grid w-full grid-cols-4 lg:w-[800px]">
+                <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+                <TabsTrigger value="flashcards">Create Flashcards</TabsTrigger>
+                <TabsTrigger value="files">My Files</TabsTrigger>
+                <TabsTrigger value="podcasts">Podcasts</TabsTrigger>
+              </TabsList>
+            </div>
+          </div>
 
-          {/* Dashboard Tab */}
-          <TabsContent value="dashboard" className="space-y-8">
-            {/* Main Title Block */}
-            <Card className="bg-white max-w-2xl mx-auto text-center">
-              <CardContent className="pt-8 pb-6">
-                <h1 className="text-3xl font-bold text-gray-900 mb-2">Flashcards Generator</h1>
-                <p className="text-gray-600">
-                  Gamify your study. Turn your notes into flashcards and maintain your streak.
-                </p>
-              </CardContent>
-            </Card>
+          {/* Dashboard Tab - New Minimalist Design */}
+          <TabsContent value="dashboard" className="m-0">
+            <DashboardShell>
+              {/* KPI Row - Full Width */}
+              <KpiRow />
 
-            {/* User Statistics Block */}
-            <Card className="bg-blue-50 border-blue-200">
-              <CardContent className="p-8">
-                <div className="mb-6">
-                  <p className="text-sm text-gray-600 mb-1">welcome</p>
-                  <h2 className="text-2xl font-bold text-gray-900">MEDHA</h2>
+              {/* Left Main Area */}
+              <div className="col-span-12 lg:col-span-8 space-y-6">
+                <StudyQuickStart />
+                <RecentFilesList />
+              </div>
+
+              {/* Right Rail */}
+              <div className="col-span-12 lg:col-span-4 space-y-6">
+                <StreakCard />
+                <div className="bg-white p-6 rounded-2xl shadow-sm">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-4">
+                    Practice History
+                  </h3>
+                  <StreakHistory />
                 </div>
-
-                <div className="grid md:grid-cols-3 gap-6 mb-6">
-                  <Card className="bg-white">
-                    <CardContent className="p-6 text-center">
-                      <h3 className="text-lg font-semibold text-gray-700 mb-2">Streak</h3>
-                      <p className="text-3xl font-bold text-blue-600">10</p>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="bg-white">
-                    <CardContent className="p-6 text-center">
-                      <h3 className="text-lg font-semibold text-gray-700 mb-2">Flashcard reviewed</h3>
-                      <p className="text-3xl font-bold text-blue-600">28</p>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="bg-white">
-                    <CardContent className="p-6 text-center">
-                      <h3 className="text-lg font-semibold text-gray-700 mb-2">Accuracy(%)</h3>
-                      <p className="text-3xl font-bold text-blue-600">85</p>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium text-gray-700">Level: 3</span>
-                    <span className="text-sm text-gray-500">75%</span>
-                  </div>
-                  <Progress value={75} className="h-3" />
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Daily Streak Block */}
-            <Card className="bg-white max-w-md mx-auto text-center">
-              <CardContent className="p-8">
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">Day 10</h3>
-                <p className="text-gray-600 mb-6">Time remaining to maintain daily streak</p>
-
-                <div className="text-4xl font-bold text-green-600 mb-6 font-mono">
-                  {String(timeRemaining.hours).padStart(2, "0")}H {String(timeRemaining.minutes).padStart(2, "0")}M{" "}
-                  {String(timeRemaining.seconds).padStart(2, "0")}S
-                </div>
-
-                <Button className="bg-blue-600 hover:bg-blue-700 px-8 py-3 text-lg font-semibold rounded-lg">
-                  START
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* History Component Block */}
-            <Card className="bg-white">
-              <CardContent className="p-8 text-center">
-                <h3 className="text-xl font-semibold text-gray-900 mb-4">History Component</h3>
-                <p className="text-gray-600">
-                  This component will display the history of flashcard reviewed of each day for.
-                </p>
-              </CardContent>
-            </Card>
+              </div>
+            </DashboardShell>
           </TabsContent>
 
-          {/* Create Flashcards Tab */}
-          <TabsContent value="flashcards" className="space-y-8">
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">Flashcard Content Input</h1>
-              <p className="text-gray-600">Upload a document or paste your text to generate flashcards</p>
-            </div>
-
-            <Card className="max-w-2xl mx-auto">
-              <CardContent className="p-8">
-                {/* Tab Selector */}
-                <div className="flex mb-8">
-                  <button
-                    onClick={() => setSelectedTab("document")}
-                    className={`flex-1 py-3 px-6 text-center font-medium rounded-l-lg transition-colors ${
-                      selectedTab === "document"
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                    }`}
-                  >
-                    Document
-                  </button>
-                  <button
-                    onClick={() => setSelectedTab("text")}
-                    className={`flex-1 py-3 px-6 text-center font-medium rounded-r-lg transition-colors ${
-                      selectedTab === "text" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                    }`}
-                  >
-                    Text
-                  </button>
-                </div>
-
-                {/* Document Tab */}
-                {selectedTab === "document" && (
-                  <div className="space-y-6">
-                    <div className="border-2 border-dashed border-blue-300 rounded-lg p-12 text-center bg-blue-50">
-                      <Upload className="w-12 h-12 text-blue-400 mx-auto mb-4" />
-                      <p className="text-gray-700 mb-4">Drag and drop your files or upload from computer</p>
-                      <div className="flex items-center justify-center gap-4">
-                        <label htmlFor="file-upload" className="cursor-pointer">
-                          <Button className="bg-blue-600 hover:bg-blue-700">Choose file</Button>
-                          <input
-                            id="file-upload"
-                            type="file"
-                            className="hidden"
-                            accept=".pdf,.docx,.txt"
-                            onChange={handleFileSelect}
-                          />
-                        </label>
-                        <span className="text-gray-500">{selectedFile ? selectedFile.name : "No file chosen"}</span>
-                      </div>
-                    </div>
-
-                    <Button
-                      className="w-full bg-blue-600 hover:bg-blue-700 py-3 text-lg font-semibold"
-                      disabled={!selectedFile}
-                    >
-                      NEXT
-                    </Button>
-                  </div>
-                )}
-
-                {/* Text Tab */}
-                {selectedTab === "text" && (
-                  <div className="space-y-6">
-                    <Textarea
-                      placeholder="Paste your notes here"
-                      value={textContent}
-                      onChange={(e) => setTextContent(e.target.value)}
-                      className="min-h-[300px] bg-blue-50 border-blue-300 text-lg"
-                    />
-
-                    <Button
-                      className="w-full bg-blue-600 hover:bg-blue-700 py-3 text-lg font-semibold"
-                      disabled={!textContent.trim()}
-                    >
-                      NEXT
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+          {/* Other tabs remain unchanged for now */}
+          <TabsContent value="flashcards" className="p-6">
+            <ManualFlashcardCreator />
           </TabsContent>
 
-          {/* Podcasts Tab */}
-          <TabsContent value="podcasts" className="space-y-8">
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-gray-900 mb-4">Podcast Generator</h1>
-              <p className="text-gray-600">Transform your notes into AI-generated audio lectures</p>
+          <TabsContent value="files" className="p-6">
+            <div className="max-w-4xl mx-auto">
+              <div className="text-center mb-8">
+                <h1 className="text-3xl font-bold text-slate-900 mb-4">
+                  File Management
+                </h1>
+                <p className="text-slate-600">
+                  Upload and manage your documents
+                </p>
+              </div>
+              <div className="bg-white p-8 rounded-2xl shadow-sm">
+                <FileUpload
+                  onUploadSuccess={(file) => {
+                    toast.success(
+                      `File "${file.title}" uploaded successfully!`
+                    );
+                  }}
+                  onUploadError={(error) => {
+                    toast.error(`Upload failed: ${error}`);
+                  }}
+                  maxFileSize={15}
+                  multiple={true}
+                />
+              </div>
             </div>
+          </TabsContent>
 
-            {/* Content Input for Podcasts */}
-            <Card className="max-w-2xl mx-auto mb-8">
-              <CardContent className="p-8">
-                {/* Tab Selector */}
-                <div className="flex mb-8">
-                  <button
-                    onClick={() => setSelectedTab("document")}
-                    className={`flex-1 py-3 px-6 text-center font-medium rounded-l-lg transition-colors ${
-                      selectedTab === "document"
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                    }`}
+          <TabsContent value="podcasts" className="p-6">
+            <div className="max-w-4xl mx-auto">
+              <div className="text-center mb-8">
+                <h1 className="text-3xl font-bold text-slate-900 mb-4">
+                  My Podcasts
+                </h1>
+                <p className="text-slate-600">
+                  Generated podcasts from your study materials
+                </p>
+              </div>
+
+              <div className="bg-white p-8 rounded-2xl shadow-sm">
+                <div className="text-center py-12">
+                  <Flame className="w-16 h-16 mx-auto mb-4 text-purple-500" />
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    Generate Your First Podcast
+                  </h3>
+                  <p className="text-gray-600 mb-6">
+                    Go to "My Files", extract text from a PDF, and click
+                    "Generate Podcast" to create your first audio study
+                    material.
+                  </p>
+                  <Button
+                    onClick={() => setActiveMainTab("files")}
+                    className="bg-purple-600 hover:bg-purple-700"
                   >
-                    Document
-                  </button>
-                  <button
-                    onClick={() => setSelectedTab("text")}
-                    className={`flex-1 py-3 px-6 text-center font-medium rounded-r-lg transition-colors ${
-                      selectedTab === "text" ? "bg-blue-600 text-white" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                    }`}
-                  >
-                    Text
-                  </button>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Go to Files
+                  </Button>
                 </div>
-
-                {/* Document Tab */}
-                {selectedTab === "document" && (
-                  <div className="space-y-6">
-                    <div className="border-2 border-dashed border-blue-300 rounded-lg p-12 text-center bg-blue-50">
-                      <Upload className="w-12 h-12 text-blue-400 mx-auto mb-4" />
-                      <p className="text-gray-700 mb-4">Drag and drop your files or upload from computer</p>
-                      <div className="flex items-center justify-center gap-4">
-                        <label htmlFor="podcast-file-upload" className="cursor-pointer">
-                          <Button className="bg-blue-600 hover:bg-blue-700">Choose file</Button>
-                          <input
-                            id="podcast-file-upload"
-                            type="file"
-                            className="hidden"
-                            accept=".pdf,.docx,.txt"
-                            onChange={handleFileSelect}
-                          />
-                        </label>
-                        <span className="text-gray-500">{selectedFile ? selectedFile.name : "No file chosen"}</span>
-                      </div>
-                    </div>
-
-                    <Button
-                      className="w-full bg-blue-600 hover:bg-blue-700 py-3 text-lg font-semibold"
-                      disabled={!selectedFile}
-                    >
-                      GENERATE PODCAST
-                    </Button>
-                  </div>
-                )}
-
-                {/* Text Tab */}
-                {selectedTab === "text" && (
-                  <div className="space-y-6">
-                    <Textarea
-                      placeholder="Paste your notes here"
-                      value={textContent}
-                      onChange={(e) => setTextContent(e.target.value)}
-                      className="min-h-[300px] bg-blue-50 border-blue-300 text-lg"
-                    />
-
-                    <Button
-                      className="w-full bg-blue-600 hover:bg-blue-700 py-3 text-lg font-semibold"
-                      disabled={!textContent.trim()}
-                    >
-                      GENERATE PODCAST
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Podcast Library */}
-            <div>
-              <h2 className="text-2xl font-semibold mb-6 text-center">Your Podcast Library</h2>
-              <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-                {podcasts.map((podcast) => (
-                  <Card key={podcast.id} className="bg-white hover:shadow-lg transition-shadow">
-                    <CardContent className="p-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                          <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                            <Volume2 className="w-6 h-6 text-purple-600" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-lg">{podcast.title}</h3>
-                            <p className="text-sm text-gray-600">
-                              {podcast.course} • {podcast.duration}
-                            </p>
-                            <p className="text-xs text-gray-500">Created {podcast.createdDate}</p>
-                          </div>
-                        </div>
-                        <Button size="sm" className="bg-purple-600 hover:bg-purple-700">
-                          <Play className="w-4 h-4 mr-1" />
-                          Play
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
               </div>
             </div>
           </TabsContent>
         </Tabs>
       </main>
-    </div>
-  )
+    </>
+  );
 }

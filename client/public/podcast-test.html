@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Podcast API Test</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+      .container {
+        background: #f5f5f5;
+        padding: 20px;
+        border-radius: 8px;
+        margin: 20px 0;
+      }
+      textarea {
+        width: 100%;
+        height: 120px;
+        margin: 10px 0;
+        padding: 10px;
+      }
+      button {
+        background: #007cba;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        margin: 5px;
+      }
+      button:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+      }
+      .result {
+        background: white;
+        padding: 15px;
+        border-radius: 4px;
+        margin: 10px 0;
+        border: 1px solid #ddd;
+      }
+      .success {
+        border-color: #28a745;
+        background: #f8fff9;
+      }
+      .error {
+        border-color: #dc3545;
+        background: #fff8f8;
+      }
+      pre {
+        background: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🎧 StudySync Podcast API Test</h1>
+
+    <div class="container">
+      <h3>Test Podcast Generation</h3>
+      <div>
+        <label>Title:</label><br />
+        <input
+          type="text"
+          id="title"
+          value="StudySync Demo Podcast"
+          style="width: 100%; padding: 8px; margin: 5px 0"
+        />
+      </div>
+      <div>
+        <label>Text Content:</label><br />
+        <textarea id="text" placeholder="Enter text to convert to podcast">
+Welcome to StudySync. This is a test podcast generation. We are testing the PDF to podcast pipeline. The system uses Google Text-to-Speech API to convert text into natural-sounding audio. This feature allows students to listen to their study materials while commuting or exercising. The audio is processed using FFmpeg to create a seamless listening experience with chapter navigation. Students can benefit from auditory learning, which complements visual and kinesthetic learning styles. The podcast format makes study materials more accessible and convenient for busy students.</textarea
+        >
+      </div>
+      <button onclick="testAPI()" id="generateBtn">🎙️ Generate Podcast</button>
+      <button onclick="listEpisodes()" id="listBtn">📋 List Episodes</button>
+
+      <div id="result"></div>
+    </div>
+
+    <script>
+      async function testAPI() {
+        const text = document.getElementById("text").value;
+        const title = document.getElementById("title").value;
+        const resultDiv = document.getElementById("result");
+        const btn = document.getElementById("generateBtn");
+
+        if (!text.trim()) {
+          resultDiv.innerHTML =
+            '<div class="result error">Please enter some text</div>';
+          return;
+        }
+
+        btn.disabled = true;
+        btn.innerText = "🎙️ Generating...";
+        resultDiv.innerHTML = '<div class="result">Processing...</div>';
+
+        try {
+          const response = await fetch("/api/podcasts/generate", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ text, title }),
+          });
+
+          const data = await response.json();
+
+          if (data.success) {
+            resultDiv.innerHTML = `
+                        <div class="result success">
+                            <h4>✅ Success!</h4>
+                            <p><strong>Episode ID:</strong> ${
+                              data.episodeId
+                            }</p>
+                            <p><strong>Duration:</strong> ${
+                              data.duration
+                            } seconds</p>
+                            <p><strong>Chapters:</strong> ${
+                              data.chapters?.length || 0
+                            }</p>
+                            ${
+                              data.demoMode
+                                ? "<p><strong>Mode:</strong> Demo Mode</p>"
+                                : ""
+                            }
+                            ${
+                              data.message
+                                ? `<p><strong>Message:</strong> ${data.message}</p>`
+                                : ""
+                            }
+                            <details>
+                                <summary>Full Response</summary>
+                                <pre>${JSON.stringify(data, null, 2)}</pre>
+                            </details>
+                        </div>
+                    `;
+          } else {
+            resultDiv.innerHTML = `
+                        <div class="result error">
+                            <h4>❌ Error</h4>
+                            <p>${data.error}</p>
+                            <details>
+                                <summary>Full Response</summary>
+                                <pre>${JSON.stringify(data, null, 2)}</pre>
+                            </details>
+                        </div>
+                    `;
+          }
+        } catch (error) {
+          resultDiv.innerHTML = `
+                    <div class="result error">
+                        <h4>❌ Network Error</h4>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+        } finally {
+          btn.disabled = false;
+          btn.innerText = "🎙️ Generate Podcast";
+        }
+      }
+
+      async function listEpisodes() {
+        const resultDiv = document.getElementById("result");
+        const btn = document.getElementById("listBtn");
+
+        btn.disabled = true;
+        btn.innerText = "📋 Loading...";
+        resultDiv.innerHTML = '<div class="result">Loading episodes...</div>';
+
+        try {
+          const response = await fetch("/api/podcasts/generate");
+          const data = await response.json();
+
+          resultDiv.innerHTML = `
+                    <div class="result ${data.success ? "success" : "error"}">
+                        <h4>${data.success ? "✅" : "❌"} Episodes List</h4>
+                        <details>
+                            <summary>Response</summary>
+                            <pre>${JSON.stringify(data, null, 2)}</pre>
+                        </details>
+                    </div>
+                `;
+        } catch (error) {
+          resultDiv.innerHTML = `
+                    <div class="result error">
+                        <h4>❌ Network Error</h4>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+        } finally {
+          btn.disabled = false;
+          btn.innerText = "📋 List Episodes";
+        }
+      }
+    </script>
+  </body>
+</html>
