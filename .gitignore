@@ -226,7 +226,11 @@ rules
 
 
 
-
+.playwright-mcp/
+.playwright-mcp-report/
+.playwright-mcp-report-html/
+.playwright-mcp-report-json/
+playwright-mcp
 
 
 # Documentation builds

@@ -58,6 +58,7 @@ export default function BrowseNotes() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCourse, setSelectedCourse] = useState("all");
+  const [selectedVisibility, setSelectedVisibility] = useState("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [notes, setNotes] = useState<Note[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
@@ -88,13 +89,17 @@ export default function BrowseNotes() {
 
       try {
         const filters: any = {
-          visibility: "public",
+          // Remove hardcoded visibility to get all notes user has permission to see
           limit: 20,
           offset: 0,
         };
 
         if (selectedCourse !== "all") {
           filters.course = selectedCourse;
+        }
+
+        if (selectedVisibility !== "all") {
+          filters.visibility = selectedVisibility;
         }
 
         if (searchQuery.trim()) {
@@ -117,7 +122,7 @@ export default function BrowseNotes() {
     };
 
     fetchNotes();
-  }, [selectedCourse, searchQuery]);
+  }, [selectedCourse, selectedVisibility, searchQuery]);
 
   const formatFileSize = (bytes: string) => {
     const size = parseInt(bytes);
@@ -196,21 +201,43 @@ export default function BrowseNotes() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-gray-500" />
-              <Select value={selectedCourse} onValueChange={setSelectedCourse}>
-                <SelectTrigger className="w-48 bg-white">
-                  <SelectValue placeholder="All Courses" />
-                </SelectTrigger>
-                <SelectContent className="bg-white max-h-60">
-                  <SelectItem value="all">All Courses</SelectItem>
-                  {courses.map((course) => (
-                    <SelectItem key={course.id} value={course.course_code}>
-                      {course.course_code} - {course.course_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-gray-500" />
+                <Select
+                  value={selectedCourse}
+                  onValueChange={setSelectedCourse}
+                >
+                  <SelectTrigger className="w-48 bg-white">
+                    <SelectValue placeholder="All Courses" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white max-h-60">
+                    <SelectItem value="all">All Courses</SelectItem>
+                    {courses.map((course) => (
+                      <SelectItem key={course.id} value={course.course_code}>
+                        {course.course_code} - {course.course_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Select
+                  value={selectedVisibility}
+                  onValueChange={setSelectedVisibility}
+                >
+                  <SelectTrigger className="w-40 bg-white">
+                    <SelectValue placeholder="All Types" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="public">Public</SelectItem>
+                    <SelectItem value="course_only">Course Only</SelectItem>
+                    <SelectItem value="private">Private</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -284,13 +311,29 @@ export default function BrowseNotes() {
 
                   <div className="flex items-center gap-2 mb-3">
                     <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
-                      {note.courses.course_code}
+                      {note.courses?.course_code || "No Course"}
                     </span>
                     <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-medium">
                       {note.file_type.toUpperCase()}
                     </span>
                     <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-medium">
                       {formatFileSize(note.file_size_bytes)}
+                    </span>
+                    {/* Visibility indicator badge */}
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-medium ${
+                        note.visibility === "public"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : note.visibility === "course_only"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {note.visibility === "public"
+                        ? "Public"
+                        : note.visibility === "course_only"
+                        ? "Course Only"
+                        : "Private"}
                     </span>
                   </div>
 
@@ -303,7 +346,7 @@ export default function BrowseNotes() {
                   <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
                     <div className="flex items-center space-x-1">
                       <User className="w-4 h-4" />
-                      <span>{note.users.name}</span>
+                      <span>{note.users?.name || "Unknown User"}</span>
                     </div>
                     <div className="flex items-center space-x-1">
                       <Calendar className="w-4 h-4" />

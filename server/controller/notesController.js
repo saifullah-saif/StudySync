@@ -65,15 +65,11 @@ class NotesController {
   // Get all notes with filters
   getAllNotes = async (req, res) => {
     try {
-      const {
-        course,
-        search,
-        visibility = "public",
-        limit = 20,
-        offset = 0,
-      } = req.query;
+      const { course, search, visibility, limit = 20, offset = 0 } = req.query;
+      const userId = req.user?.id || null; // Get user ID if authenticated
 
       const result = await this.notesService.getAllNotes({
+        userId,
         course,
         search,
         visibility,
