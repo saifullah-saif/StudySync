@@ -27,6 +27,7 @@ interface Review {
     name: string
     department: string
     semester: number
+    profile_picture_url: string | null
   } | null
 }
 
@@ -231,6 +232,12 @@ export default function ReviewsPage() {
                         {/* User Info */}
                         <div className="flex items-center space-x-3">
                           <Avatar className="h-10 w-10">
+                            {!review.is_anonymous && review.users?.profile_picture_url ? (
+                              <AvatarImage 
+                                src={review.users.profile_picture_url} 
+                                alt={review.users.name || "User"} 
+                              />
+                            ) : null}
                             <AvatarFallback>
                               {review.is_anonymous ? (
                                 <User className="h-5 w-5" />

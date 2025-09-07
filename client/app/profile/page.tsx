@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Textarea } from "@/components/ui/textarea"
-import { Edit, Plus, X, Star } from "lucide-react"
+import { Edit, Plus, X, Star, Camera, Upload } from "lucide-react"
 
 interface Course {
   id: number
@@ -35,6 +35,7 @@ export default function ProfilePage() {
     semester: "",
     department: "",
     bio: "",
+    profile_picture_url: "",
     courses: [] as string[],
     previousCourses: [] as string[],
     completedCourses: [] as Array<{ name: string; rating: number; review: string }>,
@@ -44,6 +45,8 @@ export default function ProfilePage() {
   const [selectedCourse, setSelectedCourse] = useState("")
   const [selectedPreviousCourse, setSelectedPreviousCourse] = useState("")
   const [loadingCourses, setLoadingCourses] = useState(false)
+  const [profilePictureFile, setProfilePictureFile] = useState<File | null>(null)
+  const [profilePicturePreview, setProfilePicturePreview] = useState<string | null>(null)
 
   // Load profile data and available courses on component mount
   useEffect(() => {
@@ -65,6 +68,7 @@ export default function ProfilePage() {
           semester: profileData.semester?.toString() || "",
           department: profileData.department || "",
           bio: profileData.bio || "",
+          profile_picture_url: profileData.profile_picture_url || "",
           courses: profileData.courses || [],
           previousCourses: profileData.previousCourses || [],
           completedCourses: profileData.completedCourses || [],
@@ -80,12 +84,51 @@ export default function ProfilePage() {
     }
   }
 
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log('File input changed', event.target.files);
+    const file = event.target.files?.[0];
+    if (file) {
+      console.log('Selected file:', file.name, file.size, file.type);
+      setProfilePictureFile(file);
+      const previewUrl = URL.createObjectURL(file);
+      setProfilePicturePreview(previewUrl);
+    }
+  };
+
+  const handleRemoveProfilePicture = () => {
+    setProfilePictureFile(null);
+    setProfilePicturePreview(null);
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false)
+    setProfilePictureFile(null)
+    setProfilePicturePreview(null)
+  }
+
   const handleSave = async () => {
     try {
       setSaving(true)
       setError("")
 
-      const response = await profileAPI.updateProfile(profile)
+      // Create FormData for profile update
+      const formData = new FormData();
+      formData.append('name', profile.name);
+      formData.append('email', profile.email);
+      formData.append('semester', profile.semester);
+      formData.append('department', profile.department);
+      formData.append('bio', profile.bio);
+      formData.append('courses', JSON.stringify(profile.courses));
+      formData.append('previousCourses', JSON.stringify(profile.previousCourses));
+      formData.append('completedCourses', JSON.stringify(profile.completedCourses));
+      
+      // Add profile picture if selected
+      if (profilePictureFile) {
+        formData.append('profilePicture', profilePictureFile);
+      }
+
+      const response = await profileAPI.updateProfile(formData)
+      console.log('Profile update response:', response)
 
       if (response.success) {
         // Update local state with the response data
@@ -96,10 +139,15 @@ export default function ProfilePage() {
           semester: updatedProfile.semester?.toString() || "",
           department: updatedProfile.department || "",
           bio: updatedProfile.bio || "",
+          profile_picture_url: updatedProfile.profile_picture_url || profile.profile_picture_url,
           courses: updatedProfile.courses || [],
           previousCourses: updatedProfile.previousCourses || [],
           completedCourses: updatedProfile.completedCourses || [],
         })
+        
+        // Clear temporary file state after successful upload
+        setProfilePictureFile(null)
+        setProfilePicturePreview(null)
         setIsEditing(false)
       } else {
         setError("Failed to update profile")
@@ -218,15 +266,17 @@ export default function ProfilePage() {
           <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-8 py-12">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-6">
-                <Avatar className="w-24 h-24 border-4 border-white">
-                  <AvatarImage src="/placeholder.svg?height=96&width=96" />
-                  <AvatarFallback className="text-2xl font-bold bg-blue-200 text-blue-800">
-                    {profile.name
-                      .split(" ")
-                      .map((n) => n[0])
-                      .join("")}
-                  </AvatarFallback>
-                </Avatar>
+                <div className="relative">
+                  <Avatar className="w-24 h-24 border-4 border-white">
+                    <AvatarImage src={profilePicturePreview || profile.profile_picture_url || "/placeholder.svg?height=96&width=96"} />
+                    <AvatarFallback className="text-2xl font-bold bg-blue-200 text-blue-800">
+                      {profile.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
                 <div className="text-white">
                   <h1 className="text-3xl font-bold">{profile.name}</h1>
                   <p className="text-blue-100 text-lg">
@@ -236,7 +286,7 @@ export default function ProfilePage() {
                 </div>
               </div>
               <Button
-                onClick={() => setIsEditing(!isEditing)}
+                onClick={() => isEditing ? handleCancelEdit() : setIsEditing(true)}
                 variant="secondary"
                 className="bg-white/20 hover:bg-white/30 text-white border-white/30"
               >
@@ -265,6 +315,57 @@ export default function ProfilePage() {
                 )}
               </CardContent>
             </Card>
+
+            {/* Profile Picture Management - Only show when editing */}
+            {isEditing && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Profile Picture</CardTitle>
+                  <CardDescription>Upload or change your profile picture</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center space-x-4">
+                    {(profilePicturePreview || profile.profile_picture_url) && (
+                      <div className="relative">
+                        <img
+                          src={profilePicturePreview || profile.profile_picture_url}
+                          alt="Profile preview"
+                          className="w-20 h-20 rounded-full object-cover border-2 border-gray-300"
+                        />
+                        <button
+                          onClick={handleRemoveProfilePicture}
+                          className="absolute -top-1 -right-1 bg-red-500 hover:bg-red-600 text-white rounded-full p-1"
+                          title="Remove picture"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+                    <div className="flex-1">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="hidden"
+                        id="profile-picture-upload"
+                      />
+                      <label
+                        htmlFor="profile-picture-upload"
+                        className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 cursor-pointer"
+                      >
+                        <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        Choose Image
+                      </label>
+                      <p className="mt-2 text-sm text-gray-500">
+                        Upload a JPG, PNG, or GIF up to 5MB
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Current Courses */}
             <Card>
@@ -482,7 +583,7 @@ export default function ProfilePage() {
                   <div className="flex justify-end space-x-2 pt-4">
                     <Button
                       variant="outline"
-                      onClick={() => setIsEditing(false)}
+                      onClick={handleCancelEdit}
                       disabled={saving}
                     >
                       Cancel

@@ -1,7 +1,9 @@
 const ProfileService = require("../services/profileServices");
+const FileUploadService = require("../services/fileUploadService");
 const { PrismaClient } = require("@prisma/client");
 
 const profileService = ProfileService.getInstance();
+const fileUploadService = FileUploadService.getInstance();
 const prisma = new PrismaClient();
 
 class ProfileController {
@@ -27,11 +29,21 @@ class ProfileController {
     }
   }
 
-  // Update user profile
+  // Update user profile with optional profile picture
   static async updateProfile(req, res) {
     try {
       const userId = req.user.id; // From JWT middleware
       const updateData = req.body;
+      const profilePictureFile = req.file; // From multer middleware
+
+      console.log('Update profile request:');
+      console.log('User ID:', userId);
+      console.log('Update data:', updateData);
+      console.log('Profile picture file:', profilePictureFile ? {
+        name: profilePictureFile.originalname,
+        size: profilePictureFile.size,
+        type: profilePictureFile.mimetype
+      } : 'No file');
 
       // Validate user ID
       if (!userId) {
@@ -56,7 +68,9 @@ class ProfileController {
         });
       }
 
-      const updatedProfile = await profileService.updateUserProfile(userId, updateData);
+      const updatedProfile = await profileService.updateUserProfile(userId, updateData, profilePictureFile);
+      
+      console.log('Updated profile response:', updatedProfile);
 
       res.status(200).json({
         success: true,
@@ -65,6 +79,28 @@ class ProfileController {
       });
     } catch (error) {
       console.error("Update profile error:", error.message);
+
+      // Handle file upload specific errors
+      if (error.message.includes('Invalid file type')) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid file type. Only JPEG, PNG, and WebP images are allowed.",
+        });
+      }
+
+      if (error.message.includes('File too large')) {
+        return res.status(400).json({
+          success: false,
+          message: "File too large. Maximum size is 5MB.",
+        });
+      }
+
+      if (error.message.includes('Failed to upload profile picture')) {
+        return res.status(400).json({
+          success: false,
+          message: error.message,
+        });
+      }
 
       // Handle specific Prisma errors
       if (error.code === 'P2002') {

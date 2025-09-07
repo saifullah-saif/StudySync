@@ -80,7 +80,8 @@ const reviewServices = {
               id: true,
               name: true,
               department: true,
-              semester: true
+              semester: true,
+              profile_picture_url: true
             }
           }
         },

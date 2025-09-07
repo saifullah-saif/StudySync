@@ -173,16 +173,13 @@ export const profileAPI = {
     return response.data;
   },
 
-  // Update user profile
-  updateProfile: async (profileData) => {
-    const response = await api.put("/profile", {
-      name: profileData.name,
-      email: profileData.email,
-      department: profileData.department,
-      semester: profileData.semester ? parseInt(profileData.semester) : null,
-      bio: profileData.bio,
-      courses: profileData.courses || [],
-      previousCourses: profileData.previousCourses || [],
+  // Update user profile with optional file upload
+  // Update user profile with optional profile picture
+  updateProfile: async (formData) => {
+    const response = await api.put("/profile", formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
     });
     return response.data;
   },
