@@ -21,6 +21,10 @@ router.post(
 );
 router.post("/:id/like", verifyTokenFromCookie, ViewNotesController.toggleLike);
 router.post("/:id/vote", verifyTokenFromCookie, ViewNotesController.toggleVote);
-router.get("/:id/download", ViewNotesController.downloadNote);
+router.get(
+  "/:id/download",
+  optionalVerifyTokenFromCookie,
+  ViewNotesController.downloadNote
+);
 
 module.exports = router;

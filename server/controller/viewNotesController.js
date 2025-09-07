@@ -207,55 +207,6 @@ class ViewNotesController {
       });
     }
   };
-
-  // Download note file
-  downloadNote = async (req, res) => {
-    try {
-      const { id } = req.params;
-
-      const downloadResult = await this.viewNotesService.downloadNote(id);
-
-      if (!downloadResult) {
-        return res.status(404).json({
-          success: false,
-          message: "Note not found or file not available",
-          error: "FILE_NOT_FOUND",
-        });
-      }
-
-      res.json({
-        success: true,
-        data: {
-          downloadUrl: downloadResult.downloadUrl,
-          fileName: downloadResult.fileName,
-        },
-      });
-    } catch (error) {
-      console.error("Download note error:", error);
-
-      if (error.message === "Note not found") {
-        return res.status(404).json({
-          success: false,
-          message: "Note not found",
-          error: "NOTE_NOT_FOUND",
-        });
-      }
-
-      if (error.message === "Access denied") {
-        return res.status(403).json({
-          success: false,
-          message: "Access denied",
-          error: "ACCESS_DENIED",
-        });
-      }
-
-      res.status(500).json({
-        success: false,
-        message: "Failed to download note",
-        error: "DOWNLOAD_FAILED",
-      });
-    }
-  };
 }
 
 module.exports = new ViewNotesController();

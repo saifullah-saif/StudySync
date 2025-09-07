@@ -362,68 +362,6 @@ class ViewNotesService {
       throw error;
     }
   }
-
-  // Download note file
-  async downloadNote(noteId) {
-    try {
-      const note = await this.prisma.notes.findUnique({
-        where: { id: parseInt(noteId) },
-        select: {
-          id: true,
-          file_name: true,
-          file_path: true,
-          file_url: true,
-          visibility: true,
-          user_id: true,
-        },
-      });
-
-      if (!note) {
-        throw new Error("Note not found");
-      }
-
-      // For public notes, allow download without authentication
-      // For private notes, would need user authentication check
-
-      let downloadUrl;
-      if (note.file_url) {
-        // If we have a direct file URL, use it
-        downloadUrl = note.file_url;
-      } else if (note.file_path && this.supabase) {
-        // Generate signed URL from Supabase
-        const { data, error } = await this.supabase.storage
-          .from("study-sync-documents")
-          .createSignedUrl(note.file_path, 3600); // 1 hour expiry
-
-        if (error) {
-          console.error("Supabase signed URL error:", error);
-          throw new Error("Failed to generate download URL");
-        }
-
-        downloadUrl = data.signedUrl;
-      } else {
-        throw new Error("File not available for download");
-      }
-
-      // Increment download count
-      await this.prisma.notes.update({
-        where: { id: parseInt(noteId) },
-        data: {
-          download_count: {
-            increment: 1,
-          },
-        },
-      });
-
-      return {
-        downloadUrl,
-        fileName: note.file_name,
-      };
-    } catch (error) {
-      console.error("Download note service error:", error);
-      throw error;
-    }
-  }
 }
 
 module.exports = ViewNotesService;

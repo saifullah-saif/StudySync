@@ -192,11 +192,13 @@ export default function ViewNotePage() {
 
   const handleDownload = async () => {
     try {
-      const response = await viewNotesAPI.downloadNote(noteId);
-      if (response.success) {
-        // Open download URL in new tab
-        window.open(response.data.downloadUrl, "_blank");
-      }
+      // This would typically open a download link
+      window.open(
+        `${
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
+        }/notes/${noteId}/download`,
+        "_blank"
+      );
     } catch (error) {
       console.error("Error downloading note:", error);
       toast({
@@ -212,10 +214,10 @@ export default function ViewNotePage() {
       navigator.share({
         title: note.title,
         text: note.description,
-        url: window.location.href,
+        url: note?.file_url || window.location.href,
       });
     } else {
-      navigator.clipboard.writeText(window.location.href);
+      navigator.clipboard.writeText(note?.file_url || window.location.href);
       toast({
         title: "Success",
         description: "Link copied to clipboard!",
@@ -336,9 +338,11 @@ export default function ViewNotePage() {
                 {/* Title and Course Badge */}
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
-                    <Badge className="bg-blue-600 hover:bg-blue-700 text-white">
-                      {note.courses.course_code}
-                    </Badge>
+                    {note.courses && (
+                      <Badge className="bg-blue-600 hover:bg-blue-700 text-white">
+                        {note.courses.course_code}
+                      </Badge>
+                    )}
                     <Badge variant="outline" className="bg-white">
                       {note.file_type.toUpperCase()}
                     </Badge>

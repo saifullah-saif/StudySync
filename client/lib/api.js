@@ -883,10 +883,7 @@ export const viewNotesAPI = {
   },
 
   // Download note file
-  downloadNote: async (id) => {
-    const response = await api.get(`/view-notes/${id}/download`);
-    return response.data;
-  },
+  
 };
 
 export const apiRequest = {
