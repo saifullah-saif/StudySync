@@ -333,6 +333,7 @@ model notes {
   last_modified      DateTime?            @default(now()) @db.Timestamp(6)
   download_count     Int?                 @default(0)
   is_processed_by_ai Boolean?             @default(false)
+  file_url           String?
   ai_summaries       ai_summaries[]
   audio_content      audio_content[]
   document_chunks    document_chunks[]

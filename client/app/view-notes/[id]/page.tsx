@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
+import { viewNotesAPI } from "@/lib/api";
 import {
   Heart,
   Download,
@@ -22,7 +23,13 @@ import {
   Sparkles,
   ArrowUp,
   ArrowDown,
+  ZoomIn,
+  ZoomOut,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
 } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
 // TypeScript interfaces matching Prisma schema
 interface NoteDetail {
@@ -34,11 +41,15 @@ interface NoteDetail {
   file_type: string;
   file_size_bytes: string;
   visibility: string;
-
+  file_url?: string;
   upload_date: string;
   last_modified: string;
   download_count: number;
   is_processed_by_ai: boolean;
+  upvote_count: number;
+  downvote_count: number;
+  is_upvoted_by_user: boolean;
+  is_downvoted_by_user: boolean;
   users: {
     id: number;
     name: string;
@@ -92,156 +103,107 @@ export default function ViewNotePage() {
   const [isUpvoted, setIsUpvoted] = useState(false);
   const [isDownvoted, setIsDownvoted] = useState(false);
 
-  // Mock data that matches the schema structure
+  // Fetch note details from API
   useEffect(() => {
     const fetchNoteDetails = async () => {
-      setIsLoading(true);
+      try {
+        setIsLoading(true);
 
-      // Simulate API delay
-      setTimeout(() => {
-        const mockNote: NoteDetail = {
-          id: parseInt(noteId),
-          title: "Introduction to Data Structures",
-          description:
-            "Comprehensive notes covering arrays, linked lists, stacks, queues, and their practical applications in computer science.",
-          file_name: "intro-to-data-structures.pdf",
-          file_path: "/uploads/notes/intro-to-data-structures.pdf",
-          file_type: "pdf",
-          file_size_bytes: "2457600", // 2.4 MB
-          visibility: "public",
+        // Fetch note details
+        const noteResponse = await viewNotesAPI.getNoteDetails(noteId);
+        if (noteResponse.success) {
+          const fetchedNote = noteResponse.data;
+          setNote(fetchedNote);
+          setIsLiked(fetchedNote.is_liked_by_user);
+          setLikeCount(fetchedNote.like_count);
+          setUpvotes(fetchedNote.upvote_count);
+          setDownvotes(fetchedNote.downvote_count);
+          setIsUpvoted(fetchedNote.is_upvoted_by_user);
+          setIsDownvoted(fetchedNote.is_downvoted_by_user);
+        }
 
-          upload_date: "2024-01-15T08:00:00Z",
-          last_modified: "2024-01-15T08:00:00Z",
-          download_count: 42,
-          is_processed_by_ai: true,
-          users: {
-            id: 1,
-            name: "Alex Chen",
-            email: "alex.chen@university.edu",
-            department: "Computer Science",
-            semester: 6,
-            profile_picture_url: "/placeholder-user.jpg",
-            bio: "Computer Science student passionate about algorithms and data structures",
-          },
-          courses: {
-            id: 1,
-            course_code: "CSE220",
-            course_name: "Data Structures",
-            department: "Computer Science",
-            credit_hours: 3,
-          },
-          like_count: 24,
-          is_liked_by_user: false,
-        };
-
-        const mockComments: Comment[] = [
-          {
-            id: 1,
-            user_id: 2,
-            note_id: parseInt(noteId),
-            comment_text:
-              "Really helpful notes! The examples made everything clear.",
-            created_at: "2024-01-15T14:30:00Z",
-            updated_at: "2024-01-15T14:30:00Z",
-            users: {
-              id: 2,
-              name: "Sarah Johnson",
-              department: "Computer Science",
-              profile_picture_url: "/placeholder-user.jpg",
-            },
-          },
-          {
-            id: 2,
-            user_id: 3,
-            note_id: parseInt(noteId),
-            comment_text:
-              "Thanks for sharing. The section on time complexity was exactly what I needed.",
-            created_at: "2024-01-16T10:15:00Z",
-            updated_at: "2024-01-16T10:15:00Z",
-            users: {
-              id: 3,
-              name: "Mike Rodriguez",
-              department: "Computer Science",
-            },
-          },
-          {
-            id: 3,
-            user_id: 4,
-            note_id: parseInt(noteId),
-            comment_text:
-              "Great organization and easy to follow. Helped me prepare for the exam!",
-            created_at: "2024-01-16T16:45:00Z",
-            updated_at: "2024-01-16T16:45:00Z",
-            users: {
-              id: 4,
-              name: "Emma Davis",
-              department: "Computer Science",
-            },
-          },
-        ];
-
-        setNote(mockNote);
-        setComments(mockComments);
-  setIsLiked(mockNote.is_liked_by_user);
-  setLikeCount(mockNote.like_count);
-  setUpvotes(10); // mock value
-  setDownvotes(2); // mock value
+        // Fetch comments
+        const commentsResponse = await viewNotesAPI.getNoteComments(noteId);
+        if (commentsResponse.success) {
+          setComments(commentsResponse.data);
+        }
+      } catch (error) {
+        console.error("Error fetching note details:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load note details. Please try again.",
+          variant: "destructive",
+        });
+      } finally {
         setIsLoading(false);
-      }, 800);
+      }
     };
 
     fetchNoteDetails();
   }, [noteId]);
 
-  const handleLike = () => {
-    setIsLiked(!isLiked);
-    setLikeCount((prev) => (isLiked ? prev - 1 : prev + 1));
-  };
-
-  const handleUpvote = () => {
-    if (isUpvoted) {
-      setIsUpvoted(false);
-      setUpvotes((prev) => prev - 1);
-    } else {
-      setIsUpvoted(true);
-      setUpvotes((prev) => prev + 1);
-      if (isDownvoted) {
-        setIsDownvoted(false);
-        setDownvotes((prev) => prev - 1);
+  const handleLike = async () => {
+    try {
+      const response = await viewNotesAPI.toggleLike(noteId);
+      if (response.success) {
+        setIsLiked(response.data.isLiked);
+        setLikeCount(response.data.likeCount);
       }
+    } catch (error) {
+      console.error("Error toggling like:", error);
     }
   };
 
-  const handleDownvote = () => {
-    if (isDownvoted) {
-      setIsDownvoted(false);
-      setDownvotes((prev) => prev - 1);
-    } else {
-      setIsDownvoted(true);
-      setDownvotes((prev) => prev + 1);
-      if (isUpvoted) {
-        setIsUpvoted(false);
-        setUpvotes((prev) => prev - 1);
+  const handleUpvote = async () => {
+    try {
+      const response = await viewNotesAPI.toggleVote(noteId, "upvote");
+      if (response.success) {
+        setUpvotes(response.data.upvotes);
+        setDownvotes(response.data.downvotes);
+        setIsUpvoted(response.data.userVote === "upvote");
+        setIsDownvoted(response.data.userVote === "downvote");
       }
+    } catch (error) {
+      console.error("Error toggling upvote:", error);
+    }
+  };
+
+  const handleDownvote = async () => {
+    try {
+      const response = await viewNotesAPI.toggleVote(noteId, "downvote");
+      if (response.success) {
+        setUpvotes(response.data.upvotes);
+        setDownvotes(response.data.downvotes);
+        setIsUpvoted(response.data.userVote === "upvote");
+        setIsDownvoted(response.data.userVote === "downvote");
+      }
+    } catch (error) {
+      console.error("Error toggling downvote:", error);
     }
   };
 
   const handleSummarize = () => {
-    if (note) {
-      // Simulate summarization
-      alert("Summarizing note...");
-    }
+    // Keep non-functional as requested
+    toast({
+      title: "Coming Soon!",
+      description: "AI summarization feature will be available soon.",
+    });
   };
 
-  const handleDownload = () => {
-    if (note) {
-      // Simulate download
-      window.open(
-        `${
-          process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
-        }/notes/${note.id}/download`,
-        "_blank"
-      );
+  const handleDownload = async () => {
+    try {
+      const response = await viewNotesAPI.downloadNote(noteId);
+      if (response.success) {
+        // Open download URL in new tab
+        window.open(response.data.downloadUrl, "_blank");
+      }
+    } catch (error) {
+      console.error("Error downloading note:", error);
+      toast({
+        title: "Error",
+        description: "Failed to download file. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -254,27 +216,39 @@ export default function ViewNotePage() {
       });
     } else {
       navigator.clipboard.writeText(window.location.href);
-      alert("Link copied to clipboard!");
+      toast({
+        title: "Success",
+        description: "Link copied to clipboard!",
+      });
     }
   };
 
-  const handlePostComment = () => {
+  const handlePostComment = async () => {
     if (newComment.trim() && note) {
-      const comment: Comment = {
-        id: comments.length + 1,
-        user_id: 999, // Current user mock ID
-        note_id: note.id,
-        comment_text: newComment.trim(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        users: {
-          id: 999,
-          name: "Current User",
-          department: "Computer Science",
-        },
-      };
-      setComments([...comments, comment]);
-      setNewComment("");
+      try {
+        const response = await viewNotesAPI.addComment(noteId, {
+          comment_text: newComment.trim(),
+        });
+        if (response.success) {
+          // Refresh comments
+          const commentsResponse = await viewNotesAPI.getNoteComments(noteId);
+          if (commentsResponse.success) {
+            setComments(commentsResponse.data);
+          }
+          setNewComment("");
+          toast({
+            title: "Success",
+            description: "Comment posted successfully!",
+          });
+        }
+      } catch (error) {
+        console.error("Error posting comment:", error);
+        toast({
+          title: "Error",
+          description: "Failed to post comment. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -452,18 +426,34 @@ export default function ViewNotePage() {
                       variant={isUpvoted ? "default" : "outline"}
                       size="sm"
                       onClick={handleUpvote}
-                      className={isUpvoted ? "bg-green-500 hover:bg-green-600 text-white" : "hover:bg-green-50 hover:text-green-600 hover:border-green-300"}
+                      className={
+                        isUpvoted
+                          ? "bg-green-500 hover:bg-green-600 text-white"
+                          : "hover:bg-green-50 hover:text-green-600 hover:border-green-300"
+                      }
                     >
-                      <ArrowUp className={`w-4 h-4 mr-2 ${isUpvoted ? "fill-current" : ""}`} />
+                      <ArrowUp
+                        className={`w-4 h-4 mr-2 ${
+                          isUpvoted ? "fill-current" : ""
+                        }`}
+                      />
                       {upvotes}
                     </Button>
                     <Button
                       variant={isDownvoted ? "default" : "outline"}
                       size="sm"
                       onClick={handleDownvote}
-                      className={isDownvoted ? "bg-yellow-500 hover:bg-yellow-600 text-white" : "hover:bg-yellow-50 hover:text-yellow-600 hover:border-yellow-300"}
+                      className={
+                        isDownvoted
+                          ? "bg-yellow-500 hover:bg-yellow-600 text-white"
+                          : "hover:bg-yellow-50 hover:text-yellow-600 hover:border-yellow-300"
+                      }
                     >
-                      <ArrowDown className={`w-4 h-4 mr-2 ${isDownvoted ? "fill-current" : ""}`} />
+                      <ArrowDown
+                        className={`w-4 h-4 mr-2 ${
+                          isDownvoted ? "fill-current" : ""
+                        }`}
+                      />
                       {downvotes}
                     </Button>
                     <Button variant="outline" size="sm" onClick={handleShare}>
@@ -483,7 +473,7 @@ export default function ViewNotePage() {
             </CardContent>
           </Card>
 
-          {/* Document Preview Placeholder */}
+          {/* Document Preview */}
           <div className="space-y-8 flex flex-row justify-between gap-8 ">
             <Card className="mb-8 w-2/3">
               <CardHeader>
@@ -493,23 +483,37 @@ export default function ViewNotePage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
-                  <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-700 mb-2">
-                    Preview not available
-                  </h3>
-                  <p className="text-gray-500 mb-4">
-                    Document preview feature coming soon. Download the file to
-                    view the content.
-                  </p>
-                  <Button
-                    onClick={handleDownload}
-                    className="bg-blue-600 hover:bg-blue-700 text-white"
-                  >
-                    <Download className="w-4 h-4 mr-2" />
-                    Download {note.file_name}
-                  </Button>
-                </div>
+                {note.file_url ? (
+                  // <PDFViewer
+                  //   fileUrl={note.file_url}
+                  //   fileName={note.file_name}
+                  //   onDownloadClick={handleDownload}
+                  // />
+                  <iframe
+                    src={note.file_url} // from Supabase
+                    width="100%"
+                    height="800px"
+                  />
+                ) : (
+                  <div className="bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
+                    <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-700 mb-2">
+                      Preview not available
+                    </h3>
+                    <p className="text-gray-500 mb-4">
+                      {note.file_type === "pdf"
+                        ? "Unable to load PDF preview. Please download the file to view the content."
+                        : "Document preview is only available for PDF files. Download the file to view the content."}
+                    </p>
+                    <Button
+                      onClick={handleDownload}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      <Download className="w-4 h-4 mr-2" />
+                      Download {note.file_name}
+                    </Button>
+                  </div>
+                )}
                 {/* AI summary button */}
                 <div className="p-4 bg-secondary/20 rounded-lg">
                   <div className="flex items-center justify-between">

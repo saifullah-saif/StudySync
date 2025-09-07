@@ -1,19 +1,20 @@
-"use client"
+"use client";
 
-import Link from "next/link"
-import { usePathname } from "next/navigation"
-import { useState } from "react"
-import { User, LogOut, Settings, BookOpen } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useState } from "react";
+import { User, LogOut, Settings, BookOpen } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { AuthModals } from "@/components/auth-modals"
-import { useAuth } from "@/contexts/auth-context"
+} from "@/components/ui/dropdown-menu";
+import { AuthModals } from "@/components/auth-modals";
+import { useAuth } from "@/contexts/auth-context";
+import { useRouter } from "next/navigation";
 
 const navigation = [
   { name: "Home", href: "/" },
@@ -21,17 +22,19 @@ const navigation = [
   { name: "Library", href: "/library" },
   { name: "Notes", href: "/notes" },
   { name: "Assistant", href: "/assistant" },
-]
+];
 
 export default function Header() {
-  const pathname = usePathname()
-  const { user, logout } = useAuth()
-  const [isSignInOpen, setIsSignInOpen] = useState(false)
-  const [isSignUpOpen, setIsSignUpOpen] = useState(false)
+  const router = useRouter();
+  const pathname = usePathname();
+  const { user, logout } = useAuth();
+  const [isSignInOpen, setIsSignInOpen] = useState(false);
+  const [isSignUpOpen, setIsSignUpOpen] = useState(false);
 
   const handleSignOut = async () => {
-    await logout()
-  }
+    await logout();
+    router.push("/"); // Redirect to home page after logout
+  };
 
   return (
     <>
@@ -41,34 +44,50 @@ export default function Header() {
             {/* Left side - Logo */}
             <div className="flex items-center space-x-4">
               <Link href="/" className="flex items-center space-x-2">
-                <span className="text-xl font-bold text-white italic">StudySync</span>
+                <span className="text-xl font-bold text-white italic">
+                  StudySync
+                </span>
               </Link>
             </div>
 
             {/* Right side - Navigation and Profile */}
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center  space-x-1">
               <nav className="flex space-x-1">
                 {navigation.map((item) => (
-                  <Link
+                  <Button
                     key={item.name}
-                    href={item.href}
+                    variant="ghost"
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      pathname === item.href || 
-                      (item.href === "/library" && pathname.startsWith("/library")) ||
-                      (item.href === "/assistant" && (pathname.startsWith("/assistant") || pathname.startsWith("/flashcards")))
+                      pathname === item.href ||
+                      (item.href === "/library" &&
+                        pathname.startsWith("/library")) ||
+                      (item.href === "/assistant" &&
+                        (pathname.startsWith("/assistant") ||
+                          pathname.startsWith("/flashcards")))
                         ? "bg-slate-600 text-white"
                         : "text-slate-300 hover:bg-slate-700 hover:text-white"
                     }`}
+                    onClick={() => {
+                      if (!user) {
+                        setIsSignInOpen(true);
+                      } else {
+                        router.push(item.href);
+                      }
+                    }}
                   >
                     {item.name}
-                  </Link>
+                  </Button>
                 ))}
               </nav>
 
               {/* Profile Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="text-white hover:bg-slate-700">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-white hover:bg-slate-700"
+                  >
                     <User className="h-5 w-5" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -80,10 +99,15 @@ export default function Header() {
                     <>
                       <div className="px-2 py-1.5">
                         <p className="text-sm font-medium">{user.name}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {user.email}
+                        </p>
                       </div>
                       <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />
-                      <DropdownMenuItem asChild className="hover:bg-gray-100 dark:hover:bg-gray-700">
+                      <DropdownMenuItem
+                        asChild
+                        className="hover:bg-gray-100 dark:hover:bg-gray-700"
+                      >
                         <Link href="/profile">
                           <User className="mr-2 h-4 w-4" />
                           <span>Profile</span>
@@ -94,7 +118,10 @@ export default function Header() {
                         <span>Settings</span>
                       </DropdownMenuItem>
                       <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />
-                      <DropdownMenuItem onClick={handleSignOut} className="hover:bg-gray-100 dark:hover:bg-gray-700">
+                      <DropdownMenuItem
+                        onClick={handleSignOut}
+                        className="hover:bg-gray-100 dark:hover:bg-gray-700"
+                      >
                         <LogOut className="mr-2 h-4 w-4" />
                         <span>Sign out</span>
                       </DropdownMenuItem>
@@ -131,5 +158,5 @@ export default function Header() {
         setIsSignUpOpen={setIsSignUpOpen}
       />
     </>
-  )
+  );
 }

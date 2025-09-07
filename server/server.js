@@ -78,6 +78,7 @@ const generationRoutes = require("./routes/generation");
 const langchainRoutes = require("./routes/langchain");
 const flashcardRoutes = require("./routes/flashcards");
 const statsRoutes = require("./routes/stats");
+const viewNotesRoutes = require("./routes/viewNotes");
 
 // Use routes
 app.use("/api/auth", authRoutes);
@@ -95,6 +96,7 @@ app.use("/api/stats", statsRoutes);
 
 // Health check endpoint (no auth required)
 app.use("/api/notes", notesRoutes);
+app.use("/api/view-notes", viewNotesRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({

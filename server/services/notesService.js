@@ -84,6 +84,24 @@ class NotesService {
     }
   }
 
+  async getFilePublicUrl(filePath) {
+    try {
+      const { data, error } = this.supabase.storage
+        .from("study-sync-documents")
+        .getPublicUrl(filePath);
+
+      if (error) {
+        console.error("Supabase get public URL error:", error);
+        throw new Error(`Failed to get public URL for file: ${error.message}`);
+      }
+
+      return data.publicUrl;
+    } catch (error) {
+      console.error("Get public URL error:", error);
+      throw error;
+    }
+  }
+
   // Download file from Supabase Storage
   async downloadFileFromStorage(filePath) {
     try {
@@ -143,11 +161,11 @@ class NotesService {
 
       // Generate unique file name
       const fileExtension = this.getFileExtension(file.mimetype);
-      const uniqueFileName = `${uuidv4()}${fileExtension}`;
+      const uniqueFileName = `${title}-${uuidv4()}${fileExtension}`;
 
       // Upload file to Supabase Storage
       const filePath = await this.uploadFileToStorage(file, uniqueFileName);
-
+      const fileUrl = await this.getFilePublicUrl(filePath);
       // Get file type for database
       const fileType = this.getFileTypeFromMime(file.mimetype);
 
@@ -162,6 +180,7 @@ class NotesService {
           file_path: filePath,
           file_type: fileType,
           file_size_bytes: BigInt(file.size),
+          file_url: fileUrl,
           visibility,
           tags: [], // Empty array for now, can be enhanced later
         },

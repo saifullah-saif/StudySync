@@ -2,7 +2,7 @@ import axios from "axios";
 
 // Create axios instance with default config
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001/api",
+  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api",
   withCredentials: true,
   crossDomain: true,
   credentials: "include",
@@ -190,10 +190,10 @@ export const profileAPI = {
 
 export const buddyAPI = {
   // Get study buddies (peers or mentors)
-  getBuddies: async (type = 'peers', searchQuery = '') => {
+  getBuddies: async (type = "peers", searchQuery = "") => {
     const params = new URLSearchParams({ type });
     if (searchQuery && searchQuery.trim()) {
-      params.append('search', searchQuery.trim());
+      params.append("search", searchQuery.trim());
     }
     const response = await api.get(`/buddies?${params.toString()}`);
     return response.data;
@@ -201,43 +201,46 @@ export const buddyAPI = {
 
   // Create a new connection request (study invite or mentoring request)
   createConnection: async (addresseeId, requestType) => {
-    const response = await api.post('/buddies/connections', {
+    const response = await api.post("/buddies/connections", {
       addresseeId,
-      requestType
+      requestType,
     });
     return response.data;
   },
 
   // Get pending connection requests
   getPendingConnections: async () => {
-    const response = await api.get('/buddies/connections');
+    const response = await api.get("/buddies/connections");
     return response.data;
   },
 
   // Get pending invitations (alias for getPendingConnections)
   getPendingInvitations: async () => {
-    const response = await api.get('/buddies/invitations');
+    const response = await api.get("/buddies/invitations");
     return response.data;
   },
 
   // Get accepted connections
   getAcceptedConnections: async () => {
-    const response = await api.get('/buddies/connections/accepted');
+    const response = await api.get("/buddies/connections/accepted");
     return response.data;
   },
 
   // Respond to invitation (accept or reject)
   respondToInvitation: async (invitationId, response) => {
-    const apiResponse = await api.put(`/buddies/invitations/${invitationId}/respond`, {
-      response
-    });
+    const apiResponse = await api.put(
+      `/buddies/invitations/${invitationId}/respond`,
+      {
+        response,
+      }
+    );
     return apiResponse.data;
   },
 
   // Update connection status (accept or reject)
   updateConnectionStatus: async (connectionId, status) => {
     const response = await api.put(`/buddies/connections/${connectionId}`, {
-      status
+      status,
     });
     return response.data;
   },
@@ -258,7 +261,7 @@ export const chatAPI = {
 
   // Get all conversations for the current user
   getConversations: async () => {
-    const response = await api.get('/chats/conversations');
+    const response = await api.get("/chats/conversations");
     return response.data;
   },
 
@@ -843,6 +846,45 @@ export const notesAPI = {
   // Get courses list
   getCourses: async () => {
     const response = await api.get("/notes/courses");
+    return response.data;
+  },
+};
+
+// View Notes API for detailed note viewing functionality
+export const viewNotesAPI = {
+  // Get note details with all interactions and comments
+  getNoteDetails: async (id) => {
+    const response = await api.get(`/view-notes/${id}`);
+    return response.data;
+  },
+
+  // Get comments for a specific note
+  getNoteComments: async (id) => {
+    const response = await api.get(`/view-notes/${id}/comments`);
+    return response.data;
+  },
+
+  // Add a comment to a note
+  addComment: async (id, commentData) => {
+    const response = await api.post(`/view-notes/${id}/comments`, commentData);
+    return response.data;
+  },
+
+  // Toggle like for a note
+  toggleLike: async (id) => {
+    const response = await api.post(`/view-notes/${id}/like`);
+    return response.data;
+  },
+
+  // Toggle vote (upvote/downvote) for a note
+  toggleVote: async (id, voteType) => {
+    const response = await api.post(`/view-notes/${id}/vote`, { voteType });
+    return response.data;
+  },
+
+  // Download note file
+  downloadNote: async (id) => {
+    const response = await api.get(`/view-notes/${id}/download`);
     return response.data;
   },
 };
