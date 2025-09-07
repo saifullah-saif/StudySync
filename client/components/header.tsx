@@ -19,6 +19,7 @@ const navigation = [
   { name: "Home", href: "/" },
   { name: "Buddies", href: "/buddies" },
   { name: "Library", href: "/library" },
+  { name: "Courses", href: "/course" },
   { name: "Notes", href: "/notes" },
   { name: "Assistant", href: "/assistant" },
 ]
@@ -53,7 +54,9 @@ export default function Header() {
                     key={item.name}
                     href={item.href}
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      pathname === item.href || (item.href === "/library" && pathname.startsWith("/library"))
+                      pathname === item.href || 
+                      (item.href === "/library" && pathname.startsWith("/library")) ||
+                      (item.href === "/course" && pathname.startsWith("/course"))
                         ? "bg-slate-600 text-white"
                         : "text-slate-300 hover:bg-slate-700 hover:text-white"
                     }`}

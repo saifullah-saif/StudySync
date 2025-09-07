@@ -269,6 +269,38 @@ export const chatAPI = {
   },
 };
 
+export const reviewAPI = {
+  // Create a new review
+  createReview: async (reviewData) => {
+    const response = await api.post('/reviews', reviewData);
+    return response.data;
+  },
+
+  // Get all reviews for a specific course
+  getCourseReviews: async (courseId) => {
+    const response = await api.get(`/reviews/course/${courseId}`);
+    return response.data;
+  },
+
+  // Get user's review for a specific course
+  getUserReview: async (courseId) => {
+    const response = await api.get(`/reviews/user/course/${courseId}`);
+    return response.data;
+  },
+
+  // Update review votes (upvote/downvote)
+  updateReviewVotes: async (reviewId, voteType) => {
+    const response = await api.patch(`/reviews/${reviewId}/vote`, { voteType });
+    return response.data;
+  },
+
+  // Delete a review
+  deleteReview: async (reviewId) => {
+    const response = await api.delete(`/reviews/${reviewId}`);
+    return response.data;
+  },
+};
+
 export const apiRequest = {
   get: async (url, config = {}) => {
     const response = await api.get(url, config);
