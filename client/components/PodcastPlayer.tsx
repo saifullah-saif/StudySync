@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
+import { langchainAPI } from "@/lib/api";
 import {
   Play,
   Pause,
@@ -101,6 +102,16 @@ export default function PodcastPlayer({
       audio.removeEventListener("ended", handleEnded);
     };
   }, [chapters, demoMode]);
+
+  const extractedText = async () => {
+    try {
+      const extractedText = await langchainAPI.extractTextFromDocument(document!);
+      return  extractedText;
+    } catch (error) {
+      console.error("Error extracting text:", error);
+    }
+  }
+
 
   const togglePlayPause = () => {
     if (demoMode) {

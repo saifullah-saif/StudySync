@@ -304,6 +304,12 @@ export const langchainAPI = {
     });
     return response.data;
   },
+
+  // Extract text from document by ID
+  extractTextFromDocument: async (documentId) => {
+    const response = await api.get(`/langchain/extract/${documentId}`);
+    return response.data;
+  },
 };
 
 // Flashcard Generation API

@@ -17,7 +17,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
-import { documentAPI, practiceAPI } from "@/lib/api";
+import { documentAPI, practiceAPI, langchainAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 
 interface FlashcardOption {
@@ -43,7 +43,19 @@ interface Deck {
   description: string;
   creation_method: string;
   created_at: string;
+  document_id?: number;
   flashcards: Flashcard[];
+}
+
+interface ExtractedTextData {
+  documentId: number;
+  documentTitle: string;
+  fileName: string;
+  extractedText: string;
+  pageCount: number;
+  wordCount: number;
+  charCount: number;
+  preview: string;
 }
 
 export default function DeckViewPage() {
@@ -59,33 +71,60 @@ export default function DeckViewPage() {
   const [studyMode, setStudyMode] = useState(false);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [showResult, setShowResult] = useState(false);
+  const [extractedText, setExtractedText] = useState<ExtractedTextData | null>(
+    null
+  );
+  const [loadingText, setLoadingText] = useState(false);
+  const [showExtractedText, setShowExtractedText] = useState(false);
 
   useEffect(() => {
     loadDeck();
   }, [deckId]);
 
+  const loadExtractedText = async (documentId: number) => {
+    try {
+      setLoadingText(true);
+      const result = await langchainAPI.extractTextFromDocument(documentId);
+
+      if (result.success) {
+        setExtractedText(result.data);
+      } else {
+        console.error("Failed to load extracted text:", result.message);
+      }
+    } catch (error) {
+      console.error("Error loading extracted text:", error);
+    } finally {
+      setLoadingText(false);
+    }
+  };
+
   const loadDeck = async () => {
     try {
       setLoading(true);
-      
+
       // Check if user is authenticated first
       if (!user) {
         toast.error("Please log in to view flashcard decks");
         router.push("/");
         return;
       }
-      
+
       const result = await documentAPI.getDeck(parseInt(deckId));
 
       if (result.success) {
         setDeck(result.data); // Changed from result.deck to result.data
+
+        // If deck has a document_id, load the extracted text
+        if (result.data.document_id) {
+          loadExtractedText(result.data.document_id);
+        }
       } else {
         toast.error(result.message || "Failed to load flashcard deck");
         router.push("/assistant");
       }
     } catch (error: any) {
       console.error("Load deck error:", error);
-      
+
       if (error.response?.status === 401) {
         toast.error("Please log in to view flashcard decks");
         router.push("/");
@@ -292,6 +331,78 @@ export default function DeckViewPage() {
                 </div>
               </CardContent>
             </Card>
+
+            {/* Extracted Text Section */}
+            {deck.document_id && (
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">
+                      📄 Source Document Text
+                    </CardTitle>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowExtractedText(!showExtractedText)}
+                    >
+                      {showExtractedText ? "Hide Text" : "Show Text"}
+                    </Button>
+                  </div>
+                </CardHeader>
+                {showExtractedText && (
+                  <CardContent>
+                    {loadingText ? (
+                      <div className="flex items-center justify-center p-6">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                        <span className="ml-2 text-gray-600">
+                          Loading text...
+                        </span>
+                      </div>
+                    ) : extractedText ? (
+                      <div className="space-y-4">
+                        {/* Text Statistics */}
+                        <div className="grid grid-cols-3 gap-4 p-4 bg-blue-50 rounded-lg">
+                          <div className="text-center">
+                            <div className="text-xl font-bold text-blue-800">
+                              {extractedText.wordCount.toLocaleString()}
+                            </div>
+                            <div className="text-sm text-blue-600">Words</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-xl font-bold text-blue-800">
+                              {extractedText.charCount.toLocaleString()}
+                            </div>
+                            <div className="text-sm text-blue-600">
+                              Characters
+                            </div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-xl font-bold text-blue-800">
+                              {extractedText.pageCount}
+                            </div>
+                            <div className="text-sm text-blue-600">Pages</div>
+                          </div>
+                        </div>
+
+                        {/* Extracted Text Content */}
+                        <div className="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
+                          <div className="text-sm text-gray-600 mb-2 font-medium">
+                            Extracted from: {extractedText.fileName}
+                          </div>
+                          <div className="text-sm leading-relaxed text-gray-800 whitespace-pre-wrap">
+                            {extractedText.extractedText}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-center text-gray-500 p-6">
+                        No extracted text available
+                      </div>
+                    )}
+                  </CardContent>
+                )}
+              </Card>
+            )}
 
             {/* Cards Overview */}
             <div className="grid gap-4">

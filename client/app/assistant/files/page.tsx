@@ -90,6 +90,7 @@ export default function FilesPage() {
   const [filteredFiles, setFilteredFiles] = useState<FileItem[]>([]);
   const [stats, setStats] = useState<FileStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [extractedText, setExtractedText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFileType, setSelectedFileType] = useState("all");
   const [sortBy, setSortBy] = useState("upload_date"); // Match backend field name
@@ -382,6 +383,9 @@ export default function FilesPage() {
           duration: 5000,
         });
 
+        const extractedText = result.data.extractedText || "";
+        setExtractedText(extractedText);
+    
         console.log(
           "📄 Extracted text preview:",
           result.data.extractedText?.substring(0, 500) + "..."
@@ -1594,6 +1598,10 @@ export default function FilesPage() {
           </DialogContent>
         </Dialog>
       )}
+      <div>
+        extractedText: {extractedText}
+      </div>
     </div>
+
   );
 }
