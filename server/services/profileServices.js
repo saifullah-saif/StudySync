@@ -1,6 +1,8 @@
 const { PrismaClient } = require("@prisma/client");
+const FileUploadService = require("./fileUploadService");
 
 const prisma = new PrismaClient();
+const fileUploadService = FileUploadService.getInstance();
 
 class ProfileService {
   static instance = null;
@@ -106,8 +108,8 @@ class ProfileService {
     }
   }
 
-  // Update user profile
-  async updateUserProfile(userId, updateData) {
+  // Update user profile with optional profile picture
+  async updateUserProfile(userId, updateData, profilePictureFile = null) {
     try {
       const { name, email, department, semester, bio, courses, previousCourses } = updateData;
 
@@ -119,11 +121,29 @@ class ProfileService {
       // Check if user exists first
       const existingUser = await prisma.users.findUnique({
         where: { id: userId },
-        select: { id: true, email: true }
+        select: { id: true, email: true, profile_picture_url: true }
       });
 
       if (!existingUser) {
         throw new Error(`User not found with ID: ${userId}`);
+      }
+
+      // Handle profile picture upload if provided
+      let profilePictureUrl = null;
+      if (profilePictureFile) {
+        try {
+          // Upload new profile picture
+          const uploadResult = await fileUploadService.uploadProfilePicture(userId, profilePictureFile);
+          profilePictureUrl = uploadResult.publicUrl;
+
+          // Delete old profile picture if it exists
+          if (existingUser.profile_picture_url) {
+            await fileUploadService.deleteProfilePicture(existingUser.profile_picture_url);
+          }
+        } catch (uploadError) {
+          console.error('Profile picture upload failed:', uploadError);
+          throw new Error(`Failed to upload profile picture: ${uploadError.message}`);
+        }
       }
 
       // Prepare update data - only include fields that are provided
@@ -138,6 +158,7 @@ class ProfileService {
         }
       }
       if (bio !== undefined) updateFields.bio = bio; // Allow null/empty bio
+      if (profilePictureUrl) updateFields.profile_picture_url = profilePictureUrl;
 
       // Update user basic information
       let updatedUser;
