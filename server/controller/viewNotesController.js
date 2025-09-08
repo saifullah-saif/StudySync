@@ -207,6 +207,51 @@ class ViewNotesController {
       });
     }
   };
+
+  // Download note file
+  downloadNote = async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = req.user?.id; // Optional user for checking permissions
+
+      const { fileBuffer, fileName, mimeType } =
+        await this.viewNotesService.downloadNote(id, userId);
+
+      // Set headers for file download
+      res.setHeader("Content-Type", mimeType);
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${fileName}"`
+      );
+      res.setHeader("Content-Length", fileBuffer.length);
+
+      res.send(fileBuffer);
+    } catch (error) {
+      console.error("Download note error:", error);
+
+      if (error.message === "Note not found") {
+        return res.status(404).json({
+          success: false,
+          message: "Note not found",
+          error: "NOTE_NOT_FOUND",
+        });
+      }
+
+      if (error.message === "Access denied") {
+        return res.status(403).json({
+          success: false,
+          message: "You don't have permission to download this note",
+          error: "ACCESS_DENIED",
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        message: "Failed to download note",
+        error: "DOWNLOAD_FAILED",
+      });
+    }
+  };
 }
 
 module.exports = new ViewNotesController();

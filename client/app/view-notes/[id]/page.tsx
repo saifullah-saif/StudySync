@@ -192,7 +192,7 @@ export default function ViewNotePage() {
 
   const handleDownload = async () => {
     try {
-      // This would typically open a download link
+      // Use view-notes endpoint to match the backend route
       window.open(
         `${
           process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
