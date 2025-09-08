@@ -1,38 +1,138 @@
 "use client"
 
+import { useEffect, useState } from 'react'
+import { useSeats, type Seat as DatabaseSeat } from '@/hooks/useSeats'
+
 interface Seat {
   id: string
   x: number
   y: number
   status: "available" | "booked" | "occupied" | "selected"
+  seatNumber: string
+  hasComputer?: boolean
+  hasPowerOutlet?: boolean
+  isAccessible?: boolean
 }
 
 interface RoomLayoutProps {
   mode: "view" | "book"
   selectedSeats?: string[]
   onSeatClick?: (seatId: string) => void
+  capacity?: number
+  roomCode?: string
+  roomId?: number
+  startTime?: string
+  endTime?: string
 }
 
-export function RoomLayout({ mode, selectedSeats = [], onSeatClick }: RoomLayoutProps) {
-  const seats: Seat[] = [
-    // Top row
-    { id: "09A01G-01", x: 100, y: 50, status: "available" },
-    { id: "09A01G-02", x: 150, y: 50, status: "booked" },
-    { id: "09A01G-03", x: 200, y: 50, status: "booked" },
-    { id: "09A01G-04", x: 250, y: 50, status: "available" },
-    { id: "09A01G-05", x: 300, y: 50, status: "available" },
+export function RoomLayout({ mode, selectedSeats = [], onSeatClick, capacity = 12, roomCode = "ROOM", roomId, startTime, endTime }: RoomLayoutProps) {
+  const [seats, setSeats] = useState<Seat[]>([])
+  const [bookedSeats, setBookedSeats] = useState<string[]>([])
+  const [allSeats, setAllSeats] = useState<DatabaseSeat[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-    // Right side
-    { id: "09A01G-06", x: 350, y: 100, status: "available" },
-    { id: "09A01G-07", x: 350, y: 150, status: "available" },
+  // Fetch all seats for the room (without time-specific reservations)
+  const fetchAllSeats = async () => {
+    if (!roomId) return
 
-    // Bottom row
-    { id: "09A01G-08", x: 100, y: 200, status: "available" },
-    { id: "09A01G-09", x: 150, y: 200, status: "available" },
-    { id: "09A01G-10", x: 200, y: 200, status: "booked" },
-    { id: "09A01G-11", x: 250, y: 200, status: "booked" },
-    { id: "09A01G-12", x: 300, y: 200, status: "available" },
-  ]
+    setLoading(true)
+    setError(null)
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/seats/room/${roomId}`, {
+        credentials: 'include'
+      })
+      const data = await response.json()
+
+      if (data.success) {
+        setAllSeats(data.data)
+      } else {
+        setError(data.message || 'Failed to fetch seats')
+      }
+    } catch (err) {
+      setError('Failed to fetch seats')
+      console.error('Error fetching seats:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Fetch booked seats for the specific time period
+  const fetchBookedSeats = async () => {
+    if (!roomId || !startTime || !endTime) {
+      setBookedSeats([])
+      return
+    }
+
+    try {
+      console.log(`Fetching booked seats for room ${roomId} from ${startTime} to ${endTime}`)
+      const response = await fetch(`http://localhost:5000/api/seats/room/${roomId}/booked?start_time=${encodeURIComponent(startTime)}&end_time=${encodeURIComponent(endTime)}`, {
+        credentials: 'include'
+      })
+      const data = await response.json()
+      console.log('Booked seats response:', data)
+      if (data.success) {
+        setBookedSeats(data.bookedSeats || [])
+        console.log('Set booked seats:', data.bookedSeats || [])
+      }
+    } catch (error) {
+      console.error('Error fetching booked seats:', error)
+      setBookedSeats([])
+    }
+  }
+
+  // Determine room type from room code or name
+  const getRoomTypeFromCode = (code: string): string => {
+    const codeUpper = code.toUpperCase()
+    if (codeUpper.includes('C') || codeUpper.includes('CONF')) return 'conference'
+    if (codeUpper.includes('S') || codeUpper.includes('STUDY')) return 'study'
+    if (codeUpper.includes('M') || codeUpper.includes('MEET')) return 'meeting'
+    return 'conference' // default
+  }
+
+  // Convert database seats to layout seats
+  const convertDatabaseSeatsToLayout = (dbSeats: DatabaseSeat[]): Seat[] => {
+    return dbSeats.map(dbSeat => {
+      // For time-specific booking, ignore current reservations and use bookedSeats array
+      const isBookedForTimeSlot = bookedSeats.includes(dbSeat.seat_number)
+      let status: "available" | "booked" | "occupied" | "selected" = "available"
+
+      if (isBookedForTimeSlot) {
+        status = 'booked' // Show as booked for the selected time period
+      }
+
+      return {
+        id: dbSeat.seat_number, // Use the database seat number directly
+        x: Number(dbSeat.position_x) || 0,
+        y: Number(dbSeat.position_y) || 0,
+        status,
+        seatNumber: dbSeat.seat_number.slice(-2), // Only show last 2 digits
+        hasComputer: dbSeat.has_computer,
+        hasPowerOutlet: dbSeat.has_power_outlet,
+        isAccessible: dbSeat.is_accessible
+      }
+    })
+  }
+
+  // Fetch all seats when room changes
+  useEffect(() => {
+    fetchAllSeats()
+  }, [roomId])
+
+  // Fetch booked seats when time parameters change
+  useEffect(() => {
+    fetchBookedSeats()
+  }, [roomId, startTime, endTime])
+
+  // Update seats when database data or booked seats change
+  useEffect(() => {
+    if (allSeats && allSeats.length > 0) {
+      setSeats(convertDatabaseSeatsToLayout(allSeats))
+    } else {
+      setSeats([]) // Only show database seats
+    }
+  }, [allSeats, bookedSeats, roomCode])
 
   const getSeatColor = (seat: Seat) => {
     if (mode === "book" && selectedSeats.includes(seat.id)) {
@@ -41,13 +141,13 @@ export function RoomLayout({ mode, selectedSeats = [], onSeatClick }: RoomLayout
 
     switch (seat.status) {
       case "available":
-        return "#F3F4F6" // Light gray
+        return "#10B981" // Green for available
       case "booked":
-        return "#3B82F6" // Blue
+        return "#F59E0B" // Orange for booked
       case "occupied":
-        return "#EF4444" // Red
+        return "#EF4444" // Red for occupied
       default:
-        return "#F3F4F6"
+        return "#6B7280" // Gray for neutral
     }
   }
 
@@ -58,43 +158,163 @@ export function RoomLayout({ mode, selectedSeats = [], onSeatClick }: RoomLayout
     return "#D1D5DB" // Gray border
   }
 
-  const handleSeatClick = (seat: Seat) => {
+  // Reserve seat function (for view mode)
+  const reserveSeat = async (seatId: number, startTime: Date, endTime: Date, purpose?: string) => {
+    try {
+      const response = await fetch(`http://localhost:5000/api/seats/${seatId}/reserve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          purpose: purpose || 'Quick reservation'
+        })
+      })
+
+      const data = await response.json()
+      if (data.success) {
+        // Refresh seats after successful reservation
+        fetchAllSeats()
+        fetchBookedSeats()
+      } else {
+        throw new Error(data.message || 'Failed to reserve seat')
+      }
+    } catch (error) {
+      console.error('Error reserving seat:', error)
+      throw error
+    }
+  }
+
+  const handleSeatClick = async (seat: Seat) => {
+    // Only allow interaction with available seats or already selected seats
     if (mode === "book" && onSeatClick && (seat.status === "available" || selectedSeats.includes(seat.id))) {
       onSeatClick(seat.id)
+    } else if (mode === "view" && seat.status === "available" && roomId) {
+      // Quick reservation for 2 hours from now
+      try {
+        const startTime = new Date()
+        const endTime = new Date(startTime.getTime() + 2 * 60 * 60 * 1000) // 2 hours
+
+        await reserveSeat(
+          parseInt(seat.seatNumber),
+          startTime,
+          endTime,
+          'Quick reservation'
+        )
+      } catch (err) {
+        console.error('Failed to reserve seat:', err)
+        alert('Failed to reserve seat. Please try again.')
+      }
     }
   }
 
   return (
-    <div className="w-full h-80 bg-gray-50 rounded-lg border-2 border-gray-200 relative overflow-hidden">
-      <svg width="100%" height="100%" viewBox="0 0 400 250" className="absolute inset-0">
-        {/* Central table/projector area */}
-        <rect x="175" y="100" width="50" height="50" fill="#E5E7EB" stroke="#9CA3AF" strokeWidth="2" rx="4" />
-        <text x="200" y="130" textAnchor="middle" className="text-xs fill-gray-600">
-          Projector
+    <div className="w-full h-64 bg-gray-50 rounded-lg border-2 border-gray-200 relative overflow-hidden">
+      <svg width="100%" height="100%" viewBox="0 0 400 200" className="absolute inset-0">
+        {/* Central Table */}
+        <rect x="130" y="70" width="140" height="60" fill="#8B5CF6" stroke="#374151" strokeWidth="2" rx="8" />
+        <text x="200" y="105" textAnchor="middle" className="text-xs fill-white font-medium">
+          Table
         </text>
 
         {/* Seats */}
         {seats.map((seat) => (
           <g key={seat.id}>
+            {/* Main seat rectangle - bigger size */}
             <rect
-              x={seat.x - 15}
-              y={seat.y - 10}
-              width="30"
-              height="20"
+              x={seat.x - 25}
+              y={seat.y - 15}
+              width="50"
+              height="30"
               fill={getSeatColor(seat)}
               stroke={getSeatStroke(seat)}
               strokeWidth={mode === "book" && selectedSeats.includes(seat.id) ? "3" : "2"}
-              rx="3"
+              rx="6"
               className={
-                mode === "book" && (seat.status === "available" || selectedSeats.includes(seat.id))
+                (mode === "book" && (seat.status === "available" || selectedSeats.includes(seat.id))) ||
+                (mode === "view" && seat.status === "available")
                   ? "cursor-pointer hover:opacity-80"
                   : ""
               }
               onClick={() => handleSeatClick(seat)}
             />
-            <text x={seat.x} y={seat.y + 2} textAnchor="middle" className="text-xs fill-gray-700 pointer-events-none">
-              {seat.id.split("-")[1]}
+
+            {/* Seat number */}
+            <text
+              x={seat.x}
+              y={seat.y + 3}
+              textAnchor="middle"
+              className="text-sm font-bold fill-white pointer-events-none"
+              style={{ fontSize: '12px' }}
+            >
+              {seat.seatNumber}
             </text>
+          </g>
+        ))}
+
+        {/* Icons on top of seats */}
+        {seats.map((seat) => (
+          <g key={`icons-${seat.id}`}>
+            {/* Computer icon - smaller desktop monitor */}
+            {seat.hasComputer && (
+              <g className="pointer-events-none">
+                {/* Monitor screen */}
+                <rect
+                  x={seat.x - 6}
+                  y={seat.y - 25}
+                  width="12"
+                  height="8"
+                  fill="#374151"
+                  stroke="#1F2937"
+                  strokeWidth="1"
+                  rx="1"
+                />
+                {/* Monitor stand */}
+                <rect
+                  x={seat.x - 1.5}
+                  y={seat.y - 17}
+                  width="3"
+                  height="4"
+                  fill="#374151"
+                />
+                {/* Monitor base */}
+                <rect
+                  x={seat.x - 4.5}
+                  y={seat.y - 13}
+                  width="9"
+                  height="1.5"
+                  fill="#374151"
+                  rx="0.5"
+                />
+              </g>
+            )}
+
+            {/* Power outlet icon - smaller electricity symbol */}
+            {seat.hasPowerOutlet && (
+              <g className="pointer-events-none">
+                {/* Outlet background */}
+                <rect
+                  x={seat.x + 12}
+                  y={seat.y - 25}
+                  width="8"
+                  height="8"
+                  fill="#FBBF24"
+                  stroke="#F59E0B"
+                  strokeWidth="1"
+                  rx="1"
+                />
+                {/* Lightning bolt */}
+                <path
+                  d={`M${seat.x + 15} ${seat.y - 23} L${seat.x + 17} ${seat.y - 21} L${seat.x + 16} ${seat.y - 21} L${seat.x + 18} ${seat.y - 19} L${seat.x + 16} ${seat.y - 19} L${seat.x + 17} ${seat.y - 18}`}
+                  fill="#FFFFFF"
+                  stroke="#FFFFFF"
+                  strokeWidth="0.5"
+                />
+              </g>
+            )}
           </g>
         ))}
       </svg>

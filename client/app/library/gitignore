@@ -1,0 +1,235 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# ===========================
+# DEPENDENCIES
+# ===========================
+# Node modules for both client and server
+node_modules/
+*/node_modules/
+client/node_modules/
+server/node_modules/
+
+# Package manager files
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+.pnpm-debug.log*
+
+# ===========================
+# CLIENT (Next.js/React)
+# ===========================
+# Next.js build outputs
+.next/
+out/
+client/.next/
+client/out/
+
+# Client build and production
+build/
+dist/
+client/build/
+client/dist/
+
+# Next.js specific
+next-env.d.ts
+client/next-env.d.ts
+
+# ===========================
+# SERVER (Node.js/Express)
+# ===========================
+# Server build outputs
+server/build/
+server/dist/
+
+# Prisma generated files
+server/prisma/migrations/
+prisma/migrations/
+
+# ===========================
+# ENVIRONMENT & CONFIG
+# ===========================
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*
+client/.env*
+server/.env*
+
+# Config files that might contain secrets
+config.json
+config.js
+.config
+
+# ===========================
+# LOGS & DEBUG
+# ===========================
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+lerna-debug.log*
+
+# Runtime logs
+logs/
+*.log
+log/
+
+# ===========================
+# TYPESCRIPT
+# ===========================
+# TypeScript build info
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# ===========================
+# TESTING
+# ===========================
+# Test coverage
+coverage/
+.nyc_output/
+.coverage/
+
+# Jest
+jest.config.js
+.jest/
+
+# ===========================
+# DEPLOYMENT & HOSTING
+# ===========================
+# Vercel
+.vercel
+.vercel.json
+
+# Netlify
+.netlify/
+
+# ===========================
+# DATABASE & STORAGE
+# ===========================
+# SQLite databases
+*.sqlite
+*.sqlite3
+*.db
+
+# Database dumps
+*.sql
+*.dump
+
+# Supabase local
+.supabase/
+
+# ===========================
+# MEDIA & UPLOADS
+# ===========================
+# Uploaded files (if stored locally - though project uses Supabase)
+uploads/
+public/uploads/
+server/public/uploads/
+client/public/uploads/
+
+# Generated PDFs, images, etc.
+*.pdf
+generated/
+temp/
+
+# ===========================
+# IDE & EDITOR
+# ===========================
+# VSCode
+.vscode/
+.vscode-test/
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+
+# ===========================
+# OS GENERATED
+# ===========================
+# macOS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+# ===========================
+# SECURITY & CERTIFICATES
+# ===========================
+# SSL certificates
+*.pem
+*.key
+*.crt
+*.cert
+
+# SSH keys
+id_rsa
+id_rsa.pub
+
+# ===========================
+# CACHE & TEMPORARY
+# ===========================
+# Cache directories
+.cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# ===========================
+# PROJECT SPECIFIC
+# ===========================
+# Changelog (as per existing)
+.changelog
+.changelog.md
+
+rules.md
+rules
+.rules.
+
+
+# Documentation builds
+docs/build/
+
+# Storybook
+storybook-static/
+
+# Bundle analyzer
+.bundle-analyzer/
