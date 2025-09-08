@@ -1,5 +1,9 @@
 const pdf = require("pdf-parse");
 const mammoth = require("mammoth");
+const supabase = require("./supabaseClient");
+const { PrismaClient } = require("@prisma/client");
+
+const prisma = new PrismaClient();
 
 /**
  * Extract text from different file types
@@ -203,8 +207,137 @@ function chunkText(text, maxChars = 20000) {
   return chunks.filter((chunk) => chunk.length > 100); // Filter out very small chunks
 }
 
+/**
+ * Extract text from a document stored in the database
+ * Handles both uploaded files and pasted content
+ * @param {Object} document - Document record from database
+ * @returns {Promise<string>} - Extracted text
+ */
+async function extractTextFromDocument(document) {
+  try {
+    console.log("🔍 Debug - Document extraction started:", {
+      id: document.id,
+      file_path: document.file_path,
+      file_type: document.file_type,
+      file_name: document.file_name,
+    });
+
+    // Handle pasted content
+    if (document.file_path && document.file_path.startsWith("pasted_")) {
+      console.log("📝 Processing pasted content...");
+      const chunks = await prisma.document_chunks.findMany({
+        where: { document_id: document.id },
+        orderBy: { chunk_order: "asc" },
+      });
+      const extractedText = chunks
+        .map((chunk) => chunk.chunk_text)
+        .join("\n\n");
+      console.log("✅ Pasted content extracted, length:", extractedText.length);
+      return extractedText;
+    }
+
+    // Handle uploaded files - download from Supabase and extract text
+    console.log("📁 Processing uploaded file...");
+    const bucketName =
+      process.env.SUPABASE_BUCKET_NAME || "study-sync-documents";
+
+    // Download file from Supabase using service role key
+    console.log("⬇️ Downloading from Supabase:", {
+      bucketName,
+      filePath: document.file_path,
+    });
+    const { data: fileData, error: downloadError } = await supabase.storage
+      .from(bucketName)
+      .download(document.file_path);
+
+    if (downloadError) {
+      console.error("❌ Supabase download error:", downloadError);
+      throw new Error(`Failed to download file: ${downloadError.message}`);
+    }
+
+    console.log("✅ File downloaded successfully, size:", fileData.size);
+
+    // Convert blob to buffer
+    const buffer = Buffer.from(await fileData.arrayBuffer());
+    console.log("🔄 Converted to buffer, size:", buffer.length);
+
+    // Extract text based on file type
+    console.log("📄 Extracting text with file type:", document.file_type);
+    const extractedText = await extractTextFromFile(
+      buffer,
+      document.file_type,
+      document.file_name
+    );
+
+    if (!extractedText || extractedText.trim().length === 0) {
+      throw new Error("No text could be extracted from the file");
+    }
+
+    console.log(
+      "✅ Text extracted successfully, length:",
+      extractedText.length
+    );
+    return extractedText;
+  } catch (error) {
+    console.error("❌ Text extraction from document error:", error);
+    throw new Error(`Text extraction failed: ${error.message}`);
+  }
+}
+
+/**
+ * Extract text from a file URL (for external files or signed URLs)
+ * @param {string} fileUrl - URL to the file
+ * @param {string} fileName - Original filename
+ * @param {string} fileType - File type
+ * @returns {Promise<string>} - Extracted text
+ */
+async function extractTextFromUrl(fileUrl, fileName = "", fileType = "") {
+  try {
+    console.log(`📥 Downloading file from URL: ${fileUrl}`);
+
+    // Download file from URL
+    const response = await fetch(fileUrl);
+    if (!response.ok) {
+      throw new Error(
+        `Failed to download file from URL: ${response.statusText}`
+      );
+    }
+
+    // Get file buffer
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    // Determine file type if not provided
+    let detectedFileType = fileType;
+    if (!detectedFileType && fileName) {
+      const fileExt = fileName.toLowerCase().split(".").pop();
+      if (fileExt === "pdf") detectedFileType = "pdf";
+      else if (fileExt === "docx") detectedFileType = "docx";
+      else if (fileExt === "txt") detectedFileType = "txt";
+    }
+
+    // Extract text
+    const extractedText = await extractTextFromFile(
+      buffer,
+      detectedFileType || "pdf", // Default to PDF if unknown
+      fileName
+    );
+
+    if (!extractedText || extractedText.trim().length === 0) {
+      throw new Error("No text could be extracted from the file");
+    }
+
+    return extractedText;
+  } catch (error) {
+    console.error("Text extraction from URL error:", error);
+    throw new Error(`Text extraction from URL failed: ${error.message}`);
+  }
+}
+
 module.exports = {
   extractTextFromFile,
+  extractTextFromDocument,
+  extractTextFromUrl,
   cleanText,
   chunkText,
 };

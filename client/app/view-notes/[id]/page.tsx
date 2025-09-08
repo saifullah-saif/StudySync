@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { viewNotesAPI } from "@/lib/api";
+import SummaryButton from "@/components/SummaryButton";
 import {
   Heart,
   Download,
@@ -183,10 +184,11 @@ export default function ViewNotePage() {
   };
 
   const handleSummarize = () => {
-    // Keep non-functional as requested
+    // This function is no longer needed as SummaryButton handles everything
     toast({
-      title: "Coming Soon!",
-      description: "AI summarization feature will be available soon.",
+      title: "Info",
+      description:
+        "Please use the AI Summary button below the document preview.",
     });
   };
 
@@ -519,26 +521,7 @@ export default function ViewNotePage() {
                   </div>
                 )}
                 {/* AI summary button */}
-                <div className="p-4 bg-secondary/20 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <h4 className="font-medium flex items-center">
-                        <Sparkles className="w-4 h-4 mr-2 text-primary" />
-                        AI Summary
-                      </h4>
-                      <p className="text-sm text-muted-foreground">
-                        Get a concise summary of these notes powered by AI
-                      </p>
-                    </div>
-                    <Button
-                      onClick={handleSummarize}
-                      className="flex items-center space-x-2 bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      <Sparkles className="w-4 h-4" />
-                      <span>Summarize</span>
-                    </Button>
-                  </div>
-                </div>
+                <SummaryButton noteId={noteId} className="mt-4" />
               </CardContent>
             </Card>
 

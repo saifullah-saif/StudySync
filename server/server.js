@@ -79,6 +79,7 @@ const langchainRoutes = require("./routes/langchain");
 const flashcardRoutes = require("./routes/flashcards");
 const statsRoutes = require("./routes/stats");
 const viewNotesRoutes = require("./routes/viewNotes");
+const summaryRoutes = require("./routes/summary");
 
 // Use routes
 app.use("/api/auth", authRoutes);
@@ -93,6 +94,7 @@ app.use("/api/generation", generationRoutes);
 app.use("/api/langchain", langchainRoutes);
 app.use("/api/flashcards", flashcardRoutes);
 app.use("/api/stats", statsRoutes);
+app.use("/api/summary", summaryRoutes);
 
 // Health check endpoint (no auth required)
 app.use("/api/notes", notesRoutes);
