@@ -144,15 +144,15 @@ export default function SummaryButton({
                 Summary Options
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <CardContent className="space-y-4 ">
+              <div className="grid grid-cols-2 gap-4 ">
                 <div>
                   <Label htmlFor="summaryType">Summary Type</Label>
                   <Select value={summaryType} onValueChange={setSummaryType}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-white">
                       <SelectItem value="concise">Concise</SelectItem>
                       <SelectItem value="detailed">Detailed</SelectItem>
                       <SelectItem value="bullets">Bullet Points</SelectItem>
@@ -170,7 +170,7 @@ export default function SummaryButton({
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-white">
                       <SelectItem value="250">Short (250 words)</SelectItem>
                       <SelectItem value="500">Medium (500 words)</SelectItem>
                       <SelectItem value="1000">Long (1000 words)</SelectItem>
