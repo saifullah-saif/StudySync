@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
+require("dotenv").config(); // Load environment variables
 const reservationsService = require("./services/reservationsService");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -132,7 +133,6 @@ setInterval(async () => {
     console.error("Error in auto room availability update:", error);
   }
 }, 60000); // Run every 60 seconds
-const port = process.env.PORT || 5001;
 
 async function startServer() {
   try {

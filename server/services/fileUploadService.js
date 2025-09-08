@@ -1,14 +1,11 @@
-const { createClient } = require('@supabase/supabase-js');
-const multer = require('multer');
-const path = require('path');
+const { createClient } = require("@supabase/supabase-js");
+const multer = require("multer");
+const path = require("path");
 
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY; // or SERVICE_ROLE_KEY for admin operations
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_ROLE_KEY
-);
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY; // Use the correct environment variable name
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Configure multer for file uploads (memory storage)
 const storage = multer.memoryStorage();
@@ -19,13 +16,18 @@ const upload = multer({
   },
   fileFilter: (req, file, cb) => {
     // Check file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
     if (allowedTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
-      cb(new Error('Invalid file type. Only JPEG, PNG, and WebP images are allowed.'), false);
+      cb(
+        new Error(
+          "Invalid file type. Only JPEG, PNG, and WebP images are allowed."
+        ),
+        false
+      );
     }
-  }
+  },
 });
 
 class FileUploadService {
@@ -42,7 +44,7 @@ class FileUploadService {
   async uploadProfilePicture(userId, file) {
     try {
       if (!file) {
-        throw new Error('No file provided');
+        throw new Error("No file provided");
       }
 
       // Generate unique filename
@@ -52,29 +54,29 @@ class FileUploadService {
 
       // Upload file to Supabase storage
       const { data, error } = await supabase.storage
-        .from('study-sync-documents')
+        .from("study-sync-documents")
         .upload(filePath, file.buffer, {
           contentType: file.mimetype,
-          upsert: false // Don't overwrite existing files
+          upsert: false, // Don't overwrite existing files
         });
 
       if (error) {
-        console.error('Supabase upload error:', error);
+        console.error("Supabase upload error:", error);
         throw new Error(`Failed to upload file: ${error.message}`);
       }
 
       // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('study-sync-documents')
-        .getPublicUrl(filePath);
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("study-sync-documents").getPublicUrl(filePath);
 
       return {
         path: filePath,
         publicUrl: publicUrl,
-        fileName: fileName
+        fileName: fileName,
       };
     } catch (error) {
-      console.error('Upload profile picture error:', error);
+      console.error("Upload profile picture error:", error);
       throw error;
     }
   }
@@ -88,31 +90,33 @@ class FileUploadService {
 
       // Extract relative path from URL if needed
       let pathToDelete = filePath;
-      if (filePath.includes('supabase')) {
+      if (filePath.includes("supabase")) {
         // Extract path from full URL
-        const urlParts = filePath.split('/storage/v1/object/public/study-sync-documents/');
+        const urlParts = filePath.split(
+          "/storage/v1/object/public/study-sync-documents/"
+        );
         if (urlParts.length > 1) {
           pathToDelete = urlParts[1];
         }
       }
 
       const { error } = await supabase.storage
-        .from('study-sync-documents')
+        .from("study-sync-documents")
         .remove([pathToDelete]);
 
       if (error) {
-        console.error('Failed to delete old profile picture:', error);
+        console.error("Failed to delete old profile picture:", error);
         // Don't throw error for deletion failures, just log it
       }
     } catch (error) {
-      console.error('Delete profile picture error:', error);
+      console.error("Delete profile picture error:", error);
       // Don't throw error for deletion failures
     }
   }
 
   // Get multer upload middleware
   getUploadMiddleware() {
-    return upload.single('profilePicture');
+    return upload.single("profilePicture");
   }
 }
 
