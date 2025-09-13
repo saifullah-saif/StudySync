@@ -8,16 +8,34 @@ const { Server } = require("socket.io");
 
 const app = express();
 const server = http.createServer(app);
+// Define allowed origins based on environment
+const getAllowedOrigins = () => {
+  const baseOrigins = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "https://study-sync-client.vercel.app",
+    "https://study-sync-server-sigma.vercel.app"
+  ];
+  
+  // Add environment-specific origins if they exist and are different
+  const envOrigins = [
+    process.env.CLIENT_URL,
+    process.env.SERVER_URL,
+    process.env.PRODUCTION_CLIENT_URL,
+    process.env.PRODUCTION_SERVER_URL
+  ].filter(Boolean);
+  
+  // Combine and deduplicate origins
+  const allOrigins = [...baseOrigins, ...envOrigins];
+  const uniqueOrigins = [...new Set(allOrigins)];
+  
+  console.log("Allowed CORS origins:", uniqueOrigins);
+  return uniqueOrigins;
+};
+
 const io = new Server(server, {
   cors: {
-    origin: [
-      "http://localhost:3000",
-      "http://localhost:3001",
-      process.env.CLIENT_URL,
-      process.env.SERVER_URL,
-      "https://study-sync-client.vercel.app/",
-      "https://study-sync-server-sigma.vercel.app/"
-    ].filter(Boolean),
+    origin: getAllowedOrigins(),
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -27,23 +45,41 @@ app.use(cookieParser());
 
 app.use(
   cors({
-    origin: [
-      process.env.CLIENT_URL,
-      process.env.SERVER_URL,
-      "http://localhost:3001",
-      "http://localhost:3000",
-      "https://study-sync-client.vercel.app/",
-      "https://study-sync-server-sigma.vercel.app/"
-    ],
-    methods: ["GET", "POST", "PUT", "DELETE"],
+    origin: function (origin, callback) {
+      const allowedOrigins = getAllowedOrigins();
+      
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        console.log("CORS blocked origin:", origin);
+        console.log("Allowed origins:", allowedOrigins);
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
-    // exposedHeaders: ["Content-Length", "Content-Type"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+    allowedHeaders: [
+      "Content-Type", 
+      "Authorization", 
+      "X-Requested-With",
+      "Accept",
+      "Origin",
+      "Access-Control-Request-Method",
+      "Access-Control-Request-Headers"
+    ],
+    exposedHeaders: ["Set-Cookie"],
+    preflightContinue: false,
+    optionsSuccessStatus: 200
   })
 );
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// OPTIONS handling is done by CORS middleware
 
 // Make io available to routes
 app.set("io", io);
@@ -70,18 +106,11 @@ io.on("connection", (socket) => {
   });
 });
 
-// Routes
+// Import all routes
+const authRoutes = require("./routes/auth");
 const libraryRoomsRouter = require("./routes/libraryRoomsRoutes");
 const seatsRouter = require("./routes/seatsRoutes");
 const reservationsRouter = require("./routes/reservationsRoutes");
-const authRouter = require("./routes/auth");
-
-app.use("/api/auth", authRouter);
-app.use("/api/library-rooms", libraryRoomsRouter);
-app.use("/api/seats", seatsRouter);
-app.use("/api/reservations", reservationsRouter);
-// Import routes
-const authRoutes = require("./routes/auth");
 const profileRoutes = require("./routes/profiles");
 const buddyRoutes = require("./routes/buddies");
 const chatRoutes = require("./routes/chats");
@@ -98,14 +127,16 @@ const statsRoutes = require("./routes/stats");
 const viewNotesRoutes = require("./routes/viewNotes");
 const summaryRoutes = require("./routes/summary");
 
-// Use routes
+// Use all routes
 app.use("/api/auth", authRoutes);
+app.use("/api/library-rooms", libraryRoomsRouter);
+app.use("/api/seats", seatsRouter);
+app.use("/api/reservations", reservationsRouter);
 app.use("/api/profile", profileRoutes);
 app.use("/api/buddies", buddyRoutes);
 app.use("/api/chats", chatRoutes);
 app.use("/api/courses", courseRoutes);
 app.use("/api/reviews", reviewRoutes);
-
 app.use("/api/documents", documentRoutes);
 app.use("/api/files", fileRoutes);
 app.use("/api/practice", practiceRoutes);
@@ -114,8 +145,6 @@ app.use("/api/langchain", langchainRoutes);
 app.use("/api/flashcards", flashcardRoutes);
 app.use("/api/stats", statsRoutes);
 app.use("/api/summary", summaryRoutes);
-
-// Health check endpoint (no auth required)
 app.use("/api/notes", notesRoutes);
 app.use("/api/view-notes", viewNotesRoutes);
 
