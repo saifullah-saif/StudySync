@@ -15,6 +15,8 @@ const io = new Server(server, {
       "http://localhost:3001",
       process.env.CLIENT_URL,
       process.env.SERVER_URL,
+      "https://study-sync-client.vercel.app/",
+      "https://study-sync-server-sigma.vercel.app/"
     ].filter(Boolean),
     methods: ["GET", "POST"],
     credentials: true,
@@ -30,6 +32,8 @@ app.use(
       process.env.SERVER_URL,
       "http://localhost:3001",
       "http://localhost:3000",
+      "https://study-sync-client.vercel.app/",
+      "https://study-sync-server-sigma.vercel.app/"
     ],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,

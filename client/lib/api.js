@@ -2,7 +2,10 @@ import axios from "axios";
 
 // Create axios instance with default config
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api",
+  baseURL:
+    process.env.NEXT_PUBLIC_API_URL ||
+    "http://localhost:5000/api" ||
+    "https://study-sync-server-sigma.vercel.app/api",
   withCredentials: true,
   crossDomain: true,
   credentials: "include",
@@ -178,7 +181,7 @@ export const profileAPI = {
   updateProfile: async (formData) => {
     const response = await api.put("/profile", formData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
+        "Content-Type": "multipart/form-data",
       },
     });
     return response.data;
@@ -272,7 +275,7 @@ export const chatAPI = {
 export const reviewAPI = {
   // Create a new review
   createReview: async (reviewData) => {
-    const response = await api.post('/reviews', reviewData);
+    const response = await api.post("/reviews", reviewData);
     return response.data;
   },
 
@@ -912,7 +915,6 @@ export const viewNotesAPI = {
   },
 
   // Download note file
-  
 };
 
 export const apiRequest = {
