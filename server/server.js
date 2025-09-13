@@ -14,21 +14,21 @@ const getAllowedOrigins = () => {
     "http://localhost:3000",
     "http://localhost:3001",
     "https://study-sync-client.vercel.app",
-    "https://study-sync-server-sigma.vercel.app"
+    "https://study-sync-server-sigma.vercel.app",
   ];
-  
+
   // Add environment-specific origins if they exist and are different
   const envOrigins = [
     process.env.CLIENT_URL,
     process.env.SERVER_URL,
     process.env.PRODUCTION_CLIENT_URL,
-    process.env.PRODUCTION_SERVER_URL
+    process.env.PRODUCTION_SERVER_URL,
   ].filter(Boolean);
-  
+
   // Combine and deduplicate origins
   const allOrigins = [...baseOrigins, ...envOrigins];
   const uniqueOrigins = [...new Set(allOrigins)];
-  
+
   console.log("Allowed CORS origins:", uniqueOrigins);
   return uniqueOrigins;
 };
@@ -47,10 +47,10 @@ app.use(
   cors({
     origin: function (origin, callback) {
       const allowedOrigins = getAllowedOrigins();
-      
+
       // Allow requests with no origin (like mobile apps or curl requests)
       if (!origin) return callback(null, true);
-      
+
       if (allowedOrigins.indexOf(origin) !== -1) {
         callback(null, true);
       } else {
@@ -62,17 +62,17 @@ app.use(
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
     allowedHeaders: [
-      "Content-Type", 
-      "Authorization", 
+      "Content-Type",
+      "Authorization",
       "X-Requested-With",
       "Accept",
       "Origin",
       "Access-Control-Request-Method",
-      "Access-Control-Request-Headers"
+      "Access-Control-Request-Headers",
     ],
     exposedHeaders: ["Set-Cookie"],
     preflightContinue: false,
-    optionsSuccessStatus: 200
+    optionsSuccessStatus: 200,
   })
 );
 
