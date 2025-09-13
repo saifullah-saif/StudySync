@@ -1,63 +1,82 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { useSearchParams, useRouter } from "next/navigation"
-import { useAuth } from "@/contexts/auth-context"
-import Header from "@/components/header"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Star, User, Calendar, BookOpen, ArrowLeft } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { useState, useEffect, Suspense } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/auth-context";
+import Header from "@/components/header";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Star, User, Calendar, BookOpen, ArrowLeft } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { SafeSearchParamsHandler } from "@/components/safe-search-params-handler";
+import { PageLoadingFallback } from "@/components/page-loading-fallback";
 
 interface Review {
-  id: number
-  difficulty_rating: number
-  workload_rating: number | null
-  review_text: string | null
-  semester_taken: string
-  year_taken: number
-  is_anonymous: boolean
-  up_votes: number
-  down_votes: number
-  created_at: string
+  id: number;
+  difficulty_rating: number;
+  workload_rating: number | null;
+  review_text: string | null;
+  semester_taken: string;
+  year_taken: number;
+  is_anonymous: boolean;
+  up_votes: number;
+  down_votes: number;
+  created_at: string;
   users: {
-    id: number
-    name: string
-    department: string
-    semester: number
-    profile_picture_url: string | null
-  } | null
+    id: number;
+    name: string;
+    department: string;
+    semester: number;
+    profile_picture_url: string | null;
+  } | null;
 }
 
 interface ReviewStats {
-  total_reviews: number
-  average_difficulty: number
-  average_workload: number
+  total_reviews: number;
+  average_difficulty: number;
+  average_workload: number;
 }
 
 interface Course {
-  id: number
-  course_code: string
-  course_name: string
-  department: string
+  id: number;
+  course_code: string;
+  course_name: string;
+  department: string;
 }
 
-export default function ReviewsPage() {
-  const { user } = useAuth()
-  const router = useRouter()
-  const searchParams = useSearchParams()
-  const { toast } = useToast()
-  
-  const [reviews, setReviews] = useState<Review[]>([])
-  const [stats, setStats] = useState<ReviewStats | null>(null)
-  const [course, setCourse] = useState<Course | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+function ReviewsPageContent() {
+  const { user } = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
 
-  const courseId = searchParams.get('courseId')
-  const courseName = searchParams.get('courseName')
-  const courseCode = searchParams.get('courseCode')
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [stats, setStats] = useState<ReviewStats | null>(null);
+  const [course, setCourse] = useState<Course | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchParamsData, setSearchParamsData] = useState<{
+    courseId: string | null;
+    courseName: string | null;
+    courseCode: string | null;
+  }>({
+    courseId: null,
+    courseName: null,
+    courseCode: null,
+  });
+
+  const courseId = searchParamsData.courseId;
+  const courseName = searchParamsData.courseName;
+  const courseCode = searchParamsData.courseCode;
+
+  // Handle search params updates
+  const handleSearchParamsChange = (params: URLSearchParams) => {
+    setSearchParamsData({
+      courseId: params.get("courseId"),
+      courseName: params.get("courseName"),
+      courseCode: params.get("courseCode"),
+    });
+  };
 
   useEffect(() => {
     if (courseId && courseName && courseCode) {
@@ -65,52 +84,62 @@ export default function ReviewsPage() {
         id: parseInt(courseId),
         course_code: courseCode,
         course_name: courseName,
-        department: ''
-      })
-      fetchReviews()
+        department: "",
+      });
+      fetchReviews();
     }
-  }, [courseId, courseName, courseCode])
+  }, [courseId, courseName, courseCode]);
 
   const fetchReviews = async () => {
-    if (!courseId) return
-    
-    setIsLoading(true)
+    if (!courseId) return;
+
+    setIsLoading(true);
     try {
-      const { reviewAPI } = await import("@/lib/api")
-      const response = await reviewAPI.getCourseReviews(courseId)
-      
+      const { reviewAPI } = await import("@/lib/api");
+      const response = await reviewAPI.getCourseReviews(courseId);
+
       if (response.success) {
-        setReviews(response.data.reviews)
-        setStats(response.data.stats)
+        setReviews(response.data.reviews);
+        setStats(response.data.stats);
       }
     } catch (error: any) {
-      console.error("Error fetching reviews:", error)
+      console.error("Error fetching reviews:", error);
       // Don't show error toast for empty reviews
       if (error.response?.status !== 404) {
         toast({
           title: "Error",
           description: "Failed to load reviews",
           variant: "destructive",
-        })
+        });
       }
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
-  const StarDisplay = ({ rating, showNumber = true }: { rating: number, showNumber?: boolean }) => (
+  const StarDisplay = ({
+    rating,
+    showNumber = true,
+  }: {
+    rating: number;
+    showNumber?: boolean;
+  }) => (
     <div className="flex items-center space-x-1">
       {[1, 2, 3, 4, 5].map((star) => (
         <Star
           key={star}
           className={`h-4 w-4 ${
-            star <= rating ? "fill-yellow-400 text-yellow-400" : "fill-gray-200 text-gray-200"
+            star <= rating
+              ? "fill-yellow-400 text-yellow-400"
+              : "fill-gray-200 text-gray-200"
           }`}
         />
       ))}
-      {showNumber && <span className="ml-1 text-sm text-gray-600">{rating}/5</span>}
+      {showNumber && (
+        <span className="ml-1 text-sm text-gray-600">{rating}/5</span>
+      )}
     </div>
-  )
+  );
 
   if (!user) {
     return (
@@ -120,7 +149,9 @@ export default function ReviewsPage() {
           <Card className="w-full max-w-md mx-4">
             <CardContent className="pt-6 text-center">
               <BookOpen className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-              <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
+              <h2 className="text-xl font-semibold mb-2">
+                Authentication Required
+              </h2>
               <p className="text-gray-600 dark:text-gray-400">
                 Please sign in to view course reviews.
               </p>
@@ -128,7 +159,7 @@ export default function ReviewsPage() {
           </Card>
         </div>
       </>
-    )
+    );
   }
 
   if (!course) {
@@ -147,25 +178,28 @@ export default function ReviewsPage() {
           </Card>
         </div>
       </>
-    )
+    );
   }
 
   return (
     <>
+      {/* Handle search params safely */}
+      <SafeSearchParamsHandler onParamsChange={handleSearchParamsChange} />
+
       <Header />
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header */}
           <div className="mb-8">
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               onClick={() => router.back()}
               className="mb-4 hover:bg-gray-200 dark:hover:bg-gray-700"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Courses
             </Button>
-            
+
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
               Course Reviews
             </h1>
@@ -189,22 +223,40 @@ export default function ReviewsPage() {
                   <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
                       <div>
-                        <div className="text-3xl font-bold text-blue-600 mb-1">{stats.total_reviews}</div>
-                        <div className="text-sm text-gray-600">Total Reviews</div>
+                        <div className="text-3xl font-bold text-blue-600 mb-1">
+                          {stats.total_reviews}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          Total Reviews
+                        </div>
                       </div>
                       <div>
                         <div className="flex items-center justify-center mb-1">
-                          <StarDisplay rating={Math.round(stats.average_difficulty)} showNumber={false} />
-                          <span className="ml-2 text-2xl font-bold">{stats.average_difficulty}</span>
+                          <StarDisplay
+                            rating={Math.round(stats.average_difficulty)}
+                            showNumber={false}
+                          />
+                          <span className="ml-2 text-2xl font-bold">
+                            {stats.average_difficulty}
+                          </span>
                         </div>
-                        <div className="text-sm text-gray-600">Average Difficulty</div>
+                        <div className="text-sm text-gray-600">
+                          Average Difficulty
+                        </div>
                       </div>
                       <div>
                         <div className="flex items-center justify-center mb-1">
-                          <StarDisplay rating={Math.round(stats.average_workload)} showNumber={false} />
-                          <span className="ml-2 text-2xl font-bold">{stats.average_workload}</span>
+                          <StarDisplay
+                            rating={Math.round(stats.average_workload)}
+                            showNumber={false}
+                          />
+                          <span className="ml-2 text-2xl font-bold">
+                            {stats.average_workload}
+                          </span>
                         </div>
-                        <div className="text-sm text-gray-600">Average Workload</div>
+                        <div className="text-sm text-gray-600">
+                          Average Workload
+                        </div>
                       </div>
                     </div>
                   </CardContent>
@@ -232,10 +284,11 @@ export default function ReviewsPage() {
                         {/* User Info */}
                         <div className="flex items-center space-x-3">
                           <Avatar className="h-10 w-10">
-                            {!review.is_anonymous && review.users?.profile_picture_url ? (
-                              <AvatarImage 
-                                src={review.users.profile_picture_url} 
-                                alt={review.users.name || "User"} 
+                            {!review.is_anonymous &&
+                            review.users?.profile_picture_url ? (
+                              <AvatarImage
+                                src={review.users.profile_picture_url}
+                                alt={review.users.name || "User"}
                               />
                             ) : null}
                             <AvatarFallback>
@@ -248,7 +301,9 @@ export default function ReviewsPage() {
                           </Avatar>
                           <div className="flex-1">
                             <div className="font-semibold">
-                              {review.is_anonymous ? "Anonymous" : review.users?.name || "Unknown User"}
+                              {review.is_anonymous
+                                ? "Anonymous"
+                                : review.users?.name || "Unknown User"}
                             </div>
                             <div className="text-sm text-gray-500 flex items-center space-x-2">
                               {!review.is_anonymous && review.users && (
@@ -302,5 +357,16 @@ export default function ReviewsPage() {
         </div>
       </div>
     </>
-  )
+  );
+}
+
+// Main export with Suspense wrapper
+export default function ReviewsPage() {
+  return (
+    <Suspense
+      fallback={<PageLoadingFallback message="Loading course reviews..." />}
+    >
+      <ReviewsPageContent />
+    </Suspense>
+  );
 }

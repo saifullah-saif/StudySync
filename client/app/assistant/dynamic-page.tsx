@@ -1,8 +1,8 @@
 "use client";
 
 import type React from "react";
-import { useState, useEffect, Suspense } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -41,12 +41,9 @@ import { StudyQuickStart } from "@/components/StudyQuickStart";
 import { RecentFilesList } from "@/components/RecentFilesList";
 import { StreakCard } from "@/components/StreakCard";
 
-// Suspense-compatible components
-import { SearchParamsHandler } from "./components/search-params-handler";
-import { AssistantPageLoading } from "./components/assistant-loading";
-
-function AssistantPageContent() {
+export default function AssistantPageDynamic() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const [selectedTab, setSelectedTab] = useState("document");
   const [activeMainTab, setActiveMainTab] = useState("dashboard");
@@ -178,10 +175,13 @@ function AssistantPageContent() {
     }
   }, [user]);
 
-  // Handle URL parameters for tab switching - now handled by SearchParamsHandler
-  const handleTabChange = (tab: string) => {
-    setActiveMainTab(tab);
-  };
+  // Handle URL parameters for tab switching
+  useEffect(() => {
+    const tab = searchParams?.get("tab");
+    if (tab && ["dashboard", "flashcards", "files", "podcasts"].includes(tab)) {
+      setActiveMainTab(tab);
+    }
+  }, [searchParams]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -359,11 +359,6 @@ function AssistantPageContent() {
     <>
       <Header />
 
-      {/* Handle search params with Suspense */}
-      <Suspense fallback={null}>
-        <SearchParamsHandler onTabChange={handleTabChange} />
-      </Suspense>
-
       <main>
         <Tabs
           value={activeMainTab}
@@ -474,14 +469,5 @@ function AssistantPageContent() {
         </Tabs>
       </main>
     </>
-  );
-}
-
-// Main export with Suspense wrapper
-export default function AssistantPage() {
-  return (
-    <Suspense fallback={<AssistantPageLoading />}>
-      <AssistantPageContent />
-    </Suspense>
   );
 }

@@ -1,0 +1,26 @@
+{
+  "rules": {
+    "custom/require-suspense-for-search-params": {
+      "create": function(context) {
+        return {
+          "CallExpression": function(node) {
+            if (node.callee.name === 'useSearchParams') {
+              const ancestors = context.getAncestors();
+              const hasSuspense = ancestors.some(ancestor => 
+                ancestor.type === 'JSXElement' && 
+                ancestor.openingElement.name.name === 'Suspense'
+              );
+              
+              if (!hasSuspense) {
+                context.report({
+                  node: node,
+                  message: 'useSearchParams() must be wrapped in a Suspense boundary for Next.js 15 compatibility'
+                });
+              }
+            }
+          }
+        };
+      }
+    }
+  }
+}
