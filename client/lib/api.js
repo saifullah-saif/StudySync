@@ -57,9 +57,7 @@ api.interceptors.response.use(
       try {
         // Try to validate session - create a new request without interceptors to avoid infinite loop
         const validateResponse = await axios.get(
-          `${
-            process.env.NEXT_PUBLIC_API_URL || "http://localhost:5001/api"
-          }/auth/validate-session`,
+          `${getApiUrl()}/auth/validate-session`,
           {
             withCredentials: true,
             headers: {
@@ -929,6 +927,70 @@ export const viewNotesAPI = {
   },
 
   // Download note file
+};
+
+export const libraryAPI = {
+  // Fetch user bookings
+  getUserBookings: async () => {
+    const response = await api.get("/reservations/my");
+    return response.data;
+  },
+
+  // Create a new room reservation
+  createReservation: async (reservationData) => {
+    const response = await api.post("/reservations", reservationData);
+    return response.data;
+  },
+
+  // Cancel a room reservation
+  cancelReservation: async (reservationId) => {
+    const response = await api.delete(`/reservations/${reservationId}`);
+    return response.data;
+  },
+
+  // Get all library rooms
+  getAllRooms: async () => {
+    const response = await api.get("/library-rooms", {
+      timeout: 10000,
+    });
+    return response.data;
+  },
+
+  // Get room details by ID
+  getRoomDetails: async (roomId) => {
+    const response = await api.get(`/library-rooms/${roomId}`);
+    return response.data;
+  },
+
+  // Get seats for a specific room
+  getRoomSeats: async (roomId) => {
+    const response = await api.get(`/seats/room/${roomId}`);
+    return response.data;
+  },
+
+  // Get booked seats for a specific room and time period
+  getBookedSeats: async (roomId, startTime, endTime) => {
+    const params = new URLSearchParams({
+      start_time: startTime,
+      end_time: endTime,
+    });
+    const response = await api.get(`/seats/room/${roomId}/booked?${params.toString()}`);
+    return response.data;
+  },
+
+  // Reserve a specific seat
+  reserveSeat: async (seatId, reservationData) => {
+    const response = await api.post(`/seats/${seatId}/reserve`, reservationData);
+    return response.data;
+  },
+};
+
+//fetching courses for courses page
+export const courseAPI = {
+  getAllCourses: async () => {
+    const response = await api.get("/courses");
+    return response;
+  },
 };
 
 export const apiRequest = {

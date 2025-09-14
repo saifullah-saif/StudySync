@@ -29,7 +29,6 @@ const getAllowedOrigins = () => {
   const allOrigins = [...baseOrigins, ...envOrigins];
   const uniqueOrigins = [...new Set(allOrigins)];
 
-  console.log("Allowed CORS origins:", uniqueOrigins);
   return uniqueOrigins;
 };
 
@@ -54,8 +53,6 @@ app.use(
       if (allowedOrigins.indexOf(origin) !== -1) {
         callback(null, true);
       } else {
-        console.log("CORS blocked origin:", origin);
-        console.log("Allowed origins:", allowedOrigins);
         callback(new Error("Not allowed by CORS"));
       }
     },

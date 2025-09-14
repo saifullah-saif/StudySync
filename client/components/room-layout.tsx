@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useSeats, type Seat as DatabaseSeat } from '@/hooks/useSeats'
+import { libraryAPI } from '@/lib/api'
 
 interface Seat {
   id: string
@@ -40,10 +41,7 @@ export function RoomLayout({ mode, selectedSeats = [], onSeatClick, capacity = 1
     setError(null)
 
     try {
-      const response = await fetch(`http://localhost:5000/api/seats/room/${roomId}`, {
-        credentials: 'include'
-      })
-      const data = await response.json()
+      const data = await libraryAPI.getRoomSeats(roomId)
 
       if (data.success) {
         setAllSeats(data.data)
@@ -66,15 +64,9 @@ export function RoomLayout({ mode, selectedSeats = [], onSeatClick, capacity = 1
     }
 
     try {
-      console.log(`Fetching booked seats for room ${roomId} from ${startTime} to ${endTime}`)
-      const response = await fetch(`http://localhost:5000/api/seats/room/${roomId}/booked?start_time=${encodeURIComponent(startTime)}&end_time=${encodeURIComponent(endTime)}`, {
-        credentials: 'include'
-      })
-      const data = await response.json()
-      console.log('Booked seats response:', data)
+      const data = await libraryAPI.getBookedSeats(roomId, startTime, endTime)
       if (data.success) {
         setBookedSeats(data.bookedSeats || [])
-        console.log('Set booked seats:', data.bookedSeats || [])
       }
     } catch (error) {
       console.error('Error fetching booked seats:', error)
@@ -161,20 +153,12 @@ export function RoomLayout({ mode, selectedSeats = [], onSeatClick, capacity = 1
   // Reserve seat function (for view mode)
   const reserveSeat = async (seatId: number, startTime: Date, endTime: Date, purpose?: string) => {
     try {
-      const response = await fetch(`http://localhost:5000/api/seats/${seatId}/reserve`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          startTime: startTime.toISOString(),
-          endTime: endTime.toISOString(),
-          purpose: purpose || 'Quick reservation'
-        })
+      const data = await libraryAPI.reserveSeat(seatId, {
+        startTime: startTime.toISOString(),
+        endTime: endTime.toISOString(),
+        purpose: purpose || 'Quick reservation'
       })
 
-      const data = await response.json()
       if (data.success) {
         // Refresh seats after successful reservation
         fetchAllSeats()

@@ -69,7 +69,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         if (userResponse.success && userResponse.data.user) {
           setUser(userResponse.data.user);
           localStorage.setItem("user", JSON.stringify(userResponse.data.user));
-          console.log("User authenticated from session:", userResponse.data.user);
         } else {
           // No valid session, clear any stored user data
           localStorage.removeItem("user");
