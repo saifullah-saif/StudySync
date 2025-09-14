@@ -996,6 +996,12 @@ export const courseAPI = {
     const response = await api.get("/courses");
     return response;
   },
+
+  // Get single course by ID
+  getCourseById: async (courseId) => {
+    const response = await api.get(`/courses/${courseId}`);
+    return response.data;
+  },
 };
 
 export const apiRequest = {

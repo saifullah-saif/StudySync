@@ -481,7 +481,7 @@ export default function ViewNotePage() {
 
           {/* Document Preview */}
           <div className="space-y-8 flex flex-row justify-between gap-8 ">
-            <Card className="mb-8 w-2/3">
+            <Card className="mb-8 w-3/4">
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <FileText className="w-5 h-5 mr-2" />
@@ -526,7 +526,7 @@ export default function ViewNotePage() {
             </Card>
 
             {/* Comments Section */}
-            <Card className="mb-8 w-1/3">
+            <Card className="mb-8 w-1/4">
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <MessageCircle className="w-5 h-5 mr-2" />

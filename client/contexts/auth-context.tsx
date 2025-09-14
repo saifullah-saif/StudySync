@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useState, useContext, useEffect, ReactNode } from "react";
+import {
+  createContext,
+  useState,
+  useContext,
+  useEffect,
+  ReactNode,
+} from "react";
 import { authAPI } from "@/lib/api";
 import { toast } from "sonner";
 
@@ -21,7 +27,10 @@ interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (credentials: { email: string; password: string }) => Promise<{ success: boolean; user?: User; message?: string }>;
+  login: (credentials: {
+    email: string;
+    password: string;
+  }) => Promise<{ success: boolean; user?: User; message?: string }>;
   register: (userData: {
     name: string;
     email: string;
@@ -62,7 +71,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const initializeAuth = async () => {
     try {
       setLoading(true);
-      
+
       // Try to validate session and get current user data
       try {
         const userResponse = await authAPI.getCurrentUser();
@@ -79,7 +88,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         // No valid session, clear any stored user data
         localStorage.removeItem("user");
         setUser(null);
-        console.log("Session validation failed:", error.response?.data?.message || error.message);
+        console.log(
+          "Session validation failed:",
+          error.response?.data?.message || error.message
+        );
       }
     } catch (error) {
       console.error("Auth initialization error:", error);

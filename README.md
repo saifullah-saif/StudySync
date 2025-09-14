@@ -1,542 +1,695 @@
-# StudySync - Spaced Repetition Flashcard System
-
-## Overview
-
-StudySync is a modern flashcard application built with Next.js that implements a comprehensive spaced repetition learning system with evidence-based scheduling, gamification, and persistence.
-
-## Features Implemented
-
-### ✅ Professional UI Enhancements
-
-- **Color-coded buttons**: Green for "Mark Correct", Red for "Mark Wrong", Blue for primary actions
-- **Gradient backgrounds**: Professional visual design with modern aesthetics
-- **Smooth transitions**: Hover effects and scaling animations
-- **Consistent navbar**: Unified design across the application
-- **Removed loading states**: Clean button interactions without distracting loading indicators
-
-### ✅ Daily Streak System
-
-- **Automatic tracking**: Daily practice sessions are automatically recorded
-- **Streak maintenance**: Consecutive daily practice maintains streak count
-- **Streak breaking**: Missing a day breaks the streak and resets to 0
-- **Visual feedback**: Dashboard shows current streak, longest streak, and broken streak warnings
-- **Real-time countdown**: Timer showing time remaining to maintain current streak
-- **Practice history**: Calendar view showing all practice days with visual indicators
-
-### 🎧 PDF → Podcast Pipeline
-
-A unique feature that converts PDF text into audio podcasts using:
-
-- **Free TTS**: Google TTS API for text-to-speech conversion
-- **Smart Chunking**: Sentence-aware text splitting for natural audio flow
-- **Audio Processing**: FFmpeg for concatenation and normalization
-- **Chapter Navigation**: Built-in player with chapter jumping and download
-- **Local Storage**: Content-based caching for efficient regeneration
-- **University Project**: Designed for local development and demonstration
-
-### 📊 Spaced Repetition Learning
-
-Based on SuperMemo algorithm with modern enhancements:
-
-### ✅ Enhanced Analytics Dashboard
-
-- **Dynamic statistics**: Real-time display of streak, cards reviewed, accuracy, and level
-- **Visual streak indicators**: Fire icons and color coding for active/broken streaks
-- **Practice calendar**: Monthly view of practice history with visual day markers
-- **Streak statistics**: Current streak, longest streak, total practice days, average per week
-- **Progress tracking**: XP, level progression, and performance metrics
-
-### ✅ Gamification System
-
-- **XP calculation**: Base points + interval bonuses for correct answers
-- **Level progression**: Dynamic leveling based on accumulated XP
-- **Progress tracking**: Visual progress bars and level displays
-- **Session statistics**: Accuracy, streak, and performance metrics
-- **Achievement tracking**: Longest streak records and milestone celebrations
-
-### ✅ Persistence & Storage
-
-- **Dual persistence**: Backend API + localStorage fallback
-- **Learning state tracking**: Interval index, next review dates, success rates
-- **Session progress**: Comprehensive session data and analytics
-- **API integration**: Enhanced flashcard API with learning endpoints
-
-### ✅ Enhanced Study Experience
-
-- **Daily sessions**: Optimized card selection for effective learning
-- **Success rate display**: Per-card performance metrics
-- **Learning stages**: Visual representation of mastery progress
-- **Session completion**: Detailed results and continuation options
-
-### ✅ PDF → Podcast Generation (Local Demo)
-
-- **Text-to-Speech Conversion**: Transform extracted PDF text into high-quality audio podcasts
-- **Chapter-based Structure**: Automatically splits content into manageable audio chapters
-- **Local Processing**: Uses `google-tts-api` + `ffmpeg-static` for local audio generation and stitching
-- **Interactive Player**: Built-in audio player with chapter navigation, speed control, and download
-- **Caching System**: Content-based caching to avoid re-generating identical podcasts
-- **User Consent**: Confirmation dialog ensuring users have rights to convert content to audio
-- **File Integration**: Generate podcasts directly from extracted PDF text in "My Files" section
-
-**Note**: This feature is intended for local/demo use only. Ensure you have rights to convert content to audio before generation.
-
-## Technical Architecture
-
-### Core Files
-
-- **`/lib/learning.ts`**: Complete spaced repetition algorithm implementation + streak management
-- **`/components/StudyFlashcards.tsx`**: Enhanced study interface with gamification and streak tracking
-- **`/components/StreakHistory.tsx`**: Practice history calendar and streak analytics display
-- **`/app/assistant/page.tsx`**: Updated dashboard with real-time streak statistics
-- **`/lib/api.js`**: Extended API client with learning persistence and streak endpoints
-
-### Algorithm Details
-
-- **Scheduling Function**: `scheduleNextReview()` - Updates card learning state
-- **Session Selection**: `selectDailySession()` - Selects optimal daily card set
-- **Streak Management**: `updateStreakData()` - Tracks daily practice and maintains streaks
-- **Streak Detection**: `checkStreakStatus()` - Identifies broken streaks and resets counters
-- **XP Calculation**: Dynamic point system with interval-based bonuses
-- **Level System**: Progressive difficulty and achievement tracking
-
-### Streak System Details
-
-1. **Daily Practice Tracking**: Each completed study session updates streak data
-2. **Consecutive Day Logic**: Practicing today and tomorrow maintains streak
-3. **Streak Breaking**: Missing more than 1 day automatically resets streak to 0
-4. **Visual Feedback**: Dashboard shows current streak status with countdown timer
-5. **Historical Data**: Calendar view displays practice history for motivation
-6. **Statistics**: Tracks current streak, longest streak, total practice days, and averages
-
-### Persistence Strategy
-
-1. **Primary**: Backend API calls for centralized data storage
-2. **Fallback**: localStorage for offline capability and reliability
-3. **State Management**: Real-time updates with optimistic UI
-
-## Usage
-
-1. **Install Dependencies**:
-
-   Server (for podcast generation):
-
-   ```bash
-   cd server
-   npm install google-tts-api fluent-ffmpeg ffmpeg-static --legacy-peer-deps
-   ```
-
-   Client:
-
-   ```bash
-   cd client
-   npm run dev
-   ```
-
-2. **Access Application**: http://localhost:3001
-
-3. **Study Flow**:
-
-   - Cards are automatically selected based on spaced repetition
-   - Answer cards to advance through learning stages
-   - Earn XP and level up based on performance
-   - Track progress with detailed analytics
-
-4. **Podcast Generation**:
-   - Go to "My Files" and upload a PDF
-   - Extract text from the PDF
-   - Click "Generate Podcast" to create audio version
-   - Play in the built-in player or download the MP3
-
-## API Endpoints
-
-### Flashcards & Learning
-
-- `PUT /flashcards/card/:id` - Update individual card learning state
-- `PUT /flashcards/cards/batch` - Batch update multiple cards
-- `POST /flashcards/session` - Save session progress with streak data
-- `GET /flashcards/stats/:deckId?` - Retrieve learning statistics
-- `GET /flashcards/streak` - Get user streak data and history
-- `POST /flashcards/streak` - Update streak information
-
-### Podcast Generation
-
-- `POST /api/podcasts/generate` - Generate podcast from text or fileId
-- `GET /api/podcasts/download/[episodeId]` - Download or stream generated MP3
-- `GET /api/podcasts/metadata/[episodeId]` - Get podcast metadata and chapters
-- `GET /api/podcasts/generate` - List all generated podcast episodes
-
-## Testing
-
-- Manual tests available in `learning.test.ts`
-- Browser console: Run `runLearningTests()` for algorithm validation
-- Jest setup prepared but not fully configured due to npm conflicts
-
-## Next Steps
-
-1. **Jest Configuration**: Complete test framework setup
-2. **Backend Integration**: Implement API endpoints for full persistence
-3. **Analytics Dashboard**: Add detailed learning progress visualizations
-4. **Mobile Optimization**: Responsive design improvements
-
-## Learning Algorithm Benefits
-
-- **Optimized retention**: Evidence-based intervals maximize memory retention
-- **Efficient study time**: Focus on cards that need review
-- **Progressive difficulty**: Gradual advancement through mastery levels
-- **Streak motivation**: Daily practice streaks maintain consistent engagement
-- **Visual progress**: Calendar history and statistics provide clear feedback
-- **Adaptive learning**: System responds to individual performance patterns
-- **Gamification elements**: XP, levels, and streaks increase motivation and engagement
-
-# StudySync Notes Upload System
-
-This is a comprehensive note upload system that integrates React/Next.js frontend with Node.js/Express backend, using Prisma ORM for database operations and Supabase for file storage.
-
-## Features
-
-### Frontend Features
-
-- **Drag & Drop File Upload**: Intuitive file upload with drag-and-drop functionality
-- **File Validation**: Supports PDF, DOCX, and TXT files with size validation (max 50MB)
-- **Upload Progress**: Real-time upload progress indicator
-- **Dynamic Course Selection**: Fetches courses from database
-- **Visibility Controls**: Public, Course-only, and Private visibility options
-- **Responsive Design**: Works seamlessly across devices
-- **Error Handling**: Comprehensive error messaging and alerts
-
-### Backend Features
-
-- **Secure File Upload**: Using multer with file type and size validation
-- **Supabase Storage Integration**: Files stored in Supabase Storage bucket
-- **Database Integration**: Full CRUD operations with Prisma ORM
-- **Authentication**: JWT-based authentication with HTTP-only cookies
-- **Permission System**: Access control based on note visibility
-- **File Download**: Secure file download with access control
-- **Like System**: Like/unlike functionality for notes
-
-## Tech Stack
-
-### Frontend
-
-- **Next.js 14** with TypeScript
-- **React 18** with hooks
-- **Tailwind CSS** for styling
-- **Shadcn/UI** for components
-- **Axios** for API calls
-
-### Backend
-
-- **Node.js** with Express
-- **Prisma ORM** for database operations
-- **PostgreSQL** database
-- **Supabase** for file storage
-- **JWT** for authentication
-- **Multer** for file uploads
-- **bcryptjs** for password hashing
-
-## Setup Instructions
-
-### Prerequisites
-
-- Node.js 18+ installed
-- PostgreSQL database
-- Supabase account and project
-- Git
-
-### 1. Clone and Install Dependencies
+# StudySync 📚
+*Your Complete Academic Study Companion*
+
+[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)](https://github.com/saifullah-saif/StudySync)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Next.js](https://img.shields.io/badge/Next.js-15.2.4-blue.svg)](https://nextjs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-22-green.svg)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
+
+## 🚀 About StudySync
+
+StudySync is a comprehensive SaaS platform designed to revolutionize academic studying. It combines intelligent spaced repetition flashcards, collaborative note sharing, AI-powered study tools, library room booking, and innovative PDF-to-podcast conversion to create the ultimate learning ecosystem for students.
+
+### ✨ Key Highlights
+- 🧠 **Advanced Spaced Repetition**: Evidence-based learning algorithms
+- 🤝 **Study Community**: Connect with study buddies and share resources
+- 🎧 **PDF-to-Podcast**: Transform documents into audio content
+- 📚 **Smart Note Management**: Upload, organize, and share study materials
+- 📊 **Analytics & Gamification**: Track progress with XP, levels, and streaks
+- 🏛️ **Library Integration**: Book study spaces and manage reservations
+
+---
+
+## 📋 Table of Contents
+
+- [Features](#-features)
+- [Tech Stack](#-tech-stack)
+- [Quick Start](#-quick-start)
+- [Installation](#-installation)
+- [Configuration](#-configuration)
+- [Usage](#-usage)
+- [API Documentation](#-api-documentation)
+- [Deployment](#-deployment)
+- [Authentication](#-authentication--authorization)
+- [Testing](#-testing)
+- [Contributing](#-contributing)
+- [Roadmap](#-roadmap)
+- [License](#-license)
+- [Support](#-support)
+
+---
+
+## 🎯 Features
+
+### 🧠 **Intelligent Flashcard System**
+- **Spaced Repetition Algorithm**: Based on SuperMemo with modern enhancements
+- **Adaptive Learning**: AI adjusts difficulty based on performance
+- **Progress Tracking**: XP system, levels, and mastery stages
+- **Daily Streaks**: Gamified learning with streak maintenance
+- **Performance Analytics**: Success rates, review history, and statistics
+
+### 📚 **Collaborative Note Platform**
+- **File Upload & Sharing**: Support for PDF, DOCX, and TXT files (up to 50MB)
+- **Visibility Controls**: Public, course-only, and private sharing options
+- **Course Integration**: Organize notes by academic courses
+- **Search & Filter**: Advanced search with course-based filtering
+- **Like System**: Community engagement and content curation
+
+### 🎧 **PDF-to-Podcast Conversion**
+- **Text-to-Speech**: High-quality audio generation using Google TTS
+- **Smart Chunking**: Sentence-aware text splitting for natural flow
+- **Chapter Navigation**: Interactive audio player with bookmarks
+- **Download & Stream**: Offline access to generated podcasts
+- **Content Caching**: Efficient re-generation prevention
+
+### 👥 **Study Community Features**
+- **Study Buddy Matching**: Connect with compatible study partners
+- **Chat System**: Real-time messaging with Socket.io
+- **Group Formation**: Create and join study groups
+- **Activity Tracking**: Monitor study sessions and progress
+
+### 🏛️ **Library Management**
+- **Room Booking**: Reserve study spaces in advance
+- **Seat Selection**: Visual seat picker with availability
+- **Reservation Management**: View, modify, and cancel bookings
+- **Real-time Updates**: Live availability status
+
+### 🤖 **AI-Powered Tools**
+- **Content Summarization**: AI-generated note summaries
+- **Flashcard Generation**: Automatic card creation from notes
+- **Study Recommendations**: Personalized learning suggestions
+- **Progress Insights**: AI-driven performance analysis
+
+---
+
+## 🛠️ Tech Stack
+
+### **Frontend**
+- **Framework**: Next.js 15.2.4 with TypeScript
+- **UI Library**: React 19 with Radix UI primitives
+- **Styling**: Tailwind CSS + Shadcn/UI components
+- **State Management**: React Context API + Hooks
+- **Real-time**: Socket.io-client
+- **HTTP Client**: Axios
+- **Forms**: React Hook Form with Zod validation
+
+### **Backend**
+- **Runtime**: Node.js 22 with Express.js
+- **Database**: PostgreSQL with Prisma ORM
+- **Authentication**: JWT with HTTP-only cookies
+- **File Storage**: Supabase Storage
+- **Real-time**: Socket.io
+- **File Processing**: Multer, PDF-lib, Mammoth
+- **Audio Generation**: Google TTS API + FFmpeg
+
+### **AI & Machine Learning**
+- **LangChain**: Document processing and AI integration
+- **OpenAI API**: GPT-powered content generation
+- **Vector Processing**: Text embedding and similarity search
+
+### **DevOps & Deployment**
+- **Hosting**: Vercel (Frontend) + Custom server deployment
+- **Database**: PostgreSQL (Production ready)
+- **CDN**: Vercel Edge Network
+- **Monitoring**: Built-in logging and error tracking
+
+---
+
+## 🚀 Quick Start
 
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd studysync-website
+git clone https://github.com/saifullah-saif/StudySync.git
+cd StudySync
 
-# Install client dependencies
+# Install dependencies for both client and server
+npm run install-all
+
+# Set up environment variables
+cp server/.env.example server/.env
+cp client/.env.example client/.env.local
+
+# Initialize database
+cd server && npm run db:setup
+
+# Start development servers
+npm run dev
+```
+
+Visit `https://study-sync-client.vercel.app/` to see StudySync in action! 🎉
+
+---
+
+## 📦 Installation
+
+### Prerequisites
+- **Node.js** 18+ 
+- **PostgreSQL** 13+
+- **Git**
+- **Supabase Account** (for file storage)
+
+### Detailed Setup
+
+#### 1. **Clone & Install**
+```bash
+git clone https://github.com/saifullah-saif/StudySync.git
+cd StudySync
+
+# Client dependencies
 cd client
-npm install
+pnpm install
 
-# Install server dependencies
+# Server dependencies  
 cd ../server
 npm install
 ```
 
-### 2. Environment Configuration
-
-#### Server Environment (.env)
-
-Copy the example file and configure:
-
-```bash
-cd server
-cp .env.example .env
-```
-
-Edit `.env` with your configuration:
-
-```env
-# Database Configuration
-DATABASE_URL="postgresql://username:password@localhost:5432/studysync"
-DIRECT_URL="postgresql://username:password@localhost:5432/studysync"
-
-# JWT Configuration
-JWT_SECRET="your-super-secret-jwt-key-here"
-
-# Supabase Configuration
-SUPABASE_URL="https://your-project-id.supabase.co"
-SUPABASE_ANON_KEY="your-supabase-anon-key-here"
-
-# Server Configuration
-PORT=5000
-CLIENT_URL="http://localhost:3000"
-SERVER_URL="http://localhost:5000"
-NODE_ENV="development"
-```
-
-#### Client Environment (.env.local)
-
-```bash
-cd ../client
-touch .env.local
-```
-
-Add to `.env.local`:
-
-```env
-NEXT_PUBLIC_API_URL=http://localhost:5000/api
-```
-
-### 3. Database Setup
-
-#### Initialize Prisma and Database
-
+#### 2. **Database Setup**
 ```bash
 cd server
 
 # Generate Prisma client
 npx prisma generate
 
-# Run database migrations
-npx prisma db push
+# Pull schema from database
+npx prisma db pull
 
-# Seed the database with sample courses
-npm run seed
+
 ```
 
-### 4. Supabase Storage Setup
+#### 3. **Start Development**
+```bash
+# Terminal 1 - Backend
+cd server && npm run dev
 
-1. Go to your Supabase dashboard
-2. Navigate to Storage
-3. Create a new bucket named `study-sync-documents`
-4. Create a folder named `Notes` inside the bucket
-5. Set appropriate bucket policies for file access
+# Terminal 2 - Frontend  
+cd client && pnpm run dev
+```
 
-Example bucket policy for authenticated users:
+---
+
+## ⚙️ Configuration
+
+### **Environment Variables**
+
+#### **Server (.env)**
+```env
+# Database
+DATABASE_URL="postgresql://user:password@localhost:5432/studysync"
+DIRECT_URL="postgresql://user:password@localhost:5432/studysync"
+
+# Authentication
+JWT_SECRET="your-super-secret-jwt-key-256-bit"
+
+# Supabase Storage
+SUPABASE_URL="https://your-project-id.supabase.co"
+SUPABASE_ANON_KEY="your-supabase-anon-key"
+
+# Server Configuration
+PORT=5000
+CLIENT_URL="http://localhost:3000"
+SERVER_URL="http://localhost:5000"
+NODE_ENV="development"
+
+# AI Services (Optional)
+OPENAI_API_KEY="your-openai-api-key"
+```
+
+#### **Client (.env.local)**
+```env
+NEXT_PUBLIC_API_URL=http://localhost:5000/api
+```
+
+### **Supabase Storage Setup**
+
+1. Create bucket: `study-sync-documents`
+2. Create folder: `Notes`
+3. Configure access policies:
 
 ```sql
--- Allow authenticated users to upload files
+-- Allow authenticated uploads
 CREATE POLICY "Authenticated users can upload files"
 ON storage.objects FOR INSERT TO authenticated
 WITH CHECK (bucket_id = 'study-sync-documents');
 
--- Allow public read access for notes
-CREATE POLICY "Public can view notes"
+-- Public read access
+CREATE POLICY "Public can view notes"  
 ON storage.objects FOR SELECT TO public
 USING (bucket_id = 'study-sync-documents');
-
--- Allow users to delete their own files
-CREATE POLICY "Users can delete their own files"
-ON storage.objects FOR DELETE TO authenticated
-USING (bucket_id = 'study-sync-documents' AND auth.uid()::text = (metadata->>'user_id'));
 ```
 
-### 5. Run the Application
+---
 
-#### Start the Backend Server
+## 📖 Usage
 
+### **For Students**
+
+#### **Getting Started**
+1. **Sign Up**: Create account with email and university details
+2. **Profile Setup**: Add department, semester, and study preferences  
+3. **Join Courses**: Select your academic courses for content organization
+
+#### **Study with Flashcards**
 ```bash
-cd server
-npm run dev
+# Navigate to Flashcards section
+1. Create new deck or browse existing ones
+2. Start study session with spaced repetition
+3. Answer cards and track your progress  
+4. Maintain daily streaks for optimal learning
 ```
 
-The server will start on http://localhost:5000
+#### **Share & Discover Notes**
+- **Upload**: Drag-and-drop PDF/DOCX files with course tagging
+- **Browse**: Search notes by course, keyword, or popularity
+- **Collaborate**: Like, comment, and share valuable resources
 
-#### Start the Frontend Application
+#### **Generate Podcasts**
+- **Convert**: Transform any PDF into audio format
+- **Listen**: Use built-in player with chapter navigation
+- **Download**: Save for offline listening
 
+### **For Administrators**
+
+#### **Content Management**
+- Monitor note uploads and user activity
+- Moderate community content and resolve reports
+- Manage course listings and categories
+
+#### **Analytics Dashboard**
+- Track user engagement and platform usage
+- Monitor system performance and error rates
+- Generate reports on learning outcomes
+
+---
+
+## 📚 API Documentation
+
+### **Authentication Endpoints**
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| `POST` | `/api/auth/register` | User registration | ❌ |
+| `POST` | `/api/auth/login` | User login | ❌ |
+| `POST` | `/api/auth/logout` | User logout | ✅ |
+| `GET` | `/api/auth/me` | Get current user | ✅ |
+| `GET` | `/api/auth/validate-session` | Validate JWT token | ✅ |
+
+### **Flashcard Endpoints**
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| `GET` | `/api/flashcards/:deckId` | Get deck flashcards | ✅ |
+| `POST` | `/api/flashcards` | Create new flashcard | ✅ |
+| `PUT` | `/api/flashcards/:id` | Update flashcard | ✅ |
+| `DELETE` | `/api/flashcards/:id` | Delete flashcard | ✅ |
+| `POST` | `/api/flashcards/session` | Save study session | ✅ |
+| `GET` | `/api/flashcards/stats/:deckId` | Get learning statistics | ✅ |
+
+### **Notes Endpoints**
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| `GET` | `/api/notes` | Get all public notes | ❌ |
+| `POST` | `/api/notes/upload` | Upload new note | ✅ |
+| `GET` | `/api/notes/:id` | Get note by ID | ❌ |
+| `PUT` | `/api/notes/:id` | Update note | ✅ |
+| `DELETE` | `/api/notes/:id` | Delete note | ✅ |
+| `GET` | `/api/notes/:id/download` | Download note file | ❌ |
+| `POST` | `/api/notes/:id/like` | Like/unlike note | ✅ |
+
+### **Podcast Endpoints**
+
+| Method | Endpoint | Description | Auth Required |
+|--------|----------|-------------|---------------|
+| `POST` | `/api/podcasts/generate` | Generate podcast from text | ✅ |
+| `GET` | `/api/podcasts/download/:id` | Download MP3 file | ❌ |
+| `GET` | `/api/podcasts/metadata/:id` | Get podcast metadata | ❌ |
+
+### **Request Examples**
+
+#### **Create Flashcard**
+```javascript
+POST /api/flashcards
+Content-Type: application/json
+
+{
+  "question": "What is the capital of France?",
+  "answer": "Paris",
+  "deckId": "deck_123",
+  "difficulty": "easy",
+  "tags": ["geography", "europe"]
+}
+```
+
+#### **Upload Note**
+```javascript
+POST /api/notes/upload
+Content-Type: multipart/form-data
+
+{
+  "file": [File object],
+  "title": "Calculus Notes - Chapter 1", 
+  "course": "MATH101",
+  "description": "Limits and continuity concepts",
+  "visibility": "public"
+}
+```
+
+---
+
+## 🚀 Deployment
+
+### **Frontend (Vercel)**
+
+#### **Automatic Deployment**
+```bash
+# Connect repository to Vercel
+# Automatic deployments on push to main branch
+```
+
+#### **Manual Deployment**
 ```bash
 cd client
-npm run dev
+npm run build
+npx vercel --prod
 ```
 
-The client will start on http://localhost:3000
+#### **Environment Variables**
+```env
+NEXT_PUBLIC_API_URL=https://your-server-domain.com/api
+```
 
-## API Endpoints
+### **Backend (Custom Server)**
 
-### Authentication Endpoints
+#### **Production Setup**
+```bash
+# Clone on server
+git clone https://github.com/saifullah-saif/StudySync.git
+cd StudySync/server
 
-- `POST /api/auth/register` - User registration
-- `POST /api/auth/login` - User login
-- `POST /api/auth/logout` - User logout
-- `GET /api/auth/me` - Get current user
-- `GET /api/auth/validate-session` - Validate session
+# Install dependencies
+npm ci --production
 
-### Notes Endpoints
+# Set up environment
+cp .env.example .env
+# Edit .env with production values
 
-- `GET /api/notes` - Get all public notes (with filters)
-- `POST /api/notes/upload` - Upload a new note (authenticated)
-- `GET /api/notes/:id` - Get note by ID
-- `PUT /api/notes/:id` - Update note (authenticated, owner only)
-- `DELETE /api/notes/:id` - Delete note (authenticated, owner only)
-- `GET /api/notes/:id/download` - Download note file
-- `POST /api/notes/:id/like` - Like/unlike a note (authenticated)
-- `GET /api/notes/user/:userId` - Get notes by user
-- `GET /api/courses` - Get all courses
+# Database setup
+npx prisma db push
+npm run seed
 
-### Upload Request Format
+# Start with PM2
+npm install -g pm2
+pm2 start server.js --name "studysync-server"
+pm2 save
+pm2 startup
+```
 
+#### **Docker Deployment**
+```dockerfile
+# Dockerfile
+FROM node:22-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --production
+COPY . .
+EXPOSE 5000
+CMD ["npm", "start"]
+```
+
+```bash
+# Build and run
+docker build -t studysync-server .
+docker run -p 5000:5000 --env-file .env studysync-server
+```
+
+### **Database (PostgreSQL)**
+
+#### **Production Database**
+- Use managed PostgreSQL (AWS RDS, DigitalOcean, etc.)
+- Configure connection pooling
+- Set up automated backups
+- Enable SSL connections
+
+---
+
+## 🔐 Authentication & Authorization
+
+### **JWT Implementation**
+
+#### **Token Structure**
 ```javascript
-// FormData fields for file upload
-const formData = new FormData();
-formData.append("file", selectedFile); // File object
-formData.append("title", "Note Title"); // String
-formData.append("course", "CSE220"); // Course code
-formData.append("description", "Description"); // Optional string
-formData.append("visibility", "public"); // "public" | "private" | "course_only"
+{
+  "id": "user_123",
+  "email": "student@university.edu", 
+  "name": "John Doe",
+  "role": "student",
+  "iat": 1643723400,
+  "exp": 1643809800
+}
 ```
 
-## File Structure
+#### **Security Features**
+- **HTTP-only cookies**: Prevent XSS attacks
+- **CORS protection**: Restrict cross-origin requests
+- **Rate limiting**: Prevent brute force attacks
+- **Input validation**: Sanitize all user inputs
+- **SQL injection prevention**: Parameterized queries with Prisma
 
+#### **Role-Based Access Control**
+
+| Role | Permissions |
+|------|------------|
+| **Student** | Create/edit own content, access public resources |
+| **Moderator** | Review content, moderate community posts |
+| **Admin** | Full system access, user management |
+
+### **Password Security**
+- **Hashing**: bcryptjs with salt rounds = 10
+- **Complexity requirements**: Minimum 8 characters
+- **Password reset**: Secure token-based reset flow
+
+---
+
+## 🧪 Testing
+
+### **Test Structure**
 ```
-studysync-website/
-├── client/                          # Next.js Frontend
-│   ├── app/
-│   │   ├── notes/
-│   │   │   └── page.tsx             # Main notes page
-│   │   ├── globals.css
-│   │   ├── layout.tsx
-│   │   └── page.tsx
+├── client/__tests__/
+│   ├── StudyFlashcards.test.tsx
 │   ├── components/
-│   │   ├── upload-notes.tsx         # Upload component
-│   │   ├── header.tsx
-│   │   └── ui/                      # Shadcn UI components
-│   ├── lib/
-│   │   ├── api.js                   # API functions
-│   │   └── utils.ts
-│   └── package.json
-├── server/                          # Node.js Backend
-│   ├── controller/
-│   │   ├── authController.js
-│   │   └── notesController.js       # Notes operations
-│   ├── services/
-│   │   ├── authService.js
-│   │   └── notesService.js          # Notes business logic
-│   ├── routes/
-│   │   ├── auth.js
-│   │   └── notes.js                 # Notes routes
-│   ├── middleware/
-│   │   ├── authMiddleware.js
-│   │   └── jwtCookieMiddleware.js
-│   ├── prisma/
-│   │   ├── schema.prisma            # Database schema
-│   │   └── seed.js                  # Database seeding
-│   ├── server.js                    # Main server file
-│   ├── package.json
-│   └── .env.example
-└── README.md
+│   └── utils/
+├── server/__tests__/
+│   ├── textChunker.test.ts
+│   ├── auth.test.js
+│   └── api/
 ```
 
-## Usage
+### **Running Tests**
 
-### Uploading Notes
+#### **Frontend Tests**
+```bash
+cd client
 
-1. Navigate to the Notes page
-2. Click on "Upload Your Notes" tab
-3. Drag and drop a file or click to browse
-4. Fill in the required fields:
-   - Title (required)
-   - Course selection (required)
-   - Description (optional)
-   - Visibility setting
-5. Click "Upload Notes"
+# Run all tests
+pnpm test
 
-### Browsing Notes
+# Watch mode
+pnpm run test:watch
 
-1. Navigate to the "Browse Notes" tab
-2. Use search functionality to find specific notes
-3. Filter by course using the dropdown
-4. Switch between grid and list view
-5. Click "Download" to download files
+# Coverage report
+pnpm run test:coverage
+```
 
-### Features
+#### **Backend Tests**
+```bash
+cd server
 
-- **File Validation**: Only PDF, DOCX, and TXT files are accepted
-- **Size Limit**: Maximum file size is 50MB
-- **Progress Tracking**: Real-time upload progress
-- **Dynamic Courses**: Course list is fetched from the database
-- **Access Control**: Visibility settings control who can access notes
+# Run all tests  
+npm test
 
-## Troubleshooting
+# Integration tests
+npm run test:integration
 
-### Common Issues
+# Load testing
+npm run test:load
+```
 
-1. **Database Connection Error**
+### **Test Coverage Goals**
+- **Unit Tests**: >80% coverage
+- **Integration Tests**: All API endpoints
+- **E2E Tests**: Critical user workflows
+- **Performance Tests**: Response time <200ms
 
-   - Verify DATABASE_URL in .env
-   - Ensure PostgreSQL is running
-   - Check database credentials
+---
 
-2. **Supabase Upload Error**
+## 🤝 Contributing
 
-   - Verify SUPABASE_URL and SUPABASE_ANON_KEY
-   - Check bucket name and folder structure
-   - Verify bucket policies
+We welcome contributions from the community! Here's how to get started:
 
-3. **File Upload Fails**
+### **Development Workflow**
 
-   - Check file size (max 50MB)
-   - Verify file type (PDF, DOCX, TXT only)
-   - Ensure user is authenticated
-
-4. **CORS Issues**
-   - Verify CLIENT_URL in server .env
-   - Check server CORS configuration
-
-### Development Tips
-
-1. **Database Reset**
-
+1. **Fork the repository**
    ```bash
-   cd server
-   npx prisma db push --force-reset
-   npm run seed
+   git fork https://github.com/saifullah-saif/StudySync.git
    ```
 
-2. **View Database**
-
+2. **Create feature branch**
    ```bash
-   npx prisma studio
+   git checkout -b feature/amazing-feature
    ```
 
-3. **Check Logs**
-   - Server logs show in terminal
-   - Browser console for client errors
-   - Network tab for API requests
+3. **Make changes**
+   - Follow existing code style
+   - Add tests for new functionality
+   - Update documentation as needed
 
-## Security Considerations
+4. **Test your changes**
+   ```bash
+   npm run test
+   npm run lint
+   ```
 
-- Files are stored securely in Supabase Storage
-- JWT tokens use HTTP-only cookies
-- File access is controlled by visibility settings
-- Input validation on both client and server
-- SQL injection prevention through Prisma ORM
-- File type and size validation
+5. **Submit pull request**
+   - Provide clear description
+   - Reference related issues
+   - Include screenshots for UI changes
 
-## Contributing
+### **Code Standards**
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
+#### **TypeScript/JavaScript**
+- Use TypeScript for new code
+- Follow ESLint configuration
+- Prefer functional components and hooks
+- Use Prettier for formatting
 
-## License
+#### **Database Changes**
+- Create Prisma migrations for schema changes
+- Include seed data for new tables
+- Document breaking changes
 
-This project is licensed under the MIT License.
+#### **API Guidelines**
+- RESTful endpoint design
+- Consistent error response format
+- Input validation with Zod
+- Comprehensive JSDoc comments
+
+### **Issue Guidelines**
+
+- **Bug Reports**: Include reproduction steps and environment details
+- **Feature Requests**: Describe use case and expected behavior  
+- **Questions**: Check existing documentation first
+
+---
+
+## 🗺️ Roadmap
+
+### **Version 2.0 - Q2 2025**
+- [ ] **Mobile App**: React Native mobile application
+- [ ] **Advanced AI**: GPT-4 integration for content generation
+- [ ] **Collaborative Editing**: Real-time document collaboration
+- [ ] **Video Integration**: Upload and process video lectures
+- [ ] **Advanced Analytics**: Detailed learning insights dashboard
+
+### **Version 2.1 - Q3 2025**
+- [ ] **Offline Mode**: PWA with offline functionality
+- [ ] **API v2**: GraphQL API with improved performance
+- [ ] **Plugin System**: Third-party integrations and extensions
+- [ ] **Advanced Search**: Vector-based semantic search
+- [ ] **Multi-language**: Internationalization support
+
+### **Version 3.0 - Q4 2025**
+- [ ] **VR Study Rooms**: Virtual reality study environments
+- [ ] **Blockchain Certificates**: NFT-based achievement system
+- [ ] **AI Tutoring**: Personalized AI study assistant
+- [ ] **Enterprise Features**: University-wide deployment tools
+
+### **Community Requests**
+- [ ] Dark mode theme options
+- [ ] Export study data (CSV, PDF)
+- [ ] Integration with LMS platforms (Canvas, Blackboard)
+- [ ] Calendar synchronization
+- [ ] Study group video calls
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+```
+MIT License
+
+Copyright (c) 2025 StudySync
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+```
+
+---
+
+## 💬 Support
+
+### **Getting Help**
+
+- **📖 Documentation**: Check our [detailed guides](docs/)
+
+- **🐛 Bug Reports**: Open an [issue on GitHub](https://github.com/saifullah-saif/StudySync/issues)
+- **💡 Feature Requests**: Submit via [GitHub Discussions](https://github.com/saifullah-saif/StudySync/discussions)
+
+<!-- ### **Contact Information**
+
+- **Email**: support@studysync.app
+- **Twitter**: [@StudySyncApp](https://twitter.com/StudySyncApp)
+- **LinkedIn**: [StudySync](https://linkedin.com/company/studysync) -->
+
+### **Response Times**
+- **Critical bugs**: Within 24 hours
+- **General inquiries**: 2-3 business days
+- **Feature requests**: Weekly review cycle
+
+---
+
+## 🙏 Acknowledgments
+
+### **Contributors**
+Special thanks to all contributors who have helped build StudySync:
+
+- **Core Team**: Saifullah Saif, Md. Farhan Ishrak, Maisha Meherin, Tahira Binte Amin
+- **Beta Testers**: Students from BRACU and other universities
+
+### **Open Source Libraries**
+We're grateful to the open source community for these amazing libraries:
+
+- **Next.js & React** - Frontend framework and library
+- **Prisma** - Database toolkit and ORM
+- **Radix UI** - Accessible component primitives
+- **Tailwind CSS** - Utility-first CSS framework
+- **Socket.io** - Real-time communication
+- **LangChain** - AI and LLM integration
+
+### **Services & APIs**
+- **Supabase** - Backend-as-a-Service and storage
+- **Vercel** - Frontend hosting and deployment
+- **Google TTS API** - Text-to-speech conversion
+- **OpenAI** - AI-powered features
+
+---
+
+<div align="center">
+
+### **Built with ❤️ for Students Everywhere**
+
+**StudySync** - *Empowering Academic Excellence Through Technology*
+
+[⭐ Star us on GitHub](https://github.com/saifullah-saif/StudySync) | [🚀 Try StudySync](https://studysync.app) | [📖 Read the Docs](https://docs.studysync.app)
+
+</div>

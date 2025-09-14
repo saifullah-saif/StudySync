@@ -73,8 +73,6 @@ export default function CoursesPage() {
     try {
       const response = await courseAPI.getAllCourses();
 
-      
-
       const data = await response.data;
       if (data.success) {
         setCourses(data.data);
@@ -159,11 +157,7 @@ export default function CoursesPage() {
   };
 
   const handleViewReviews = (course: Course) => {
-    router.push(
-      `/course/reviews?courseId=${course.id}&courseName=${encodeURIComponent(
-        course.course_name
-      )}&courseCode=${encodeURIComponent(course.course_code)}`
-    );
+    router.push(`/course/reviews/${course.id}`);
   };
 
   const handleReviewSubmitted = () => {

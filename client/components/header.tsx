@@ -15,9 +15,9 @@ import {
 import { AuthModals } from "@/components/auth-modals";
 import { useAuth } from "@/contexts/auth-context";
 import { useRouter } from "next/navigation";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 
 const navigation = [
-  { name: "Home", href: "/" },
   { name: "Buddies", href: "/buddies" },
   { name: "Library", href: "/library" },
   { name: "Courses", href: "/course" },
@@ -52,24 +52,22 @@ export default function Header() {
             </div>
 
             {/* Right side - Navigation and Profile */}
-            <div className="flex items-center  space-x-1">
+            <div className="flex items-center space-x-1">
               <nav className="flex space-x-1">
                 {navigation.map((item) => (
                   <Button
                     key={item.name}
                     variant="ghost"
                     className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      
                       (item.href === "/library" &&
                         pathname.startsWith("/library")) ||
-                      (
-                        (item.href === "/assistant" &&                        
-                          (pathname.startsWith("/assistant") ||
-                            pathname.startsWith("/flashcards"))
-                        ) ||
-                        (item.href === "/library" && pathname.startsWith("/library")) ||
-                        (item.href === "/course" && pathname.startsWith("/course"))
-                      )
+                      (item.href === "/assistant" &&
+                        (pathname.startsWith("/assistant") ||
+                          pathname.startsWith("/flashcards"))) ||
+                      (item.href === "/library" &&
+                        pathname.startsWith("/library")) ||
+                      (item.href === "/course" &&
+                        pathname.startsWith("/course"))
                         ? "bg-slate-600 text-white"
                         : "text-slate-300 hover:bg-slate-700 hover:text-white"
                     }`}
@@ -85,7 +83,8 @@ export default function Header() {
                   </Button>
                 ))}
               </nav>
-
+            </div>
+            <div>
               {/* Profile Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -103,11 +102,24 @@ export default function Header() {
                 >
                   {user ? (
                     <>
-                      <div className="px-2 py-1.5">
-                        <p className="text-sm font-medium">{user.name}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {user.email}
-                        </p>
+                      <div className="flex items-center space-x-2 px-2 py-1.5">
+                        <div>
+                          <Avatar>
+                            <AvatarImage
+                              src={user?.profile_picture_url}
+                              alt={user.name}
+                            />
+                            <AvatarFallback>
+                              <User className="h-5 w-5" />
+                            </AvatarFallback>
+                          </Avatar>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{user.name}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {user.email}
+                          </p>
+                        </div>
                       </div>
                       <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />
                       <DropdownMenuItem
@@ -119,10 +131,7 @@ export default function Header() {
                           <span>Profile</span>
                         </Link>
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="hover:bg-gray-100 dark:hover:bg-gray-700">
-                        <Settings className="mr-2 h-4 w-4" />
-                        <span>Settings</span>
-                      </DropdownMenuItem>
+
                       <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />
                       <DropdownMenuItem
                         onClick={handleSignOut}
