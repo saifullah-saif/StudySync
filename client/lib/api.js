@@ -974,13 +974,18 @@ export const libraryAPI = {
       start_time: startTime,
       end_time: endTime,
     });
-    const response = await api.get(`/seats/room/${roomId}/booked?${params.toString()}`);
+    const response = await api.get(
+      `/seats/room/${roomId}/booked?${params.toString()}`
+    );
     return response.data;
   },
 
   // Reserve a specific seat
   reserveSeat: async (seatId, reservationData) => {
-    const response = await api.post(`/seats/${seatId}/reserve`, reservationData);
+    const response = await api.post(
+      `/seats/${seatId}/reserve`,
+      reservationData
+    );
     return response.data;
   },
 };
