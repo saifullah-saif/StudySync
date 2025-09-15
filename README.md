@@ -19,6 +19,7 @@ StudySync is a comprehensive SaaS platform designed to revolutionize academic st
 - 📊 **Analytics & Gamification**: Track progress with XP, levels, and streaks
 - 🏛️ **Library Integration**: Book study spaces and manage reservations
 
+Visit [StudySync](https://study-sync-client.vercel.app/) 
 ---
 
 ## 📋 Table of Contents
@@ -690,6 +691,6 @@ We're grateful to the open source community for these amazing libraries:
 
 **StudySync** - *Empowering Academic Excellence Through Technology*
 
-[⭐ Star us on GitHub](https://github.com/saifullah-saif/StudySync) | [🚀 Try StudySync](https://studysync.app) | [📖 Read the Docs](https://docs.studysync.app)
+[⭐ Star us on GitHub](https://github.com/saifullah-saif/StudySync) | [🚀 Try StudySync](https://study-sync-client.vercel.app/) | [📖 Read the Docs](https://docs.studysync.app)
 
 </div>
