@@ -5,30 +5,30 @@ const { extractTextFromFile } = require("../lib/extractText");
 
 const prisma = new PrismaClient();
 
-// OpenAI setup
-let hasOpenAI = false;
-let openai = null;
+// Claude (Anthropic) setup
+let hasClaude = false;
+let anthropic = null;
 
 try {
-  const { OpenAI } = require("openai");
-  if (process.env.OPENAI_API_KEY) {
-    openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
+  const Anthropic = require("@anthropic-ai/sdk");
+  if (process.env.ANTHROPIC_API_KEY) {
+    anthropic = new Anthropic({
+      apiKey: process.env.ANTHROPIC_API_KEY,
     });
-    hasOpenAI = true;
-    console.log("✅ OpenAI service initialized");
+    hasClaude = true;
+    console.log("✅ Claude (Anthropic) service initialized");
   } else {
     console.log(
-      "⚠️ OpenAI API key not found - falling back to alternative methods"
+      "⚠️ Anthropic API key not found - falling back to alternative methods"
     );
   }
 } catch (error) {
   console.log(
-    "⚠️ OpenAI package not available - falling back to alternative methods"
+    "⚠️ Anthropic package not available - falling back to alternative methods"
   );
 }
 
-console.log("✅ Flashcard Generation Service initialized with Hugging Face");
+console.log("✅ Flashcard Generation Service initialized");
 
 class FlashcardGenerationService {
   static instance = null;
@@ -326,11 +326,11 @@ class FlashcardGenerationService {
   }
 
   /**
-   * Generate flashcards using OpenAI or fallback
+   * Generate flashcards using Claude (Anthropic) or fallback
    */
   async generateFlashcardsWithAI(chunks, options, jobId) {
-    if (!hasOpenAI) {
-      console.log("Using fallback flashcard generation (OpenAI not available)");
+    if (!hasClaude) {
+      console.log("Using fallback flashcard generation (Claude not available)");
       return this.generateFallbackFlashcards(chunks, options);
     }
 
@@ -347,7 +347,7 @@ class FlashcardGenerationService {
         // Calculate cards for this chunk
         const cardsPerChunk = Math.ceil(maxCards / chunks.length);
 
-        const response = await this.callOpenAIWithRetry(
+        const response = await this.callClaudeWithRetry(
           prompt,
           chunk,
           cardsPerChunk
@@ -501,28 +501,43 @@ class FlashcardGenerationService {
       return `You are an expert educator creating ${difficultyLevel} difficulty multiple choice flashcards from educational content.
 
 INSTRUCTIONS:
+- Analyze the text deeply to identify the most important concepts, principles, and relationships
 - Create exactly the requested number of multiple choice flashcards
-- Each flashcard should test important concepts from the text
+- Each question should promote active recall and deep understanding
 - Questions should be ${difficultyLevel} difficulty level
-- Provide 4 options (A, B, C, D) with exactly one correct answer
-- Include brief explanations for the correct answers
-- Focus on key concepts, definitions, processes, and relationships
-- Avoid trivial details or overly specific information
+- Use Bloom's Taxonomy to create questions at different cognitive levels:
+  * Remember: Recall facts and basic concepts
+  * Understand: Explain ideas and concepts
+  * Apply: Use information in new situations
+  * Analyze: Draw connections and relationships
+  * Evaluate: Justify decisions and judgments
+- Provide 4 well-crafted options (A, B, C, D) with exactly one correct answer
+- Make distractors (wrong answers) plausible but clearly incorrect to experts
+- Include comprehensive explanations that teach the concept, not just confirm the answer
+- Focus on key concepts, causal relationships, comparisons, processes, and applications
+- Avoid trivial details, ambiguous questions, or trick questions
+- Ensure questions are clear, specific, and standalone (don't require prior context)
+
+QUALITY STANDARDS:
+- Questions must be precise and unambiguous
+- Correct answers should be definitively correct
+- Explanations should add educational value beyond the answer
+- Distractors should test common misconceptions
 
 REQUIRED JSON FORMAT:
 {
   "flashcards": [
     {
-      "question": "Clear, specific question text",
+      "question": "Clear, specific question that tests understanding",
       "options": [
-        {"text": "Option A text", "is_correct": false},
-        {"text": "Option B text", "is_correct": true},
-        {"text": "Option C text", "is_correct": false},
-        {"text": "Option D text", "is_correct": false}
+        {"text": "Plausible but incorrect option", "is_correct": false},
+        {"text": "The definitively correct answer", "is_correct": true},
+        {"text": "Plausible but incorrect option", "is_correct": false},
+        {"text": "Plausible but incorrect option", "is_correct": false}
       ],
-      "explanation": "Brief explanation of why the correct answer is right",
+      "explanation": "Comprehensive explanation that clarifies why the correct answer is right and addresses common misconceptions",
       "difficulty_level": ${targetDifficulty},
-      "source_text": "Relevant excerpt from source text"
+      "source_text": "Relevant excerpt from source text that supports this question"
     }
   ]
 }
@@ -530,30 +545,45 @@ REQUIRED JSON FORMAT:
 TEXT TO PROCESS:
 {text}
 
-Generate exactly {cardCount} multiple choice flashcards. Return only valid JSON.`;
+Generate exactly {cardCount} high-quality multiple choice flashcards. Return only valid JSON.`;
     }
 
     // Default basic flashcard template
-    return `You are an expert educator creating ${difficultyLevel} difficulty flashcards from educational content.
+    return `You are an expert educator creating ${difficultyLevel} difficulty flashcards from educational content using evidence-based learning principles.
 
 INSTRUCTIONS:
+- Analyze the text deeply to extract the most educationally valuable information
 - Create exactly the requested number of flashcards
-- Each flashcard should test important concepts from the text
+- Each flashcard should promote active recall and spaced repetition learning
 - Questions should be ${difficultyLevel} difficulty level
-- Answers should be concise but complete
-- Include brief explanations when helpful
-- Focus on key concepts, definitions, processes, and relationships
-- Avoid trivial details or overly specific information
+- Use diverse question types to engage different cognitive processes:
+  * Definition questions: "What is X?" or "Define X"
+  * Explanation questions: "Why does X occur?" or "How does X work?"
+  * Application questions: "When would you use X?" or "What happens if X?"
+  * Comparison questions: "How does X differ from Y?"
+  * Causal questions: "What causes X?" or "What are the effects of X?"
+- Answers should be clear, accurate, and detailed enough to be educational
+- Include insightful explanations that deepen understanding
+- Focus on concepts that are fundamental, frequently tested, or commonly misunderstood
+- Avoid yes/no questions, trivial facts, or overly complex multi-part questions
+- Each flashcard should be self-contained and understandable without context
+
+QUALITY STANDARDS:
+- Questions must be specific and unambiguous
+- Answers should be accurate and complete
+- Explanations should provide deeper insight or context
+- Content should be worth remembering and reviewing
+- Language should be clear and accessible
 
 REQUIRED JSON FORMAT:
 {
   "flashcards": [
     {
-      "question": "Clear, specific question text",
-      "answer": "Concise, accurate answer",
-      "explanation": "Brief explanation or additional context (optional)",
+      "question": "Clear, specific question that promotes active recall",
+      "answer": "Accurate, well-structured answer that fully addresses the question",
+      "explanation": "Additional context, examples, or insights that enhance understanding (optional but recommended)",
       "difficulty_level": ${targetDifficulty},
-      "source_text": "Relevant excerpt from source text"
+      "source_text": "Relevant excerpt from source text that supports this flashcard"
     }
   ]
 }
@@ -561,15 +591,15 @@ REQUIRED JSON FORMAT:
 TEXT TO PROCESS:
 {text}
 
-Generate exactly {cardCount} flashcards. Return only valid JSON.`;
+Generate exactly {cardCount} high-quality educational flashcards. Return only valid JSON.`;
   }
 
   /**
-   * Call OpenAI API with retry logic and comprehensive error handling
+   * Call Claude (Anthropic) API with retry logic and comprehensive error handling
    */
-  async callOpenAIWithRetry(promptTemplate, text, cardCount, maxRetries = 3) {
-    if (!hasOpenAI || !openai) {
-      throw new Error("OpenAI not available - API key not configured");
+  async callClaudeWithRetry(promptTemplate, text, cardCount, maxRetries = 3) {
+    if (!hasClaude || !anthropic) {
+      throw new Error("Claude not available - API key not configured");
     }
 
     const prompt = promptTemplate
@@ -582,7 +612,7 @@ Generate exactly {cardCount} flashcards. Return only valid JSON.`;
       try {
         // Validate inputs before making API call
         if (!prompt || prompt.trim().length === 0) {
-          throw new Error("Empty prompt provided to OpenAI");
+          throw new Error("Empty prompt provided to Claude");
         }
 
         if (text.length > 15000) {
@@ -591,32 +621,28 @@ Generate exactly {cardCount} flashcards. Return only valid JSON.`;
           );
         }
 
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
+        const response = await anthropic.messages.create({
+          model: "claude-3-5-sonnet-20241022", // Latest Claude 3.5 Sonnet
+          max_tokens: 4000,
+          temperature: 0.8,
+          system:
+            "You are an expert educator with deep pedagogical knowledge. Your expertise is in creating high-quality educational flashcards that promote active recall and deep understanding. Always respond with valid JSON only. Do not include any text outside the JSON structure.",
           messages: [
-            {
-              role: "system",
-              content:
-                "You are an expert educator. Always respond with valid JSON only. Do not include any text outside the JSON structure.",
-            },
             {
               role: "user",
               content: prompt,
             },
           ],
-          temperature: 0.7,
-          max_tokens: 2000,
-          response_format: { type: "json_object" },
         });
 
         // Validate response structure
-        if (!response || !response.choices || response.choices.length === 0) {
-          throw new Error("Invalid response structure from OpenAI");
+        if (!response || !response.content || response.content.length === 0) {
+          throw new Error("Invalid response structure from Claude");
         }
 
-        const content = response.choices[0]?.message?.content;
+        const content = response.content[0]?.text;
         if (!content || content.trim().length === 0) {
-          throw new Error("Empty response content from OpenAI");
+          throw new Error("Empty response content from Claude");
         }
 
         // Parse and validate JSON
@@ -625,21 +651,21 @@ Generate exactly {cardCount} flashcards. Return only valid JSON.`;
           parsed = JSON.parse(content);
         } catch (parseError) {
           throw new Error(
-            `Invalid JSON response from OpenAI: ${parseError.message}`
+            `Invalid JSON response from Claude: ${parseError.message}`
           );
         }
 
         // Validate parsed structure
         if (!parsed || typeof parsed !== "object") {
-          throw new Error("OpenAI response is not a valid object");
+          throw new Error("Claude response is not a valid object");
         }
 
         if (!parsed.flashcards || !Array.isArray(parsed.flashcards)) {
-          throw new Error("OpenAI response missing flashcards array");
+          throw new Error("Claude response missing flashcards array");
         }
 
         if (parsed.flashcards.length === 0) {
-          throw new Error("OpenAI generated no flashcards");
+          throw new Error("Claude generated no flashcards");
         }
 
         // Validate each flashcard
@@ -657,11 +683,11 @@ Generate exactly {cardCount} flashcards. Return only valid JSON.`;
         });
 
         if (validFlashcards.length === 0) {
-          throw new Error("No valid flashcards found in OpenAI response");
+          throw new Error("No valid flashcards found in Claude response");
         }
 
         console.log(
-          `OpenAI attempt ${attempt} succeeded: Generated ${validFlashcards.length} valid flashcards`
+          `Claude attempt ${attempt} succeeded: Generated ${validFlashcards.length} valid flashcards`
         );
 
         return {
@@ -670,7 +696,7 @@ Generate exactly {cardCount} flashcards. Return only valid JSON.`;
         };
       } catch (error) {
         lastError = error;
-        console.error(`OpenAI attempt ${attempt} failed:`, error.message);
+        console.error(`Claude attempt ${attempt} failed:`, error.message);
 
         // Check if it's a rate limit error
         if (error.status === 429 || error.message.includes("rate limit")) {
@@ -684,18 +710,18 @@ Generate exactly {cardCount} flashcards. Return only valid JSON.`;
         // Check if it's a token limit error
         if (error.status === 400 && error.message.includes("token")) {
           throw new Error(
-            `Text is too long for OpenAI processing: ${error.message}`
+            `Text is too long for Claude processing: ${error.message}`
           );
         }
 
         // Check if it's an authentication error
         if (error.status === 401) {
-          throw new Error("OpenAI API authentication failed. Check API key.");
+          throw new Error("Claude API authentication failed. Check API key.");
         }
 
         // Check if it's a server error
         if (error.status >= 500) {
-          console.log(`OpenAI server error, retrying...`);
+          console.log(`Claude server error, retrying...`);
           await new Promise((resolve) =>
             setTimeout(resolve, Math.pow(2, attempt) * 1000)
           );
@@ -716,7 +742,7 @@ Generate exactly {cardCount} flashcards. Return only valid JSON.`;
 
     // If we get here, all attempts failed
     throw new Error(
-      `OpenAI API failed after ${maxRetries} attempts. Last error: ${
+      `Claude API failed after ${maxRetries} attempts. Last error: ${
         lastError?.message || "Unknown error"
       }`
     );

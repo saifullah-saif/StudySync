@@ -2,7 +2,8 @@
   "dependencies": {
     "@langchain/community": "^0.3.53",
     "@langchain/core": "^0.3.72",
-    "openai": "^5.16.0",
+    "dotenv": "^16.4.5",
+    "openai": "^4.62.1",
     "pdf-parse": "^1.1.1"
   }
 }

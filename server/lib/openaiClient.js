@@ -5,8 +5,9 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const MAX_GENERATION_TOKENS =
   parseInt(process.env.MAX_GENERATION_TOKENS) || 1000;
 
+// OpenAI is now optional - Claude is used instead for flashcard generation
 if (!OPENAI_API_KEY) {
-  throw new Error("OPENAI_API_KEY is required in environment variables");
+  console.log("⚠️ OpenAI API key not configured - using Claude (Anthropic) instead");
 }
 
 /**
@@ -47,6 +48,10 @@ ${text}
  * @returns {Promise<Array>} - Array of flashcard objects
  */
 async function generateFlashcards(text, retries = 2) {
+  if (!OPENAI_API_KEY) {
+    throw new Error("OpenAI not configured - please use the main flashcard generation service with Claude");
+  }
+
   try {
     const prompt = buildFlashcardPrompt(text);
 

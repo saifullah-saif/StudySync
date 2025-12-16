@@ -107,8 +107,22 @@ async function extractTextFromFile(
 function cleanText(text) {
   if (!text || typeof text !== "string") return "";
 
+  // First, fix missing spaces between words (common PDF extraction issue)
+  // Add space between lowercase letter and uppercase letter (camelCase fix)
+  let cleaned = text.replace(/([a-z])([A-Z])/g, "$1 $2");
+
+  // Add space between letter and number
+  cleaned = cleaned.replace(/([a-zA-Z])(\d)/g, "$1 $2");
+  cleaned = cleaned.replace(/(\d)([a-zA-Z])/g, "$1 $2");
+
+  // Add space after punctuation if missing
+  cleaned = cleaned.replace(/([.!?])([A-Z])/g, "$1 $2");
+
+  // Fix common concatenation patterns
+  cleaned = cleaned.replace(/([a-z])([A-Z][a-z])/g, "$1 $2"); // "wordWord" -> "word Word"
+
   // Remove excessive whitespace and normalize line breaks
-  let cleaned = text
+  cleaned = cleaned
     .replace(/\r\n/g, "\n")
     .replace(/\r/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
@@ -125,7 +139,7 @@ function cleanText(text) {
     .replace(/^\s*References?\s*$/gim, "") // Remove reference section headers
     .replace(/^\s*Bibliography\s*$/gim, "") // Remove bibliography headers
     .replace(/^\s*Index\s*$/gim, "") // Remove index headers
-    .replace(/\[?\d+\]?/g, "") // Remove reference numbers like [1], [2], etc.
+    .replace(/\[?\d+\]?/g, " ") // Replace reference numbers with space
     .replace(/\b(doi|DOI):\s*[\w\-\.\/]+/gi, "") // Remove DOI references
     .replace(/\b(https?:\/\/[^\s]+)/gi, "") // Remove URLs
     .trim();
@@ -133,13 +147,14 @@ function cleanText(text) {
   // Remove excessive punctuation
   cleaned = cleaned
     .replace(/\.{3,}/g, "...") // Normalize ellipsis
-    .replace(/\-{2,}/g, "—") // Normalize dashes
+    .replace(/\-{2,}/g, " — ") // Normalize dashes with spaces
     .replace(/\s+([,.;:!?])/g, "$1") // Remove spaces before punctuation
-    .replace(/([,.;:!?])\s*([,.;:!?])/g, "$1 $2") // Normalize punctuation spacing
+    .replace(/([,.;:!?])([A-Za-z])/g, "$1 $2") // Add space after punctuation
     .trim();
 
   // Final cleanup
   cleaned = cleaned
+    .replace(/\s{2,}/g, " ") // Replace multiple spaces with single space
     .replace(/\n\s*\n/g, "\n\n") // Normalize paragraph breaks
     .replace(/^\s+|\s+$/gm, "") // Trim each line
     .replace(/\n{3,}/g, "\n\n") // Remove excessive line breaks

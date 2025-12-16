@@ -5,18 +5,30 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
-import { langchainAPI } from "@/lib/api";
+import { Input } from "@/components/ui/input";
 import {
   Play,
   Pause,
   Download,
   Volume2,
+  VolumeX,
   SkipBack,
   SkipForward,
   Clock,
   List,
+  Gauge,
+  Radio,
+  Headphones,
+  FastForward,
+  Rewind,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export interface Chapter {
   title: string;
@@ -49,16 +61,36 @@ export default function PodcastPlayer({
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
+  const [previousVolume, setPreviousVolume] = useState(1);
   const [currentChapter, setCurrentChapter] = useState<number>(-1);
   const [showChapters, setShowChapters] = useState(false);
+  const [playbackRate, setPlaybackRate] = useState(1);
+  const [isSeeking, setIsSeeking] = useState(false);
+  const [timeInput, setTimeInput] = useState("");
+  const [showTimeInput, setShowTimeInput] = useState(false);
+
+  // FIX: Update audio playback when playing state changes
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || demoMode) return;
+
+    if (isPlaying) {
+      audio.play().catch((error) => {
+        console.error("Playback error:", error);
+        setIsPlaying(false);
+        toast.error("Failed to play audio");
+      });
+    } else {
+      audio.pause();
+    }
+  }, [isPlaying, demoMode]);
 
   // Update current time and chapter
   useEffect(() => {
     if (demoMode) {
-      // Set demo values
       setDuration(
         chapters.reduce((sum, chapter) => sum + chapter.durationSec, 0) || 180
-      ); // Use chapter durations or default 3 minutes
+      );
       setCurrentChapter(0);
       return;
     }
@@ -67,7 +99,9 @@ export default function PodcastPlayer({
     if (!audio) return;
 
     const updateTime = () => {
-      setCurrentTime(audio.currentTime);
+      if (!isSeeking) {
+        setCurrentTime(audio.currentTime);
+      }
 
       // Find current chapter
       if (chapters.length > 0) {
@@ -86,6 +120,9 @@ export default function PodcastPlayer({
       setDuration(audio.duration || 0);
     };
 
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
+
     const handleEnded = () => {
       setIsPlaying(false);
       setCurrentTime(0);
@@ -94,28 +131,21 @@ export default function PodcastPlayer({
 
     audio.addEventListener("timeupdate", updateTime);
     audio.addEventListener("loadedmetadata", updateDuration);
+    audio.addEventListener("play", handlePlay);
+    audio.addEventListener("pause", handlePause);
     audio.addEventListener("ended", handleEnded);
 
     return () => {
       audio.removeEventListener("timeupdate", updateTime);
       audio.removeEventListener("loadedmetadata", updateDuration);
+      audio.removeEventListener("play", handlePlay);
+      audio.removeEventListener("pause", handlePause);
       audio.removeEventListener("ended", handleEnded);
     };
-  }, [chapters, demoMode]);
-
-  const extractedText = async () => {
-    try {
-      const extractedText = await langchainAPI.extractTextFromDocument(document!);
-      return  extractedText;
-    } catch (error) {
-      console.error("Error extracting text:", error);
-    }
-  }
-
+  }, [chapters, demoMode, isSeeking]);
 
   const togglePlayPause = () => {
     if (demoMode) {
-      // Demo mode - simulate play/pause
       setIsPlaying(!isPlaying);
       toast.info(isPlaying ? "Demo: Paused" : "Demo: Playing", {
         duration: 1000,
@@ -123,19 +153,21 @@ export default function PodcastPlayer({
       return;
     }
 
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
-        audioRef.current.play().catch((error) => {
-          console.error("Playback error:", error);
-          toast.error("Failed to play audio");
-        });
-      }
-    }
+    setIsPlaying(!isPlaying);
   };
 
-  const handleSeek = (value: number[]) => {
+  // FIX: Improved seek handling with proper state management
+  const handleSeekStart = () => {
+    setIsSeeking(true);
+  };
+
+  const handleSeekChange = (value: number[]) => {
+    setCurrentTime(value[0]);
+  };
+
+  const handleSeekEnd = (value: number[]) => {
+    setIsSeeking(false);
+
     if (demoMode) {
       setCurrentTime(value[0]);
       toast.info(`Demo: Seeked to ${formatTime(value[0])}`, { duration: 1000 });
@@ -150,12 +182,28 @@ export default function PodcastPlayer({
   };
 
   const handleVolumeChange = (value: number[]) => {
-    const audio = audioRef.current;
-    if (!audio) return;
-
     const newVolume = value[0];
-    audio.volume = newVolume;
     setVolume(newVolume);
+
+    if (!demoMode && audioRef.current) {
+      audioRef.current.volume = newVolume;
+    }
+
+    if (newVolume > 0) {
+      setPreviousVolume(newVolume);
+    }
+  };
+
+  const toggleMute = () => {
+    if (volume > 0) {
+      setPreviousVolume(volume);
+      setVolume(0);
+      if (audioRef.current) audioRef.current.volume = 0;
+    } else {
+      const newVolume = previousVolume || 1;
+      setVolume(newVolume);
+      if (audioRef.current) audioRef.current.volume = newVolume;
+    }
   };
 
   const jumpToChapter = (chapterIndex: number) => {
@@ -179,28 +227,60 @@ export default function PodcastPlayer({
     }
   };
 
-  const skipBackward = () => {
+  // FIX: Add various skip intervals
+  const skip = (seconds: number) => {
     if (demoMode) {
-      toast.info("Demo: Skipped backward 15s", { duration: 1000 });
+      const newTime = Math.max(0, Math.min(duration, currentTime + seconds));
+      setCurrentTime(newTime);
+      toast.info(
+        `Demo: Skipped ${seconds > 0 ? "forward" : "backward"} ${Math.abs(
+          seconds
+        )}s`,
+        { duration: 1000 }
+      );
       return;
     }
 
     const audio = audioRef.current;
     if (!audio) return;
 
-    audio.currentTime = Math.max(0, audio.currentTime - 15);
+    audio.currentTime = Math.max(0, Math.min(duration, audio.currentTime + seconds));
   };
 
-  const skipForward = () => {
-    if (demoMode) {
-      toast.info("Demo: Skipped forward 15s", { duration: 1000 });
-      return;
+  // FIX: Add time input functionality for direct time jumping
+  const handleTimeInputSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const timeMatch = timeInput.match(/^(\d+):(\d+)$/);
+
+    if (timeMatch) {
+      const minutes = parseInt(timeMatch[1]);
+      const seconds = parseInt(timeMatch[2]);
+      const totalSeconds = minutes * 60 + seconds;
+
+      if (totalSeconds >= 0 && totalSeconds <= duration) {
+        if (!demoMode && audioRef.current) {
+          audioRef.current.currentTime = totalSeconds;
+        }
+        setCurrentTime(totalSeconds);
+        setShowTimeInput(false);
+        setTimeInput("");
+        toast.success(`Jumped to ${formatTime(totalSeconds)}`);
+      } else {
+        toast.error("Invalid time - outside podcast duration");
+      }
+    } else {
+      toast.error("Invalid format. Use MM:SS (e.g., 2:30)");
+    }
+  };
+
+  const changePlaybackRate = (rate: number) => {
+    setPlaybackRate(rate);
+
+    if (!demoMode && audioRef.current) {
+      audioRef.current.playbackRate = rate;
     }
 
-    const audio = audioRef.current;
-    if (!audio) return;
-
-    audio.currentTime = Math.min(duration, audio.currentTime + 15);
+    toast.success(`Playback speed: ${rate}x`);
   };
 
   const handleDownload = () => {
@@ -232,54 +312,95 @@ export default function PodcastPlayer({
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
+  // Calculate progress percentage
+  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
+
   return (
-    <Card className={`w-full ${className}`}>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="text-xl">{title}</CardTitle>
-            {chapters.length > 0 && (
-              <p className="text-sm text-gray-600 mt-1">
-                {chapters.length} chapters • {formatTime(duration)}
-              </p>
-            )}
+    <Card className={`w-full border-none shadow-xl overflow-hidden ${className}`}>
+      {/* Version Marker - Remove after confirming */}
+      <div className="absolute top-2 right-2 z-50 bg-green-500 text-white text-xs px-2 py-1 rounded-full font-bold">
+        V2.0 ✓
+      </div>
+
+      {/* Gradient Header */}
+      <CardHeader className="bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 text-white pb-8">
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm animate-pulse">
+                <Headphones className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-2xl font-bold text-white">
+                  {title}
+                </CardTitle>
+                {chapters.length > 0 && (
+                  <p className="text-white/80 text-sm mt-1">
+                    {chapters.length} chapters • {formatTime(duration)}
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
           <div className="flex gap-2">
             {chapters.length > 0 && (
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={() => setShowChapters(!showChapters)}
+                className="bg-white/20 hover:bg-white/30 text-white border-white/30"
               >
                 <List className="h-4 w-4 mr-1" />
                 Chapters
               </Button>
             )}
             {downloadUrl && (
-              <Button variant="outline" size="sm" onClick={handleDownload}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleDownload}
+                className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+              >
                 <Download className="h-4 w-4 mr-1" />
                 Download
               </Button>
             )}
           </div>
         </div>
+
+        {/* Progress Bar in Header */}
+        <div className="mt-4">
+          <div className="relative h-2 bg-white/20 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-white/80 transition-all duration-300 relative"
+              style={{ width: `${progressPercent}%` }}
+            >
+              <div className="absolute inset-0 bg-white/40 animate-pulse" />
+            </div>
+          </div>
+        </div>
       </CardHeader>
 
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-6 pt-6">
         {/* Demo mode indicator */}
         {demoMode && (
-          <div className="bg-blue-50 border border-blue-200 p-3 rounded-md mb-4">
-            <div className="flex items-center gap-2">
-              <div className="text-blue-600 font-medium">🎧 Demo Mode</div>
-            </div>
-            <div className="text-blue-700 text-sm mt-1">
-              This is a demo of the podcast player. In production mode, actual
-              audio would be generated and playable.
+          <div className="bg-gradient-to-r from-blue-50 to-purple-50 border-2 border-blue-200 p-4 rounded-xl animate-in fade-in duration-500">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
+                <Radio className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <div className="text-blue-900 font-bold">🎧 Demo Mode</div>
+                <div className="text-blue-700 text-sm mt-1">
+                  This is a demo of the podcast player. In production mode, actual
+                  audio would be generated and playable.
+                </div>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Hidden audio element - only if not in demo mode */}
+        {/* Hidden audio element */}
         {!demoMode && (
           <audio
             ref={audioRef}
@@ -299,107 +420,238 @@ export default function PodcastPlayer({
 
         {/* Current chapter indicator */}
         {chapters.length > 0 && currentChapter >= 0 && (
-          <div className="bg-blue-50 p-3 rounded-lg">
-            <div className="flex items-center gap-2">
-              <Clock className="h-4 w-4 text-blue-600" />
-              <span className="text-sm font-medium text-blue-800">
-                Chapter {currentChapter + 1}: {chapters[currentChapter].title}
-              </span>
+          <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-xl border border-blue-200 animate-in slide-in-from-left duration-500">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+                <Clock className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <span className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+                  Now Playing
+                </span>
+                <p className="text-sm font-bold text-gray-900">
+                  Chapter {currentChapter + 1}: {chapters[currentChapter].title}
+                </p>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Progress bar */}
-        <div className="space-y-2">
+        {/* Enhanced Progress Slider */}
+        <div className="space-y-3">
           <Slider
             value={[currentTime]}
             max={duration || 100}
-            step={1}
-            onValueChange={handleSeek}
-            className="w-full"
+            step={0.1}
+            onValueChange={handleSeekChange}
+            onPointerDown={handleSeekStart}
+            onPointerUp={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect();
+              const percent = (e.clientX - rect.left) / rect.width;
+              const time = percent * duration;
+              handleSeekEnd([time]);
+            }}
+            className="w-full cursor-pointer"
           />
-          <div className="flex justify-between text-sm text-gray-600">
-            <span>{formatTime(currentTime)}</span>
-            <span>{formatTime(duration)}</span>
+          <div className="flex justify-between items-center text-sm">
+            <button
+              onClick={() => setShowTimeInput(!showTimeInput)}
+              className="font-mono font-semibold text-purple-600 hover:text-purple-700 transition-colors"
+            >
+              {formatTime(currentTime)}
+            </button>
+            <span className="font-mono text-gray-600">{formatTime(duration)}</span>
           </div>
+
+          {/* Time Input for Direct Jump */}
+          {showTimeInput && (
+            <form onSubmit={handleTimeInputSubmit} className="flex gap-2 animate-in slide-in-from-top duration-300">
+              <Input
+                type="text"
+                placeholder="MM:SS (e.g., 2:30)"
+                value={timeInput}
+                onChange={(e) => setTimeInput(e.target.value)}
+                className="font-mono"
+              />
+              <Button type="submit" size="sm" className="bg-gradient-to-r from-blue-600 to-purple-600">
+                Jump
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setShowTimeInput(false);
+                  setTimeInput("");
+                }}
+              >
+                Cancel
+              </Button>
+            </form>
+          )}
         </div>
 
-        {/* Controls */}
-        <div className="flex items-center justify-center gap-4">
+        {/* Main Controls with Gradients */}
+        <div className="flex items-center justify-center gap-3">
+          {/* 10s Back */}
           <Button
             variant="outline"
             size="sm"
-            onClick={skipBackward}
-            aria-label="Skip backward 15 seconds"
+            onClick={() => skip(-10)}
+            className="hover:bg-blue-50 hover:border-blue-300 transition-all"
+            title="10 seconds back"
           >
-            <SkipBack className="h-4 w-4" />
+            <Rewind className="h-4 w-4" />
+            <span className="ml-1 text-xs">10s</span>
           </Button>
 
+          {/* 15s Back */}
+          <Button
+            variant="outline"
+            size="default"
+            onClick={() => skip(-15)}
+            className="hover:bg-purple-50 hover:border-purple-300 transition-all"
+            aria-label="Skip backward 15 seconds"
+          >
+            <SkipBack className="h-5 w-5" />
+          </Button>
+
+          {/* Play/Pause with Gradient */}
           <Button
             onClick={togglePlayPause}
             size="lg"
-            className="h-12 w-12 rounded-full"
+            className="h-16 w-16 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-110"
             aria-label={isPlaying ? "Pause" : "Play"}
           >
             {isPlaying ? (
-              <Pause className="h-6 w-6" />
+              <Pause className="h-8 w-8" />
             ) : (
-              <Play className="h-6 w-6 ml-1" />
+              <Play className="h-8 w-8 ml-1" />
             )}
           </Button>
 
+          {/* 15s Forward */}
+          <Button
+            variant="outline"
+            size="default"
+            onClick={() => skip(15)}
+            className="hover:bg-purple-50 hover:border-purple-300 transition-all"
+            aria-label="Skip forward 15 seconds"
+          >
+            <SkipForward className="h-5 w-5" />
+          </Button>
+
+          {/* 30s Forward */}
           <Button
             variant="outline"
             size="sm"
-            onClick={skipForward}
-            aria-label="Skip forward 15 seconds"
+            onClick={() => skip(30)}
+            className="hover:bg-orange-50 hover:border-orange-300 transition-all"
+            title="30 seconds forward"
           >
-            <SkipForward className="h-4 w-4" />
+            <span className="mr-1 text-xs">30s</span>
+            <FastForward className="h-4 w-4" />
           </Button>
         </div>
 
-        {/* Volume control */}
-        <div className="flex items-center gap-3">
-          <Volume2 className="h-4 w-4 text-gray-600" />
-          <Slider
-            value={[volume]}
-            max={1}
-            step={0.1}
-            onValueChange={handleVolumeChange}
-            className="flex-1"
-          />
-          <span className="text-sm text-gray-600 min-w-[3rem]">
-            {Math.round(volume * 100)}%
-          </span>
+        {/* Secondary Controls Row */}
+        <div className="flex items-center justify-between gap-4 pt-2">
+          {/* Volume Control */}
+          <div className="flex items-center gap-3 flex-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleMute}
+              className="hover:bg-gray-100"
+            >
+              {volume === 0 ? (
+                <VolumeX className="h-5 w-5 text-gray-600" />
+              ) : (
+                <Volume2 className="h-5 w-5 text-gray-600" />
+              )}
+            </Button>
+            <Slider
+              value={[volume]}
+              max={1}
+              step={0.01}
+              onValueChange={handleVolumeChange}
+              className="flex-1 max-w-[150px]"
+            />
+            <span className="text-sm text-gray-600 font-medium min-w-[3rem]">
+              {Math.round(volume * 100)}%
+            </span>
+          </div>
+
+          {/* Playback Speed Control */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className="hover:bg-purple-50 hover:border-purple-300 transition-all"
+              >
+                <Gauge className="h-4 w-4 mr-2" />
+                {playbackRate}x
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-32">
+              {[0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map((rate) => (
+                <DropdownMenuItem
+                  key={rate}
+                  onClick={() => changePlaybackRate(rate)}
+                  className={playbackRate === rate ? "bg-purple-50" : ""}
+                >
+                  <span className="font-mono">{rate}x</span>
+                  {playbackRate === rate && (
+                    <Badge className="ml-auto bg-purple-600">Active</Badge>
+                  )}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         {/* Chapters list */}
         {showChapters && chapters.length > 0 && (
-          <div className="border-t pt-4">
-            <h4 className="font-medium mb-3">Chapters</h4>
-            <div className="space-y-2 max-h-60 overflow-y-auto">
+          <div className="border-t-2 pt-6 animate-in slide-in-from-bottom duration-500">
+            <h4 className="font-bold text-lg mb-4 flex items-center gap-2">
+              <List className="w-5 h-5 text-purple-600" />
+              Chapters ({chapters.length})
+            </h4>
+            <div className="space-y-2 max-h-80 overflow-y-auto pr-2">
               {chapters.map((chapter, index) => (
                 <button
                   key={index}
                   onClick={() => jumpToChapter(index)}
-                  className={`w-full text-left p-3 rounded-lg border transition-colors ${
+                  className={`w-full text-left p-4 rounded-xl border-2 transition-all duration-300 hover:scale-[1.02] ${
                     currentChapter === index
-                      ? "bg-blue-50 border-blue-200"
-                      : "hover:bg-gray-50 border-gray-200"
+                      ? "bg-gradient-to-r from-purple-50 to-pink-50 border-purple-300 shadow-md"
+                      : "hover:bg-gray-50 border-gray-200 hover:border-gray-300"
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm truncate">
-                        {index + 1}. {chapter.title}
-                      </p>
-                      <p className="text-xs text-gray-600">
-                        {formatTime(chapter.startSec)} •{" "}
-                        {formatTime(chapter.durationSec)}
-                      </p>
+                    <div className="flex items-center gap-3 flex-1 min-w-0">
+                      <div
+                        className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          currentChapter === index
+                            ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white"
+                            : "bg-gray-200 text-gray-600"
+                        }`}
+                      >
+                        <span className="font-bold">{index + 1}</span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-sm truncate">
+                          {chapter.title}
+                        </p>
+                        <p className="text-xs text-gray-600 font-mono">
+                          {formatTime(chapter.startSec)} •{" "}
+                          {formatTime(chapter.durationSec)} duration
+                        </p>
+                      </div>
                     </div>
                     {currentChapter === index && (
-                      <Badge variant="secondary" className="ml-2">
+                      <Badge className="ml-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white animate-pulse">
                         Playing
                       </Badge>
                     )}

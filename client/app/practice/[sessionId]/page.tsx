@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Header from "@/components/header";
 import PracticeCard from "@/components/flashcards/PracticeCard";
@@ -72,10 +72,15 @@ export default function PracticeSessionPage() {
   const [loading, setLoading] = useState(true);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [attempts, setAttempts] = useState<AttemptRecord[]>([]);
-  const [sessionStartTime, setSessionStartTime] = useState<number>(Date.now());
+
+  // FIX: Track time from when user actually starts practicing on THIS page
+  const [practiceStartTime] = useState<number>(Date.now());
+  const [timeElapsed, setTimeElapsed] = useState(0);
+  const [pausedTime, setPausedTime] = useState(0);
+  const pauseStartRef = useRef<number | null>(null);
+
   const [isPaused, setIsPaused] = useState(false);
   const [showQuitDialog, setShowQuitDialog] = useState(false);
-  const [timeElapsed, setTimeElapsed] = useState(0);
 
   useEffect(() => {
     if (!user) {
@@ -88,16 +93,18 @@ export default function PracticeSessionPage() {
     loadPracticeSession();
   }, [sessionId, user]);
 
-  // Timer effect
+  // FIX: Improved timer that tracks actual practice time (excluding pauses)
   useEffect(() => {
     if (isPaused || !session) return;
 
     const timer = setInterval(() => {
-      setTimeElapsed(Math.floor((Date.now() - sessionStartTime) / 1000));
-    }, 1000);
+      const now = Date.now();
+      const elapsed = Math.floor((now - practiceStartTime - pausedTime) / 1000);
+      setTimeElapsed(elapsed);
+    }, 100); // Update more frequently for smoother display
 
     return () => clearInterval(timer);
-  }, [isPaused, session, sessionStartTime]);
+  }, [isPaused, session, practiceStartTime, pausedTime]);
 
   const loadPracticeSession = async () => {
     try {
@@ -107,7 +114,6 @@ export default function PracticeSessionPage() {
       if (result.success) {
         setSession(result.data.session);
         setDeck(result.data.deck);
-        setSessionStartTime(new Date(result.data.session.startedAt).getTime());
       } else {
         toast.error(result.message || "Failed to load practice session");
         router.push("/assistant");
@@ -134,22 +140,13 @@ export default function PracticeSessionPage() {
       timestamp: Date.now(),
     };
 
-    setAttempts((prev) => {
-      const newAttempts = [...prev, attempt];
-      console.log(`🎯 Card ${currentCardIndex + 1} result recorded:`, {
-        cardId: currentCard.id,
-        isCorrect,
-        totalAttempts: newAttempts.length,
-        currentCardIndex: currentCardIndex + 1,
-      });
-      return newAttempts;
-    });
+    setAttempts((prev) => [...prev, attempt]);
 
     // Move to next card immediately (don't wait for server)
     if (currentCardIndex < deck.flashcards.length - 1) {
       setCurrentCardIndex((prev) => prev + 1);
 
-      // Record attempt on server in background (fire and forget) for non-final cards
+      // Record attempt on server in background
       practiceAPI
         .recordFlashcardAttempt(
           sessionId,
@@ -162,13 +159,6 @@ export default function PracticeSessionPage() {
         });
     } else {
       // Session complete - ensure last card is recorded before completing
-      console.log(
-        `🏁 Session completing with ${
-          attempts.length + 1
-        } total attempts (including this final card)`
-      );
-
-      // For the final card, wait for the server recording to complete
       try {
         await practiceAPI.recordFlashcardAttempt(
           sessionId,
@@ -176,32 +166,31 @@ export default function PracticeSessionPage() {
           isCorrect,
           responseTime
         );
-        console.log("✅ Final card recorded successfully");
       } catch (error) {
-        console.error("❌ Failed to record final card attempt:", error);
+        console.error("Failed to record final card attempt:", error);
       }
 
       // Small delay to ensure background processing completes
       setTimeout(async () => {
-        await completeSession();
+        await completeSession([...attempts, attempt]); // Include the final attempt
       }, 200);
       return;
     }
   };
 
-  const completeSession = async () => {
+  const completeSession = async (finalAttempts: AttemptRecord[]) => {
     if (!session || !deck) return;
 
-    const cardsStudied = attempts.length;
-    const cardsCorrect = attempts.filter((a) => a.isCorrect).length;
-    const totalTimeSeconds = Math.floor((Date.now() - sessionStartTime) / 1000);
+    // FIX: Use the finalAttempts array which includes the last card
+    const cardsStudied = finalAttempts.length;
+    const cardsCorrect = finalAttempts.filter((a) => a.isCorrect).length;
+    const totalTimeSeconds = timeElapsed; // Use our accurate timer
 
-    console.log(`📊 Completing session with local counts:`, {
-      attemptsArrayLength: attempts.length,
+    console.log(`📊 Completing session:`, {
       cardsStudied,
       cardsCorrect,
-      currentCardIndex,
-      totalCardsInDeck: deck.flashcards.length,
+      totalTimeSeconds,
+      totalCards: deck.flashcards.length,
     });
 
     try {
@@ -213,26 +202,9 @@ export default function PracticeSessionPage() {
       );
 
       if (result.success) {
-        // Use the actual counts returned from the server (database-verified)
-        const actualCardsStudied = result.data.session.cardsStudied;
-        const actualCardsCorrect = result.data.session.cardsCorrect;
-        const actualTotalTime = result.data.session.totalTimeSeconds;
-
-        console.log(`✅ Server verified counts:`, {
-          client: { cardsStudied, cardsCorrect },
-          server: {
-            cardsStudied: actualCardsStudied,
-            cardsCorrect: actualCardsCorrect,
-          },
-          difference: {
-            cardsStudied: actualCardsStudied - cardsStudied,
-            cardsCorrect: actualCardsCorrect - cardsCorrect,
-          },
-        });
-
-        // Navigate to summary with server-verified data
+        // Navigate to summary with actual data
         router.push(
-          `/practice/${sessionId}/summary?cardsStudied=${actualCardsStudied}&cardsCorrect=${actualCardsCorrect}&totalTime=${actualTotalTime}`
+          `/practice/${sessionId}/summary?cardsStudied=${cardsStudied}&cardsCorrect=${cardsCorrect}&totalTime=${totalTimeSeconds}`
         );
       } else {
         throw new Error(result.message || "Failed to complete session");
@@ -267,7 +239,19 @@ export default function PracticeSessionPage() {
   };
 
   const handlePause = () => {
-    setIsPaused(!isPaused);
+    if (isPaused) {
+      // Resuming - add the paused duration to total paused time
+      if (pauseStartRef.current) {
+        const pauseDuration = Date.now() - pauseStartRef.current;
+        setPausedTime((prev) => prev + pauseDuration);
+        pauseStartRef.current = null;
+      }
+      setIsPaused(false);
+    } else {
+      // Pausing - record when we paused
+      pauseStartRef.current = Date.now();
+      setIsPaused(true);
+    }
   };
 
   const handleQuit = () => {
@@ -279,7 +263,7 @@ export default function PracticeSessionPage() {
 
     const cardsStudied = attempts.length;
     const cardsCorrect = attempts.filter((a) => a.isCorrect).length;
-    const totalTimeSeconds = Math.floor((Date.now() - sessionStartTime) / 1000);
+    const totalTimeSeconds = timeElapsed;
 
     try {
       await practiceAPI.completePracticeSession(
@@ -297,13 +281,14 @@ export default function PracticeSessionPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
         <Header />
         <main className="flex items-center justify-center py-20">
-          <Card className="w-96">
+          <Card className="w-96 shadow-xl border-0">
             <CardContent className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-4" />
-              <p className="text-gray-600">Loading practice session...</p>
+              <Loader2 className="w-12 h-12 animate-spin text-blue-600 mb-4" />
+              <p className="text-gray-700 font-medium">Loading practice session...</p>
+              <p className="text-gray-500 text-sm mt-2">Preparing your flashcards</p>
             </CardContent>
           </Card>
         </main>
@@ -313,19 +298,19 @@ export default function PracticeSessionPage() {
 
   if (!session || !deck) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
         <Header />
         <main className="flex items-center justify-center py-20">
-          <Card className="w-96">
+          <Card className="w-96 shadow-xl border-0">
             <CardContent className="flex flex-col items-center justify-center py-12">
-              <AlertCircle className="w-8 h-8 text-red-600 mb-4" />
-              <p className="text-gray-900 font-medium mb-2">
+              <AlertCircle className="w-12 h-12 text-red-600 mb-4" />
+              <p className="text-gray-900 font-bold text-lg mb-2">
                 Session not found
               </p>
-              <p className="text-gray-600 text-center mb-4">
+              <p className="text-gray-600 text-center mb-6">
                 The practice session could not be loaded.
               </p>
-              <Button onClick={() => router.push("/assistant")}>
+              <Button onClick={() => router.push("/assistant")} size="lg">
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Dashboard
               </Button>
@@ -339,7 +324,7 @@ export default function PracticeSessionPage() {
   const currentCard = deck.flashcards[currentCardIndex];
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
       <Header />
 
       {/* Practice Controls */}
@@ -358,36 +343,42 @@ export default function PracticeSessionPage() {
       <main className="py-8">
         <div className="max-w-4xl mx-auto px-4">
           {/* Session Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+          <div className="text-center mb-8 animate-in fade-in duration-500">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
               {deck.title}
             </h1>
-            <p className="text-gray-600">
+            <p className="text-gray-600 text-lg">
               Practice Session • {deck.flashcards.length} cards
             </p>
           </div>
 
           {/* Practice Card */}
           {currentCard && (
-            <PracticeCard
-              flashcard={currentCard}
-              onResult={handleCardResult}
-              disabled={isPaused}
-            />
+            <div className="animate-in slide-in-from-bottom duration-300">
+              <PracticeCard
+                flashcard={currentCard}
+                onResult={handleCardResult}
+                disabled={isPaused}
+              />
+            </div>
           )}
 
           {/* Pause Overlay */}
           {isPaused && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-              <Card className="w-96">
-                <CardContent className="text-center py-8">
-                  <h3 className="text-xl font-semibold mb-4">Session Paused</h3>
-                  <p className="text-gray-600 mb-6">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in duration-300">
+              <Card className="w-96 shadow-2xl border-0 animate-in zoom-in duration-300">
+                <CardContent className="text-center py-10">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 rounded-full flex items-center justify-center">
+                    <Loader2 className="w-8 h-8 text-blue-600" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-3">Session Paused</h3>
+                  <p className="text-gray-600 mb-8">
                     Take your time. Click resume when you're ready to continue.
                   </p>
                   <Button
                     onClick={handlePause}
-                    className="bg-blue-600 hover:bg-blue-700"
+                    size="lg"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg"
                   >
                     Resume Practice
                   </Button>
@@ -400,19 +391,20 @@ export default function PracticeSessionPage() {
 
       {/* Quit Confirmation Dialog */}
       <Dialog open={showQuitDialog} onOpenChange={setShowQuitDialog}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Quit Practice Session?</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-xl">Quit Practice Session?</DialogTitle>
+            <DialogDescription className="text-base pt-2">
               Your progress will be saved, but you'll need to start a new
               session to continue practicing.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex space-x-4 pt-4">
+          <div className="flex space-x-3 pt-6">
             <Button
               variant="outline"
               onClick={() => setShowQuitDialog(false)}
               className="flex-1"
+              size="lg"
             >
               Continue Practicing
             </Button>
@@ -420,6 +412,7 @@ export default function PracticeSessionPage() {
               onClick={confirmQuit}
               variant="destructive"
               className="flex-1"
+              size="lg"
             >
               Quit Session
             </Button>
