@@ -2,7 +2,6 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Header from "@/components/header";
 import { Button } from "@/components/ui/button";
 import { Loader2, Home } from "lucide-react";
 import { flashcardAPI } from "@/lib/api";
@@ -111,7 +110,6 @@ export default function FlashcardsPageClient() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-        <Header />
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
             <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" />
@@ -125,8 +123,6 @@ export default function FlashcardsPageClient() {
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-        <Header />
-
         {/* Error State */}
         <div className="flex items-center justify-center py-20">
           <div className="text-center">
@@ -152,7 +148,6 @@ export default function FlashcardsPageClient() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      <Header />
       <div className="flex items-center justify-center py-20">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" />
