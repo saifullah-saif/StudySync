@@ -69,23 +69,6 @@ export default function PracticeSummaryPage() {
     loadPracticeSession();
   }, [sessionId, user]);
 
-  // Log for debugging counting issues
-  useEffect(() => {
-    if (session && (urlCardsStudied || urlCardsCorrect)) {
-      console.log("Summary page data comparison:");
-      console.log("URL params:", {
-        cardsStudied: urlCardsStudied,
-        cardsCorrect: urlCardsCorrect,
-        totalTime: urlTotalTime,
-      });
-      console.log("Database session:", {
-        cardsStudied: session.cardsStudied,
-        cardsCorrect: session.cardsCorrect,
-        totalTime: session.totalTimeSeconds,
-      });
-    }
-  }, [session, urlCardsStudied, urlCardsCorrect, urlTotalTime]);
-
   const loadPracticeSession = async () => {
     try {
       setLoading(true);
@@ -95,13 +78,14 @@ export default function PracticeSummaryPage() {
         setSession(result.data.session);
         setDeck(result.data.deck);
 
-        // Calculate missed cards (this is a simplified version)
-        // In a real implementation, you'd track which specific cards were missed
-        const missed = result.data.deck.flashcards.slice(
-          0,
-          result.data.session.cardsStudied - result.data.session.cardsCorrect
-        );
-        setMissedCards(missed);
+        // FIX: Use actual missed cards from the API response
+        // The backend now returns the cards that were actually answered incorrectly
+        if (result.data.missedCards && Array.isArray(result.data.missedCards)) {
+          setMissedCards(result.data.missedCards);
+          console.log(`✅ Loaded ${result.data.missedCards.length} actual missed cards from database`);
+        } else {
+          setMissedCards([]);
+        }
       } else {
         toast.error(result.message || "Failed to load practice session");
         router.push("/assistant");
@@ -176,13 +160,17 @@ export default function PracticeSummaryPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
         <Header />
         <main className="flex items-center justify-center py-20">
-          <Card className="w-96">
+          <Card className="w-96 border-none shadow-2xl">
             <CardContent className="flex flex-col items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-600 mb-4" />
-              <p className="text-gray-600">Loading practice summary...</p>
+              <div className="relative mb-4">
+                <div className="absolute inset-0 bg-blue-500 rounded-full blur-xl opacity-30 animate-pulse"></div>
+                <Loader2 className="relative w-12 h-12 animate-spin text-blue-600" />
+              </div>
+              <p className="text-gray-700 font-medium">Loading practice summary...</p>
+              <p className="text-gray-500 text-sm mt-2">Analyzing your performance</p>
             </CardContent>
           </Card>
         </main>
@@ -192,19 +180,24 @@ export default function PracticeSummaryPage() {
 
   if (!session || !deck) {
     return (
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-orange-50">
         <Header />
         <main className="flex items-center justify-center py-20">
-          <Card className="w-96">
+          <Card className="w-96 border-none shadow-2xl">
             <CardContent className="flex flex-col items-center justify-center py-12">
-              <AlertCircle className="w-8 h-8 text-red-600 mb-4" />
-              <p className="text-gray-900 font-medium mb-2">
+              <div className="w-16 h-16 bg-gradient-to-br from-red-500 to-orange-500 rounded-full flex items-center justify-center mb-4 shadow-lg">
+                <AlertCircle className="w-8 h-8 text-white" />
+              </div>
+              <p className="text-gray-900 font-bold text-xl mb-2">
                 Session not found
               </p>
-              <p className="text-gray-600 text-center mb-4">
+              <p className="text-gray-600 text-center mb-6 px-4">
                 The practice session summary could not be loaded.
               </p>
-              <Button onClick={() => router.push("/assistant")}>
+              <Button
+                onClick={() => router.push("/assistant")}
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg"
+              >
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Dashboard
               </Button>
@@ -224,7 +217,7 @@ export default function PracticeSummaryPage() {
     session?.totalTimeSeconds ?? parseInt(urlTotalTime || "0");
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
       <Header />
 
       <main className="py-8">

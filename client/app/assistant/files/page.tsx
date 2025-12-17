@@ -52,7 +52,7 @@ import {
   Headphones,
 } from "lucide-react";
 import { toast } from "sonner";
-import { fileAPI, generationAPI, flashcardAPI } from "@/lib/api";
+import { fileAPI, generationAPI, flashcardAPI, documentAPI } from "@/lib/api";
 import { podcastAPI } from "@/lib/podcasts";
 import { useAuth } from "@/contexts/auth-context";
 import FileUpload from "../components/file-upload";
@@ -61,6 +61,8 @@ import { generateQsAns } from "@/actions/upload-actions";
 import FlashcardsPanel from "@/components/FlashcardsPanel";
 import PodcastPlayer from "@/components/PodcastPlayer";
 import LiveTTSPlayer from "@/components/LiveTTSPlayer";
+import Header from "@/components/header";
+
 interface FileItem {
   id: number;
   title: string;
@@ -90,6 +92,7 @@ export default function FilesPage() {
   const [filteredFiles, setFilteredFiles] = useState<FileItem[]>([]);
   const [stats, setStats] = useState<FileStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [extractedText, setExtractedText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFileType, setSelectedFileType] = useState("all");
   const [sortBy, setSortBy] = useState("upload_date"); // Match backend field name
@@ -114,6 +117,12 @@ export default function FilesPage() {
     new Map()
   );
   const [generatingFlashcards, setGeneratingFlashcards] = useState(false);
+  const [showFlashcardOptionsDialog, setShowFlashcardOptionsDialog] = useState(false);
+  const [selectedFileForFlashcards, setSelectedFileForFlashcards] = useState<FileItem | null>(null);
+  const [flashcardOptions, setFlashcardOptions] = useState({
+    maxCards: 10,
+    difficultyLevel: 'medium',
+  });
 
   // Podcast-related states
   const [generatingPodcast, setGeneratingPodcast] = useState(false);
@@ -382,6 +391,9 @@ export default function FilesPage() {
           duration: 5000,
         });
 
+        const extractedText = result.data.extractedText || "";
+        setExtractedText(extractedText);
+    
         console.log(
           "📄 Extracted text preview:",
           result.data.extractedText?.substring(0, 500) + "..."
@@ -442,27 +454,28 @@ export default function FilesPage() {
   //redirect to the [id] summary page
 
   const handleGenerateFlashcards = async (file: FileItem) => {
-    // Check if we have Q&A data for this file
+    // Check if we have extracted text for this file
     const qsAnsData = extractedQsAns.get(file.id);
 
-    if (!qsAnsData || !qsAnsData.qsAns || qsAnsData.qsAns.length === 0) {
-      toast.error("Please extract PDF text first to generate Q&A pairs");
+    if (!qsAnsData || !qsAnsData.extractedText) {
+      toast.error("Please extract PDF text first");
       return;
     }
 
     try {
       setGeneratingFlashcards(true);
 
-      toast.info(`Generating flashcards from "${file.title}"...`, {
+      toast.info(`Generating ${flashcardOptions.maxCards} ${flashcardOptions.difficultyLevel} flashcards from "${file.title}"...`, {
         duration: 3000,
       });
 
-      // Generate flashcards using the extracted Q&A data
-      const result = await flashcardAPI.generateFlashcards(
-        qsAnsData.qsAns,
-        file.title,
-        file.id
-      );
+      // Generate flashcards using Claude AI with user-selected options
+      const result = await documentAPI.generateFlashcards({
+        text: qsAnsData.extractedText,
+        deckTitle: file.title,
+        maxCards: flashcardOptions.maxCards,
+        difficultyLevel: flashcardOptions.difficultyLevel,
+      });
 
       if (result.success) {
         toast.success(
@@ -833,89 +846,105 @@ export default function FilesPage() {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">My Files</h1>
-          <p className="text-gray-600 mt-1">
-            Manage and organize your uploaded files
-          </p>
-        </div>
-        <div className="flex space-x-2">
-          {/* Active Jobs Indicator */}
-          {activeJobs.size > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowJobsDialog(true)}
-              className="relative"
-            >
-              <Clock className="h-4 w-4 mr-2" />
-              {activeJobs.size} Generating
-              <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
-            </Button>
-          )}
-
-          <Button onClick={loadFiles} variant="outline" size="sm">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-          <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Upload Files
+    <>
+      <Header />
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
+        <div className="container mx-auto px-4 py-8 space-y-8">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="space-y-1">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              My Documents
+            </h1>
+            <p className="text-gray-600 text-lg">
+              Manage and transform your study materials
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {/* Active Jobs Indicator */}
+            {activeJobs.size > 0 && (
+              <Button
+                variant="outline"
+                size="default"
+                onClick={() => setShowJobsDialog(true)}
+                className="relative border-blue-200 hover:border-blue-300 hover:bg-blue-50"
+              >
+                <Clock className="h-4 w-4 mr-2 text-blue-600" />
+                <span className="font-medium">{activeJobs.size} Processing</span>
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full animate-pulse shadow-lg"></div>
               </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Upload New Files</DialogTitle>
-                <DialogDescription>
-                  Select files to upload to your document library
-                </DialogDescription>
-              </DialogHeader>
-              <FileUpload onUploadSuccess={handleUploadSuccess} />
-            </DialogContent>
-          </Dialog>
+            )}
+
+            <Button
+              onClick={loadFiles}
+              variant="outline"
+              size="default"
+              className="hover:bg-gray-100"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh
+            </Button>
+            <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+              <DialogTrigger asChild>
+                <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg shadow-blue-500/30">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Upload Document
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Upload New Document</DialogTitle>
+                  <DialogDescription>
+                    Upload PDFs, Word documents, or text files to get started
+                  </DialogDescription>
+                </DialogHeader>
+                <FileUpload onUploadSuccess={handleUploadSuccess} />
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
-      </div>
 
       {/* Stats Cards */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardContent className="p-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-blue-100/50 hover:shadow-xl transition-all">
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Total Files</p>
-                  <p className="text-2xl font-bold">{stats.totalFiles}</p>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-blue-700">Total Documents</p>
+                  <p className="text-3xl font-bold text-blue-900">{stats.totalFiles}</p>
                 </div>
-                <File className="h-8 w-8 text-blue-500" />
+                <div className="h-14 w-14 rounded-full bg-blue-500/20 flex items-center justify-center">
+                  <File className="h-7 w-7 text-blue-600" />
+                </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-4">
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-green-100/50 hover:shadow-xl transition-all">
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Total Size</p>
-                  <p className="text-2xl font-bold">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-green-700">Storage Used</p>
+                  <p className="text-3xl font-bold text-green-900">
                     {formatFileSize(stats.totalSize)}
                   </p>
                 </div>
-                <FileSpreadsheet className="h-8 w-8 text-green-500" />
+                <div className="h-14 w-14 rounded-full bg-green-500/20 flex items-center justify-center">
+                  <FileSpreadsheet className="h-7 w-7 text-green-600" />
+                </div>
               </div>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent className="p-4">
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-purple-100/50 hover:shadow-xl transition-all">
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">File Types</p>
-                  <p className="text-2xl font-bold">{stats.fileTypes.length}</p>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-purple-700">File Types</p>
+                  <p className="text-3xl font-bold text-purple-900">{stats.fileTypes.length}</p>
                 </div>
-                <Filter className="h-8 w-8 text-purple-500" />
+                <div className="h-14 w-14 rounded-full bg-purple-500/20 flex items-center justify-center">
+                  <Filter className="h-7 w-7 text-purple-600" />
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -923,17 +952,17 @@ export default function FilesPage() {
       )}
 
       {/* Search and Filters */}
-      <Card>
-        <CardContent className="p-4">
+      <Card className="border-0 shadow-lg">
+        <CardContent className="p-6">
           <div className="flex flex-col md:flex-row gap-4">
             <div className="flex-1">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <Input
-                  placeholder="Search files..."
+                  placeholder="Search documents by name..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
+                  className="pl-12 h-12 text-base border-gray-200 focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -941,15 +970,15 @@ export default function FilesPage() {
               value={selectedFileType}
               onValueChange={setSelectedFileType}
             >
-              <SelectTrigger className="w-full md:w-48">
-                <SelectValue placeholder="File Type" />
+              <SelectTrigger className="w-full md:w-56 h-12 border-gray-200">
+                <SelectValue placeholder="All File Types" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Types</SelectItem>
-                <SelectItem value="pdf">PDF</SelectItem>
-                <SelectItem value="docx">Word Document</SelectItem>
-                <SelectItem value="txt">Text File</SelectItem>
-                <SelectItem value="jpg">Image</SelectItem>
+                <SelectItem value="all">All File Types</SelectItem>
+                <SelectItem value="pdf">📄 PDF Documents</SelectItem>
+                <SelectItem value="docx">📝 Word Documents</SelectItem>
+                <SelectItem value="txt">📃 Text Files</SelectItem>
+                <SelectItem value="jpg">🖼️ Images</SelectItem>
               </SelectContent>
             </Select>
             <Select
@@ -960,20 +989,16 @@ export default function FilesPage() {
                 setSortOrder(order);
               }}
             >
-              <SelectTrigger className="w-full md:w-48">
+              <SelectTrigger className="w-full md:w-56 h-12 border-gray-200">
                 <SelectValue placeholder="Sort By" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="upload_date-desc">Newest First</SelectItem>
-                <SelectItem value="upload_date-asc">Oldest First</SelectItem>
-                <SelectItem value="title-asc">Name A-Z</SelectItem>
-                <SelectItem value="title-desc">Name Z-A</SelectItem>
-                <SelectItem value="file_size_bytes-desc">
-                  Largest First
-                </SelectItem>
-                <SelectItem value="file_size_bytes-asc">
-                  Smallest First
-                </SelectItem>
+                <SelectItem value="upload_date-desc">📅 Newest First</SelectItem>
+                <SelectItem value="upload_date-asc">📅 Oldest First</SelectItem>
+                <SelectItem value="title-asc">🔤 Name A-Z</SelectItem>
+                <SelectItem value="title-desc">🔤 Name Z-A</SelectItem>
+                <SelectItem value="file_size_bytes-desc">📊 Largest First</SelectItem>
+                <SelectItem value="file_size_bytes-asc">📊 Smallest First</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -982,210 +1007,239 @@ export default function FilesPage() {
 
       {/* Files Grid */}
       {loading ? (
-        <div className="flex justify-center items-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin" />
+        <div className="flex flex-col justify-center items-center py-20">
+          <Loader2 className="h-12 w-12 animate-spin text-blue-600 mb-4" />
+          <p className="text-gray-600">Loading your documents...</p>
         </div>
       ) : filteredFiles.length === 0 ? (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <File className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-600 mb-2">
-              No files found
-            </h3>
-            <p className="text-gray-500 mb-4">
-              {searchQuery || selectedFileType !== "all"
-                ? "Try adjusting your search or filters"
-                : "Upload your first file to get started"}
-            </p>
-            {!searchQuery && selectedFileType === "all" && (
-              <Button onClick={() => setShowUploadDialog(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Upload Files
-              </Button>
-            )}
+        <Card className="border-0 shadow-lg">
+          <CardContent className="p-16 text-center">
+            <div className="max-w-md mx-auto">
+              <div className="h-24 w-24 rounded-full bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center mx-auto mb-6">
+                <File className="h-12 w-12 text-blue-600" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-800 mb-3">
+                No documents found
+              </h3>
+              <p className="text-gray-600 mb-6 text-lg">
+                {searchQuery || selectedFileType !== "all"
+                  ? "Try adjusting your search or filters"
+                  : "Upload your first document to start transforming it into study materials"}
+              </p>
+              {!searchQuery && selectedFileType === "all" && (
+                <Button
+                  onClick={() => setShowUploadDialog(true)}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg"
+                  size="lg"
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  Upload Your First Document
+                </Button>
+              )}
+            </div>
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredFiles.map((file) => (
-            <Card key={file.id} className="hover:shadow-md transition-shadow">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center space-x-2">
-                    {getFileIcon(file.fileType)}
-                    <div className="flex-1 min-w-0">
-                      <h3
-                        className="font-medium text-sm truncate"
-                        title={file.title}
-                      >
-                        {file.title}
-                      </h3>
-                      <p
-                        className="text-xs text-gray-500 truncate"
-                        title={file.fileName}
-                      >
-                        {file.fileName}
-                      </p>
+            <Card key={file.id} className="group border-0 shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden">
+              <CardContent className="p-0">
+                {/* Card Header with Icon */}
+                <div className="bg-gradient-to-br from-blue-50 to-purple-50 p-6 border-b">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start space-x-4 flex-1 min-w-0">
+                      <div className="h-14 w-14 rounded-xl bg-white shadow-md flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
+                        {getFileIcon(file.fileType)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3
+                          className="font-bold text-lg text-gray-900 truncate mb-1"
+                          title={file.title}
+                        >
+                          {file.title}
+                        </h3>
+                        <p
+                          className="text-sm text-gray-600 truncate"
+                          title={file.fileName}
+                        >
+                          {file.fileName}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
-                <div className="space-y-2 mb-4">
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>Size</span>
-                    <span>{formatFileSize(file.fileSize)}</span>
+
+                {/* Card Body */}
+                <div className="p-6 space-y-4">
+                  {/* File Info */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-center space-x-2">
+                      <div className="h-8 w-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                        <FileText className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Size</p>
+                        <p className="text-sm font-semibold text-gray-900">{formatFileSize(file.fileSize)}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <div className="h-8 w-8 rounded-lg bg-purple-100 flex items-center justify-center">
+                        <Download className="h-4 w-4 text-purple-600" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Downloads</p>
+                        <p className="text-sm font-semibold text-gray-900">{file.downloadCount}</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>Uploaded</span>
-                    <span>{formatDate(file.uploadDate)}</span>
+
+                  <div className="pt-2 border-t">
+                    <p className="text-xs text-gray-500">Uploaded {formatDate(file.uploadDate)}</p>
                   </div>
-                  <div className="flex justify-between text-xs text-gray-500">
-                    <span>Downloads</span>
-                    <span>{file.downloadCount}</span>
-                  </div>
-                </div>
-                {file.tags && file.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mb-3">
-                    {file.tags.slice(0, 2).map((tag, index) => (
-                      <Badge
-                        key={index}
-                        variant="secondary"
-                        className="text-xs"
+
+                  {/* Tags */}
+                  {file.tags && file.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {file.tags.slice(0, 3).map((tag, index) => (
+                        <Badge
+                          key={index}
+                          variant="secondary"
+                          className="text-xs px-2 py-1 bg-blue-100 text-blue-700"
+                        >
+                          {tag}
+                        </Badge>
+                      ))}
+                      {file.tags.length > 3 && (
+                        <Badge variant="outline" className="text-xs">
+                          +{file.tags.length - 3} more
+                        </Badge>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="space-y-2 pt-2">
+                    <div className="grid grid-cols-3 gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSelectedFile(file)}
+                        className="hover:bg-blue-50 hover:text-blue-700 hover:border-blue-300"
                       >
-                        {tag}
-                      </Badge>
-                    ))}
-                    {file.tags.length > 2 && (
-                      <Badge variant="outline" className="text-xs">
-                        +{file.tags.length - 2}
-                      </Badge>
-                    )}
-                  </div>
-                )}
-                <div className="flex flex-col space-y-2">
-                  <div className="flex space-x-1">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setSelectedFile(file)}
-                      className="flex-1"
-                    >
-                      <Eye className="h-3 w-3 mr-1" />
-                      View
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleDownloadFile(file.id, file.fileName)}
-                    >
-                      <Download className="h-3 w-3" />
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button size="sm" variant="outline">
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Delete File</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Are you sure you want to delete "{file.title}"? This
-                            action cannot be undone.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => handleDeleteFile(file.id)}
-                            className="bg-red-600 hover:bg-red-700"
-                          >
+                        <Eye className="h-4 w-4 mr-1" />
+                        View
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleDownloadFile(file.id, file.fileName)}
+                        className="hover:bg-green-50 hover:text-green-700 hover:border-green-300"
+                      >
+                        <Download className="h-4 w-4 mr-1" />
+                        Save
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="outline" className="hover:bg-red-50 hover:text-red-700 hover:border-red-300">
+                            <Trash2 className="h-4 w-4 mr-1" />
                             Delete
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Document</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete "{file.title}"? This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDeleteFile(file.id)}
+                              className="bg-red-600 hover:bg-red-700"
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
 
-                  {/* Generate Flashcards Button - MOVED TO TOP */}
-                  {(() => {
-                    const hasQsAns = extractedQsAns.has(file.id);
-                    console.log(
-                      `🔧 Debug: File ${file.id} (${file.title}) - hasQsAns: ${hasQsAns}`
-                    );
-                    if (hasQsAns) {
-                      console.log(
-                        `🔧 Debug: Q&A data for file ${file.id}:`,
-                        extractedQsAns.get(file.id)
-                      );
-                    }
-                    return hasQsAns;
-                  })() && (
+                    {/* Extract PDF Text Button */}
                     <Button
-                      size="sm"
-                      onClick={() => handleGenerateFlashcards(file)}
-                      disabled={generatingFlashcards}
-                      className="w-full bg-blue-600 hover:bg-blue-700"
+                      size="default"
+                      onClick={() => handleProcessPDF(file)}
+                      disabled={processingFiles.has(file.id)}
+                      className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-md"
                     >
-                      {generatingFlashcards ? (
+                      {processingFiles.has(file.id) ? (
                         <>
-                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                          Generating Flashcards...
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Extracting Text...
                         </>
                       ) : (
                         <>
-                          <Zap className="h-3 w-3 mr-1" />
-                          Generate Flashcards
+                          <FileText className="h-4 w-4 mr-2" />
+                          Extract Text
                         </>
                       )}
                     </Button>
-                  )}
 
-                  {/* Generate Podcast Button */}
-                  {(() => {
-                    const hasQsAns = extractedQsAns.has(file.id);
-                    return (
-                      hasQsAns && extractedQsAns.get(file.id)?.extractedText
-                    );
-                  })() && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleGeneratePodcast(file)}
-                      disabled={generatingPodcast}
-                      className="w-full bg-purple-600 hover:bg-purple-700"
-                    >
-                      {generatingPodcast ? (
-                        <>
-                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                          Generating Podcast...
-                        </>
-                      ) : (
-                        <>
-                          <Headphones className="h-3 w-3 mr-1" />
-                          Generate Podcast
-                        </>
-                      )}
-                    </Button>
-                  )}
-
-                  {/* Extract PDF Text Button - MOVED TO BOTTOM */}
-                  <Button
-                    size="sm"
-                    onClick={() => handleProcessPDF(file)}
-                    disabled={processingFiles.has(file.id)}
-                    className="w-full bg-green-600 hover:bg-green-700"
-                  >
-                    {processingFiles.has(file.id) ? (
-                      <>
-                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                        Processing PDF...
-                      </>
-                    ) : (
-                      <>
-                        <FileText className="h-3 w-3 mr-1" />
-                        Extract PDF Text
-                      </>
+                    {/* Generate Flashcards Button */}
+                    {(() => {
+                      const hasQsAns = extractedQsAns.has(file.id);
+                      return hasQsAns;
+                    })() && (
+                      <Button
+                        size="default"
+                        onClick={() => {
+                          setSelectedFileForFlashcards(file);
+                          setShowFlashcardOptionsDialog(true);
+                        }}
+                        disabled={generatingFlashcards}
+                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md"
+                      >
+                        {generatingFlashcards ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Generating Flashcards...
+                          </>
+                        ) : (
+                          <>
+                            <Zap className="h-4 w-4 mr-2" />
+                            Generate Flashcards
+                          </>
+                        )}
+                      </Button>
                     )}
-                  </Button>
+
+                    {/* Generate Podcast Button */}
+                    {(() => {
+                      const hasQsAns = extractedQsAns.has(file.id);
+                      return (
+                        hasQsAns && extractedQsAns.get(file.id)?.extractedText
+                      );
+                    })() && (
+                      <Button
+                        size="default"
+                        onClick={() => handleGeneratePodcast(file)}
+                        disabled={generatingPodcast}
+                        className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-md"
+                      >
+                        {generatingPodcast ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Generating Podcast...
+                          </>
+                        ) : (
+                          <>
+                            <Headphones className="h-4 w-4 mr-2" />
+                            Generate Podcast
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -1594,6 +1648,111 @@ export default function FilesPage() {
           </DialogContent>
         </Dialog>
       )}
-    </div>
+
+      {/* Flashcard Options Dialog */}
+      {selectedFileForFlashcards && (
+        <Dialog
+          open={showFlashcardOptionsDialog}
+          onOpenChange={setShowFlashcardOptionsDialog}
+        >
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center space-x-2">
+                <Zap className="h-5 w-5 text-blue-500" />
+                <span>Flashcard Generation Options</span>
+              </DialogTitle>
+              <DialogDescription>
+                Customize your flashcards for "{selectedFileForFlashcards.title}"
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="maxCards">Number of Flashcards</Label>
+                <Select
+                  value={flashcardOptions.maxCards.toString()}
+                  onValueChange={(value) =>
+                    setFlashcardOptions({
+                      ...flashcardOptions,
+                      maxCards: parseInt(value),
+                    })
+                  }
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5 flashcards</SelectItem>
+                    <SelectItem value="10">10 flashcards</SelectItem>
+                    <SelectItem value="15">15 flashcards</SelectItem>
+                    <SelectItem value="20">20 flashcards</SelectItem>
+                    <SelectItem value="30">30 flashcards</SelectItem>
+                    <SelectItem value="40">40 flashcards</SelectItem>
+                    <SelectItem value="50">50 flashcards</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Select how many flashcards to generate from the document
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="difficulty">Difficulty Level</Label>
+                <Select
+                  value={flashcardOptions.difficultyLevel}
+                  onValueChange={(value) =>
+                    setFlashcardOptions({
+                      ...flashcardOptions,
+                      difficultyLevel: value,
+                    })
+                  }
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="easy">Easy - Simple recall questions</SelectItem>
+                    <SelectItem value="medium">Medium - Balanced challenge</SelectItem>
+                    <SelectItem value="hard">Hard - Complex concepts</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Choose the complexity level of questions
+                </p>
+              </div>
+            </div>
+
+            <div className="flex space-x-2 pt-4">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowFlashcardOptionsDialog(false);
+                  setSelectedFileForFlashcards(null);
+                }}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={() => {
+                  setShowFlashcardOptionsDialog(false);
+                  handleGenerateFlashcards(selectedFileForFlashcards);
+                }}
+                className="flex-1 bg-blue-600 hover:bg-blue-700"
+              >
+                <Zap className="h-4 w-4 mr-2" />
+                Generate
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+        <div>
+          extractedText: {extractedText}
+        </div>
+        </div>
+      </div>
+    </>
   );
 }

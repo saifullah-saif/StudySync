@@ -1,13 +1,57 @@
 const { PrismaClient } = require("@prisma/client");
-const supabase = require("../lib/supabaseClient");
 const { extractTextFromFile, chunkText } = require("../lib/extractText");
-const {
-  generateFlashcards,
-  deduplicateFlashcards,
-} = require("../lib/openaiClient");
 const uploadService = require("../lib/uploadService");
 
 const prisma = new PrismaClient();
+
+// AI Provider Setup - Only FREE providers
+let hasGroq = false;
+let hasHuggingFace = false;
+let groqClient = null;
+let huggingfaceClient = null;
+
+// Groq setup (FREE - 14,400 requests/day)
+try {
+  if (process.env.GROQ_API_KEY) {
+    groqClient = require("../lib/groqClient");
+    hasGroq = true;
+    console.log("✅ Groq AI configured (FREE - 14,400 requests/day)");
+  }
+} catch (error) {
+  console.log("⚠️ Groq client not available");
+}
+
+// Hugging Face setup (FREE tier available)
+try {
+  if (process.env.HUGGINGFACE_API_KEY) {
+    huggingfaceClient = require("../lib/huggingfaceClient");
+    hasHuggingFace = true;
+    console.log("✅ Hugging Face AI configured (FREE tier - backup)");
+  }
+} catch (error) {
+  console.log("⚠️ Hugging Face client not available");
+}
+
+// Determine which AI provider to use (priority: Groq > HuggingFace)
+const AI_PROVIDER = hasGroq ? 'groq' : hasHuggingFace ? 'huggingface' : 'none';
+console.log(`🤖 Primary AI provider: ${AI_PROVIDER.toUpperCase()}`);
+
+if (!hasGroq && !hasHuggingFace) {
+  console.error("❌ No AI providers configured! Please add GROQ_API_KEY or HUGGINGFACE_API_KEY to .env");
+}
+
+/**
+ * Helper function to convert difficulty string to numeric value
+ */
+function getDifficultyNumber(difficultyLevel) {
+  const difficultyMap = {
+    easy: 2,
+    medium: 3,
+    hard: 4,
+  };
+  return difficultyMap[difficultyLevel] || 3;
+}
+
 
 // Configure multer using centralized upload service
 const upload = uploadService.createMulterConfig({
@@ -162,8 +206,18 @@ const pasteDocument = async (req, res) => {
  */
 const generateFlashcardsFromDocument = async (req, res) => {
   try {
-    const { documentId, text, deckTitle } = req.body;
+    const { documentId, text, deckTitle, maxCards, difficultyLevel } = req.body;
     const userId = req.user.id;
+
+    console.log("📥 Received flashcard generation request:", {
+      hasText: !!text,
+      textLength: text?.length,
+      documentId,
+      deckTitle,
+      maxCards,
+      difficultyLevel,
+      userId,
+    });
 
     if (!documentId && !text) {
       return res.status(400).json({
@@ -235,21 +289,55 @@ const generateFlashcardsFromDocument = async (req, res) => {
     try {
       // Generate flashcards
       let allFlashcards = [];
+      const targetDifficulty = maxCards && difficultyLevel ? getDifficultyNumber(difficultyLevel) : 3;
+      const cardCount = parseInt(maxCards) || 10;
+      let lastError = null;
 
-      // Chunk text if too large
-      if (sourceText.length > 30000) {
-        const chunks = chunkText(sourceText, 20000);
+      // Try FREE providers in order: Groq > HuggingFace
+      // Automatic fallback if primary provider fails
 
-        for (const chunk of chunks) {
-          const chunkCards = await generateFlashcards(chunk);
-          allFlashcards.push(...chunkCards);
+      // Try Groq first (primary FREE provider)
+      if (hasGroq && maxCards && difficultyLevel) {
+        try {
+          console.log(`🚀 Generating ${cardCount} ${difficultyLevel} flashcards with Groq (FREE)...`);
+          allFlashcards = await groqClient.generateFlashcardsWithGroq(
+            sourceText,
+            cardCount,
+            targetDifficulty
+          );
+          console.log(`✅ Successfully generated ${allFlashcards.length} flashcards with Groq`);
+        } catch (error) {
+          console.error(`❌ Groq failed: ${error.message}`);
+          lastError = error;
+          console.log("🔄 Falling back to Hugging Face...");
         }
-      } else {
-        allFlashcards = await generateFlashcards(sourceText);
       }
 
-      // Deduplicate flashcards
-      allFlashcards = deduplicateFlashcards(allFlashcards);
+      // Try Hugging Face as backup
+      if (allFlashcards.length === 0 && hasHuggingFace && maxCards && difficultyLevel) {
+        try {
+          console.log(`🤗 Generating ${cardCount} ${difficultyLevel} flashcards with Hugging Face (FREE backup)...`);
+          allFlashcards = await huggingfaceClient.generateFlashcardsWithHuggingFace(
+            sourceText,
+            cardCount,
+            targetDifficulty
+          );
+          console.log(`✅ Successfully generated ${allFlashcards.length} flashcards with Hugging Face`);
+        } catch (error) {
+          console.error(`❌ Hugging Face failed: ${error.message}`);
+          lastError = error;
+        }
+      }
+
+      // If both FREE providers failed, throw error
+      if (allFlashcards.length === 0) {
+        const errorMessage = lastError
+          ? `All AI providers failed. Last error: ${lastError.message}`
+          : "No AI providers are configured. Please add GROQ_API_KEY or HUGGINGFACE_API_KEY to .env file";
+
+        console.error(`❌ ${errorMessage}`);
+        throw new Error(errorMessage);
+      }
 
       if (allFlashcards.length === 0) {
         throw new Error(
@@ -333,10 +421,13 @@ const generateFlashcardsFromDocument = async (req, res) => {
 
       res.json({
         success: true,
-        jobId: job.id,
-        deckId: result.deckId,
-        cardsCreated: result.cardsCreated,
         message: `Successfully generated ${result.cardsCreated} flashcards`,
+        data: {
+          jobId: job.id,
+          deckId: result.deckId,
+          totalCards: result.cardsCreated,
+          cardsCreated: result.cardsCreated,
+        },
       });
     } catch (error) {
       // Update job as failed

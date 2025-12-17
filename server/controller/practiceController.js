@@ -233,6 +233,41 @@ const getPracticeSession = async (req, res) => {
       });
     }
 
+    // Get missed cards (cards answered incorrectly) from card_reviews
+    const incorrectReviews = await prisma.card_reviews.findMany({
+      where: {
+        session_id: parseInt(sessionId),
+        user_response: "incorrect",
+      },
+      include: {
+        card_progress: {
+          include: {
+            flashcards: {
+              select: {
+                id: true,
+                question: true,
+                answer: true,
+                difficulty_level: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Extract unique missed flashcards
+    const missedCardsMap = new Map();
+    incorrectReviews.forEach((review) => {
+      if (review.card_progress && review.card_progress.flashcards) {
+        const card = review.card_progress.flashcards;
+        if (!missedCardsMap.has(card.id)) {
+          missedCardsMap.set(card.id, card);
+        }
+      }
+    });
+
+    const missedCards = Array.from(missedCardsMap.values());
+
     res.json({
       success: true,
       data: {
@@ -247,6 +282,7 @@ const getPracticeSession = async (req, res) => {
           endedAt: session.ended_at,
         },
         deck: session.flashcard_decks,
+        missedCards: missedCards,
       },
     });
   } catch (error) {
