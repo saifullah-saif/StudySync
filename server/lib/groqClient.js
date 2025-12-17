@@ -127,6 +127,109 @@ Generate exactly ${maxCards} high-quality flashcards. Return ONLY valid JSON, no
   }
 }
 
+/**
+ * Generate Q&A pairs using Groq (Llama 3.3 70B)
+ * @param {string} text - Input text to generate Q&A pairs from
+ * @param {number} maxPairs - Maximum number of Q&A pairs to generate
+ * @returns {Promise<Array>} - Array of Q&A objects
+ */
+async function generateQAPairsWithGroq(text, maxPairs = 8) {
+  if (!GROQ_API_KEY) {
+    throw new Error("Groq API key not configured. Set GROQ_API_KEY in .env file");
+  }
+
+  console.log(`🚀 Groq: Generating ${maxPairs} Q&A pairs...`);
+
+  const prompt = `You are an expert educator creating high-quality question-answer pairs from educational content.
+
+INSTRUCTIONS:
+- Analyze the text deeply to extract the most educationally valuable information
+- Create exactly ${maxPairs} Q&A pairs
+- Questions should be clear, specific, and promote understanding
+- Answers should be accurate, concise, and directly answer the question
+- Use diverse question types: definitions, facts, processes, explanations
+
+REQUIRED JSON FORMAT (respond with ONLY valid JSON):
+{
+  "qaPairs": [
+    {
+      "question": "Clear, specific question",
+      "answer": "Accurate, concise answer",
+      "type": "definition|fact|process|explanation"
+    }
+  ]
+}
+
+TEXT TO PROCESS:
+${text.substring(0, 15000)}
+
+Generate exactly ${maxPairs} high-quality Q&A pairs. Return ONLY valid JSON, no other text.`;
+
+  try {
+    const response = await fetch(GROQ_API_URL, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${GROQ_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          {
+            role: "system",
+            content: "You are an expert educator. Generate high-quality educational Q&A pairs in valid JSON format only. Do not include any text before or after the JSON.",
+          },
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: 0.7,
+        max_tokens: 3000,
+        top_p: 1,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Groq API error: ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    const content = data.choices[0].message.content;
+
+    console.log("Groq Q&A response received, parsing...");
+
+    // Extract JSON from response
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      console.error("No JSON found in Groq response:", content);
+      throw new Error("No JSON found in Groq response");
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    if (!parsed.qaPairs || !Array.isArray(parsed.qaPairs)) {
+      throw new Error("Invalid Q&A format from Groq");
+    }
+
+    // Validate and clean Q&A pairs
+    const cleanedPairs = parsed.qaPairs
+      .filter(pair => pair.question && pair.answer)
+      .map(pair => ({
+        question: pair.question.trim(),
+        answer: pair.answer.trim(),
+        type: pair.type || "general",
+      }));
+
+    console.log(`✅ Groq generated ${cleanedPairs.length} Q&A pairs`);
+    return cleanedPairs;
+  } catch (error) {
+    console.error("❌ Groq Q&A generation error:", error.message);
+    throw new Error(`Failed to generate Q&A pairs with Groq: ${error.message}`);
+  }
+}
+
 module.exports = {
   generateFlashcardsWithGroq,
+  generateQAPairsWithGroq,
 };
