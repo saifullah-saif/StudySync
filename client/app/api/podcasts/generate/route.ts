@@ -13,7 +13,10 @@ export async function POST(request: NextRequest) {
     console.log("🎙️ POST /api/podcasts/generate - Starting...");
 
     const body = await request.json();
-    const { fileId, text, title, lang } = body;
+    const { fileId, text, title, lang, userId } = body;
+
+    // Extract cookies from request to forward to backend
+    const cookieHeader = request.headers.get("cookie");
 
     // Validate input
     if (!text && !fileId) {
@@ -68,11 +71,63 @@ export async function POST(request: NextRequest) {
     const wordCount = podcastText.split(/\s+/).length;
     const estimatedDuration = Math.ceil((wordCount / 150) * 60); // seconds
 
-    console.log(`📊 Podcast metadata: ${wordCount} words, ~${estimatedDuration}s duration`);
+    console.log(
+      `📊 Podcast metadata: ${wordCount} words, ~${estimatedDuration}s duration`
+    );
+
+    // Save podcast to database via backend - THIS IS MANDATORY
+    console.log(`💾 Saving podcast to database (REQUIRED)...`);
+
+    const backendUrl = process.env.BACKEND_URL || "http://localhost:5001";
+
+    let savedPodcastId: number | null = null;
+
+    const saveResponse = await fetch(`${backendUrl}/api/podcasts`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(cookieHeader && { Cookie: cookieHeader }), // Forward authentication cookies
+      },
+      credentials: "include",
+      body: JSON.stringify({
+        userId, // Legacy field - backend will use authenticated user instead
+        episodeId,
+        title: podcastTitle,
+        fullText: podcastText,
+        duration: estimatedDuration,
+        wordCount,
+        sourceFileId: fileId || null,
+        sourceType: fileId ? "document" : "text",
+      }),
+    });
+
+    if (!saveResponse.ok) {
+      const errorText = await saveResponse.text();
+      console.error(
+        `❌ CRITICAL: Failed to save podcast to database: ${saveResponse.status} - ${errorText}`
+      );
+
+      // Return error - podcast generation fails if persistence fails
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Failed to persist podcast: ${saveResponse.status} - ${errorText}`,
+        },
+        { status: 500 }
+      );
+    }
+
+    const saveData = await saveResponse.json();
+    savedPodcastId = saveData.id;
+
+    console.log(
+      `✅ ✅ ✅ Podcast persisted to database with ID: ${savedPodcastId}, episodeId: ${episodeId}`
+    );
 
     // Return success response with full text (no chapters)
     return NextResponse.json({
       success: true,
+      id: savedPodcastId, // Database ID for reference
       episodeId,
       audioUrl: `/api/podcasts/download/${episodeId}`,
       duration: estimatedDuration,
@@ -80,8 +135,7 @@ export async function POST(request: NextRequest) {
       demoMode: true,
       fullText: podcastText, // Send full text instead of chunks
       wordCount,
-      message:
-        "Podcast generated. Using live TTS for audio playback.",
+      message: "Podcast generated and saved successfully.",
     });
   } catch (error) {
     console.error("❌ Podcast generation error:", error);

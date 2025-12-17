@@ -35,12 +35,35 @@ export default function PodcastTestPage() {
     setResult(null);
 
     try {
+      // Get user ID from localStorage
+      const userStr = localStorage.getItem("user");
+      if (!userStr) {
+        setResult({
+          success: false,
+          error: "Not authenticated. Please log in first.",
+        });
+        setLoading(false);
+        return;
+      }
+
+      const user = JSON.parse(userStr);
+      const userId = user.id || user.userId;
+
+      if (!userId) {
+        setResult({
+          success: false,
+          error: "User ID not found in session",
+        });
+        setLoading(false);
+        return;
+      }
+
       const response = await fetch("/api/podcasts/generate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ text, title }),
+        body: JSON.stringify({ text, title, userId }),
       });
 
       const data = await response.json();

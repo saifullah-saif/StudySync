@@ -121,8 +121,7 @@ const generationRoutes = require("./routes/generation");
 const langchainRoutes = require("./routes/langchain");
 const flashcardRoutes = require("./routes/flashcards");
 const statsRoutes = require("./routes/stats");
-const viewNotesRoutes = require("./routes/viewNotes");
-const summaryRoutes = require("./routes/summary");
+const podcastRoutes = require("./routes/podcastRoutes");
 
 // Use all routes
 app.use("/api/auth", authRoutes);
@@ -141,9 +140,7 @@ app.use("/api/generation", generationRoutes);
 app.use("/api/langchain", langchainRoutes);
 app.use("/api/flashcards", flashcardRoutes);
 app.use("/api/stats", statsRoutes);
-app.use("/api/summary", summaryRoutes);
-app.use("/api/notes", notesRoutes);
-app.use("/api/view-notes", viewNotesRoutes);
+app.use("/api/podcasts", podcastRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({

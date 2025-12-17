@@ -7,6 +7,7 @@ export interface PodcastGenerationRequest {
   fileId?: string | number;
   title?: string;
   lang?: string;
+  userId?: number; // User ID for authentication
 }
 
 export interface PodcastGenerationResponse {
@@ -68,12 +69,29 @@ export const podcastAPI = {
     request: PodcastGenerationRequest
   ): Promise<PodcastGenerationResponse> {
     try {
+      // Get user ID from localStorage if not provided
+      let userId = request.userId;
+      if (!userId) {
+        const userStr = localStorage.getItem("user");
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          userId = user.id || user.userId;
+        }
+      }
+
+      // Include userId in the request
+      const requestWithAuth = {
+        ...request,
+        userId,
+      };
+
       const response = await fetch("/api/podcasts/generate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(request),
+        credentials: "include", // Include cookies for authentication
+        body: JSON.stringify(requestWithAuth),
       });
 
       const data = await response.json();

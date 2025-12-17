@@ -14,20 +14,16 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AuthModals } from "@/components/auth-modals";
 import { useAuth } from "@/contexts/auth-context";
-import { useRouter } from "next/navigation";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 
 const navigation = [
   { name: "Buddies", href: "/buddies" },
   { name: "Library", href: "/library" },
   { name: "Courses", href: "/course" },
   { name: "Notes", href: "/notes" },
-  { name: "Files", href: "/assistant/files" },
   { name: "Assistant", href: "/assistant" },
 ];
 
 export default function Header() {
-  const router = useRouter();
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const [isSignInOpen, setIsSignInOpen] = useState(false);
@@ -35,7 +31,6 @@ export default function Header() {
 
   const handleSignOut = async () => {
     await logout();
-    router.push("/"); // Redirect to home page after logout
   };
 
   return (
@@ -63,11 +58,8 @@ export default function Header() {
                       pathname === item.href ||
                       (item.href === "/library" &&
                         pathname.startsWith("/library")) ||
-                      (item.href === "/assistant/files" &&
-                        pathname.startsWith("/assistant/files")) ||
                       (item.href === "/assistant" &&
-                        pathname.startsWith("/assistant") &&
-                        !pathname.startsWith("/assistant/files")) ||
+                        pathname.startsWith("/assistant")) ||
                       (item.href === "/assistant" &&
                         pathname.startsWith("/flashcards"))
                         ? "bg-slate-600 text-white"
@@ -104,24 +96,11 @@ export default function Header() {
                 >
                   {user ? (
                     <>
-                      <div className="flex items-center space-x-2 px-2 py-1.5">
-                        <div>
-                          <Avatar>
-                            <AvatarImage
-                              src={user?.profile_picture_url}
-                              alt={user.name}
-                            />
-                            <AvatarFallback>
-                              <User className="h-5 w-5" />
-                            </AvatarFallback>
-                          </Avatar>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">{user.name}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">
-                            {user.email}
-                          </p>
-                        </div>
+                      <div className="px-2 py-1.5">
+                        <p className="text-sm font-medium">{user.name}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {user.email}
+                        </p>
                       </div>
                       <DropdownMenuSeparator className="bg-gray-200 dark:bg-gray-700" />
                       <DropdownMenuItem
