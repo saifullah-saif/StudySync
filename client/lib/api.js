@@ -297,13 +297,10 @@ export const langchainAPI = {
   },
 
   // Process file from URL with LangChain
-  processFileFromUrl: async (fileUrl, fileName, options = {}) => {
-    const { generateQA = true, maxQAPairs = 8 } = options;
+  processFileFromUrl: async (fileUrl, fileName) => {
     const response = await api.post("/langchain/process-url", {
       fileUrl,
       fileName,
-      generateQA,
-      maxQAPairs,
     });
     return response.data;
   },

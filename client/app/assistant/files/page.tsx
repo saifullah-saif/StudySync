@@ -59,7 +59,8 @@ import FileUpload from "../components/file-upload";
 import { langchainAPI } from "@/lib/api";
 import { generateQsAns } from "@/actions/upload-actions";
 import FlashcardsPanel from "@/components/FlashcardsPanel";
-import SimplePodcastPlayer from "@/components/SimplePodcastPlayer";
+import PodcastPlayer from "@/components/PodcastPlayer";
+import LiveTTSPlayer from "@/components/LiveTTSPlayer";
 import Header from "@/components/header";
 
 interface FileItem {
@@ -140,9 +141,6 @@ export default function FilesPage() {
     demoMode?: boolean;
     textChunks?: string[];
     extractedText?: string;
-    fullText?: string;
-    wordCount?: number;
-    duration?: number;
   } | null>(null);
 
   const router = useRouter();
@@ -382,38 +380,58 @@ export default function FilesPage() {
 
       console.log("Processing file with URL:", fileUrl);
 
-      // Use LangChain API - disable Q&A generation for text extraction
-      // Q&A pairs will be generated later if needed for podcast feature
-      const result = await langchainAPI.processFileFromUrl(fileUrl, fileName, {
-        generateQA: false, // Don't generate Q&A during text extraction
-      });
+      // Use LangChain API directly instead of generateQsAns
+      const result = await langchainAPI.processFileFromUrl(fileUrl, fileName);
 
       if (result.success) {
         toast.success(`Successfully processed "${file.title}"`, {
-          description: `Extracted ${result.data.wordCount} words from ${result.data.pageCount} pages`,
+          description: `Extracted ${
+            result.data.wordCount
+          } words and generated ${result.data.qsAns?.length || 0} Q&A pairs`,
           duration: 5000,
         });
 
         const extractedText = result.data.extractedText || "";
         setExtractedText(extractedText);
-
+    
         console.log(
           "📄 Extracted text preview:",
           result.data.extractedText?.substring(0, 500) + "..."
         );
 
-        // Store extracted text for flashcard/podcast generation
-        console.log(`✅ Storing extracted text for file ID ${file.id}`);
-
-        setExtractedQsAns((prev) => {
-          const newMap = new Map(prev).set(file.id, {
-            qsAns: result.data.qsAns || [], // Include Q&A if generated
-            title: file.title,
-            extractedText: result.data.extractedText,
+        // Print Q&A pairs to client console as well
+        if (result.data.qsAns && result.data.qsAns.length > 0) {
+          console.log("\n🎓 Generated Q&A Pairs:");
+          result.data.qsAns.forEach((item: any, index: number) => {
+            console.log(`${index + 1}. Q: ${item.question}`);
+            console.log(`   A: ${item.answer}\n`);
           });
-          console.log(`✅ Updated extractedQsAns map - file ${file.id} stored`);
-          return newMap;
-        });
+
+          // Store Q&A data for flashcard generation
+          console.log(`🔧 Debug: Storing Q&A data for file ID ${file.id}`);
+          console.log(`🔧 Debug: Q&A data:`, result.data.qsAns);
+
+          setExtractedQsAns((prev) => {
+            const newMap = new Map(prev).set(file.id, {
+              qsAns: result.data.qsAns,
+              title: file.title,
+              extractedText: result.data.extractedText,
+            });
+            console.log(`🔧 Debug: Updated extractedQsAns map:`, newMap);
+            console.log(
+              `🔧 Debug: Map has file ${file.id}:`,
+              newMap.has(file.id)
+            );
+            return newMap;
+          });
+        } else {
+          console.log("⚠️ No Q&A pairs found in result.data");
+          console.log("⚠️ Result.data structure:", result.data);
+          console.log("⚠️ Result.data keys:", Object.keys(result.data));
+          console.log("⚠️ Full result object:", result);
+          console.log("⚠️ Result.data.qsAns:", result.data.qsAns);
+          console.log("⚠️ Result.data.qsAns type:", typeof result.data.qsAns);
+        }
       } else {
         toast.error(`Failed to process "${file.title}": ${result.message}`);
       }
@@ -576,9 +594,6 @@ export default function FilesPage() {
           demoMode: result.demoMode || false, // Flag from API response
           textChunks: result.textChunks || [], // Text content for each chapter
           extractedText: qsAnsData.extractedText, // Full text for TTS
-          fullText: result.fullText || qsAnsData.extractedText, // Use fullText from API or fallback to extractedText
-          wordCount: result.wordCount,
-          duration: result.duration,
         });
       } else {
         throw new Error(result.error || "Failed to generate podcast");
@@ -1595,12 +1610,23 @@ export default function FilesPage() {
             </DialogHeader>
 
             <div className="space-y-4">
-              <SimplePodcastPlayer
-                fullText={podcastData.fullText || ""}
-                title={podcastData.title}
-                episodeId={podcastData.episodeId}
-                estimatedDuration={podcastData.duration || 0}
-              />
+              {podcastData.demoMode ? (
+                <LiveTTSPlayer
+                  chapters={podcastData.chapters}
+                  title={podcastData.title}
+                  episodeId={podcastData.episodeId}
+                  textChunks={podcastData.textChunks || []}
+                />
+              ) : (
+                <PodcastPlayer
+                  audioUrl={podcastData.audioUrl}
+                  chapters={podcastData.chapters}
+                  title={podcastData.title}
+                  episodeId={podcastData.episodeId}
+                  downloadUrl={podcastData.downloadUrl}
+                  demoMode={podcastData.demoMode}
+                />
+              )}
 
               <div className="flex justify-between items-center pt-4 border-t">
                 <div className="text-sm text-gray-600">
@@ -1609,7 +1635,7 @@ export default function FilesPage() {
                     "Unknown file"}
                 </div>
                 <div className="text-sm text-gray-600">
-                  📊 {podcastData.wordCount || 0} words
+                  🎵 {podcastData.chapters.length} chapters
                 </div>
               </div>
             </div>

@@ -64,24 +64,60 @@ export async function POST(request: NextRequest) {
       .digest("hex");
     const episodeId = `episode_${contentHash}`;
 
-    // Estimate reading time (average 150 words per minute)
-    const wordCount = podcastText.split(/\s+/).length;
-    const estimatedDuration = Math.ceil((wordCount / 150) * 60); // seconds
+    // Chunk the text
+    const chunks = chunkText(podcastText, { maxChars: 1800 });
+    console.log(`📄 Created ${chunks.length} text chunks`);
 
-    console.log(`📊 Podcast metadata: ${wordCount} words, ~${estimatedDuration}s duration`);
+    // Calculate total estimated duration
+    const totalDuration = chunks.reduce(
+      (sum: number, chunk: any) => sum + chunk.estimatedDuration,
+      0
+    );
 
-    // Return success response with full text (no chapters)
+    // Create metadata
+    const metadata = {
+      episodeId,
+      title: podcastTitle,
+      createdAt: new Date().toISOString(),
+      totalDurationSec: totalDuration,
+      chunks: chunks.length,
+      chapters: chunks.map((chunk: any, index: number) => ({
+        index,
+        title: chunk.chapterTitle,
+        startTime: chunks
+          .slice(0, index)
+          .reduce((sum: number, c: any) => sum + c.estimatedDuration, 0),
+        duration: chunk.estimatedDuration,
+        text: chunk.text.substring(0, 200) + "...",
+      })),
+      lang: lang || "en",
+      textLength: podcastText.length,
+    };
+
+    // Save metadata (in a real implementation, this would be saved to disk/database)
+    console.log("📊 Podcast metadata prepared:", {
+      episodeId,
+      title: podcastTitle,
+      chunks: chunks.length,
+      duration: totalDuration,
+    });
+
+    // For demo purposes, we'll return the metadata without actual TTS generation
+    console.log("✅ Podcast processing completed (demo mode)");
+
+    // Return success response
     return NextResponse.json({
       success: true,
       episodeId,
       audioUrl: `/api/podcasts/download/${episodeId}`,
-      duration: estimatedDuration,
+      metadataUrl: `/api/podcasts/metadata/${episodeId}`,
+      chapters: metadata.chapters,
+      duration: totalDuration,
       title: podcastTitle,
       demoMode: true,
-      fullText: podcastText, // Send full text instead of chunks
-      wordCount,
+      textChunks: chunks.map((chunk) => chunk.text), // Include actual text for TTS
       message:
-        "Podcast generated. Using live TTS for audio playback.",
+        "Podcast structure generated. Using live TTS for audio playback.",
     });
   } catch (error) {
     console.error("❌ Podcast generation error:", error);
