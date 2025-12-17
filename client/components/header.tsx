@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AuthModals } from "@/components/auth-modals";
 import { useAuth } from "@/contexts/auth-context";
+import { useRouter } from "next/navigation";
 
 const navigation = [
   { name: "Buddies", href: "/buddies" },
@@ -24,6 +25,7 @@ const navigation = [
 ];
 
 export default function Header() {
+  const router = useRouter();
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const [isSignInOpen, setIsSignInOpen] = useState(false);
