@@ -4,10 +4,10 @@ const path = require('path');
 
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY; // or SERVICE_ROLE_KEY for admin operations
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY; // or SERVICE_ROLE_KEY for admin operations
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_ROLE_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
 // Configure multer for file uploads (memory storage)
