@@ -5,7 +5,7 @@ const prisma = new PrismaClient();
 
 const processFileFromUrl = async (req, res) => {
   try {
-    const { fileUrl, fileName } = req.body;
+    const { fileUrl, fileName, generateQA = true, maxQAPairs = 8 } = req.body;
 
     if (!fileUrl || !fileName) {
       return res.status(400).json({
@@ -14,9 +14,12 @@ const processFileFromUrl = async (req, res) => {
       });
     }
 
-    console.log(`🔄 Processing file: ${fileName}`);
+    console.log(`🔄 Processing file: ${fileName} (generateQA: ${generateQA})`);
 
-    const result = await langchainService.processFileFromUrl(fileUrl, fileName);
+    const result = await langchainService.processFileFromUrl(fileUrl, fileName, {
+      generateQA,
+      maxQAPairs,
+    });
 
     res.status(200).json({
       success: true,

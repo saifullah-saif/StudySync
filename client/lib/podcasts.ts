@@ -13,19 +13,13 @@ export interface PodcastGenerationResponse {
   success: boolean;
   episodeId?: string;
   audioUrl?: string;
-  metadataUrl?: string;
-  chapters?: Array<{
-    title: string;
-    startSec: number;
-    durationSec: number;
-    chunkIndex: number;
-  }>;
   duration?: number;
   title?: string;
   error?: string;
   demoMode?: boolean;
   message?: string;
-  textChunks?: string[];
+  fullText?: string; // Full text for TTS playback
+  wordCount?: number;
 }
 
 export interface PodcastMetadata {
