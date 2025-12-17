@@ -33,8 +33,31 @@ class ProfileController {
   static async updateProfile(req, res) {
     try {
       const userId = req.user.id; // From JWT middleware
-      const updateData = req.body;
+      let updateData = req.body;
       const profilePictureFile = req.file; // From multer middleware
+
+      // Parse JSON strings for arrays if they come as strings from FormData
+      if (typeof updateData.courses === 'string') {
+        try {
+          updateData.courses = JSON.parse(updateData.courses);
+        } catch (e) {
+          updateData.courses = [];
+        }
+      }
+      if (typeof updateData.previousCourses === 'string') {
+        try {
+          updateData.previousCourses = JSON.parse(updateData.previousCourses);
+        } catch (e) {
+          updateData.previousCourses = [];
+        }
+      }
+      if (typeof updateData.completedCourses === 'string') {
+        try {
+          updateData.completedCourses = JSON.parse(updateData.completedCourses);
+        } catch (e) {
+          updateData.completedCourses = [];
+        }
+      }
 
       console.log('Update profile request:');
       console.log('User ID:', userId);

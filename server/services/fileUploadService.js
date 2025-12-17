@@ -4,8 +4,11 @@ const path = require("path");
 
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY; // Use the correct environment variable name
-const supabase = createClient(supabaseUrl, supabaseKey);
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY; // or SERVICE_ROLE_KEY for admin operations
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 
 // Configure multer for file uploads (memory storage)
 const storage = multer.memoryStorage();
