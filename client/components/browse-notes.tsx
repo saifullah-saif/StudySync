@@ -159,15 +159,17 @@ export default function BrowseNotes() {
 
   return (
     <div className="space-y-8">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">Browse Notes</h1>
-        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+      <div className="text-center mb-12">
+        <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
+          Browse Notes
+        </h1>
+        <p className="text-xl text-slate-600 max-w-2xl mx-auto">
           Discover and learn from notes shared by your fellow students.
         </p>
       </div>
 
       {/* Search and Filter Bar */}
-      <Card className="bg-blue-50 border-blue-200">
+      <Card className="bg-white border-0 shadow-lg">
         <CardContent className="pt-6">
           <div className="space-y-4">
             <div className="flex items-center gap-4">
@@ -245,7 +247,7 @@ export default function BrowseNotes() {
 
       {/* Results Count */}
       <div className="text-left">
-        <p className="text-gray-600">
+        <p className="text-lg text-slate-600 font-medium">
           {isLoading ? "Loading..." : `${notes.length} Notes Found`}
         </p>
       </div>
@@ -261,14 +263,14 @@ export default function BrowseNotes() {
       {isLoading ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {[...Array(6)].map((_, i) => (
-            <Card key={i} className="bg-blue-50 border-blue-200 animate-pulse">
+            <Card key={i} className="bg-white border-0 shadow-lg animate-pulse">
               <CardContent className="p-6">
-                <div className="h-4 bg-gray-300 rounded mb-3"></div>
-                <div className="h-3 bg-gray-300 rounded mb-2"></div>
-                <div className="h-3 bg-gray-300 rounded mb-4"></div>
+                <div className="h-4 bg-slate-200 rounded mb-3"></div>
+                <div className="h-3 bg-slate-200 rounded mb-2"></div>
+                <div className="h-3 bg-slate-200 rounded mb-4"></div>
                 <div className="flex justify-between">
-                  <div className="h-3 bg-gray-300 rounded w-16"></div>
-                  <div className="h-3 bg-gray-300 rounded w-16"></div>
+                  <div className="h-3 bg-slate-200 rounded w-16"></div>
+                  <div className="h-3 bg-slate-200 rounded w-16"></div>
                 </div>
               </CardContent>
             </Card>
@@ -285,7 +287,7 @@ export default function BrowseNotes() {
         >
           {notes.length === 0 ? (
             <div className="col-span-full text-center py-12">
-              <p className="text-gray-500 text-lg">
+              <p className="text-slate-500 text-lg">
                 No notes found matching your criteria.
               </p>
             </div>
@@ -293,16 +295,16 @@ export default function BrowseNotes() {
             notes.map((note) => (
               <Card
                 key={note.id}
-                className="bg-blue-50 border-blue-200 hover:shadow-lg transition-shadow cursor-pointer"
+                className="group bg-white border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 cursor-pointer"
                 onClick={() => handleNoteClick(note.id)}
               >
                 <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-3">
-                    <h3 className="text-lg font-semibold text-gray-900 flex-1 line-clamp-2">
+                  <div className="flex items-start justify-between mb-4">
+                    <h3 className="text-lg font-bold text-slate-900 flex-1 line-clamp-2 group-hover:text-blue-600 transition-colors">
                       {note.title}
                     </h3>
                     <div className="flex items-center space-x-1 text-red-500 ml-2">
-                      <Heart className="w-4 h-4" />
+                      <Heart className="w-4 h-4 fill-current" />
                       <span className="text-sm font-medium">
                         {note.like_count || 0}
                       </span>
@@ -338,15 +340,17 @@ export default function BrowseNotes() {
                   </div>
 
                   {note.description && (
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                    <p className="text-slate-600 text-sm mb-4 line-clamp-2">
                       {note.description}
                     </p>
                   )}
 
-                  <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+                  <div className="flex items-center justify-between text-sm text-slate-500 mb-4">
                     <div className="flex items-center space-x-1">
                       <User className="w-4 h-4" />
-                      <span>{note.users?.name || "Unknown User"}</span>
+                      <span className="font-medium">
+                        {note.users?.name || "Unknown User"}
+                      </span>
                     </div>
                     <div className="flex items-center space-x-1">
                       <Calendar className="w-4 h-4" />
@@ -354,10 +358,10 @@ export default function BrowseNotes() {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-1 text-gray-500">
+                  <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                    <div className="flex items-center space-x-1 text-slate-500">
                       <Download className="w-4 h-4" />
-                      <span className="text-xs">
+                      <span className="text-xs font-medium">
                         {note.download_count || 0} downloads
                       </span>
                     </div>
@@ -366,6 +370,7 @@ export default function BrowseNotes() {
                       <Button
                         variant="outline"
                         size="sm"
+                        className="bg-blue-600 text-white hover:bg-blue-700 border-0"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDownload(note.id);

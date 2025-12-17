@@ -606,9 +606,6 @@ export default function LibraryPage() {
                 <CardContent className="p-6 flex flex-col h-full">
                   {/* Top Section - Image and Basic Info */}
                   <div className="flex items-start gap-4 mb-4">
-                    <div className="w-20 h-16 bg-gray-200 dark:bg-gray-700 rounded flex items-center justify-center text-xs text-gray-500 dark:text-gray-400 flex-shrink-0">
-                      Room Image
-                    </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1 truncate">
                         {room.name}

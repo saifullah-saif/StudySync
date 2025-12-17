@@ -319,56 +319,59 @@ export default function ViewNotePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
       <Header />
 
-      <main className="max-w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Back Button */}
         <Button
           variant="ghost"
           onClick={() => router.back()}
-          className="mb-6 hover:bg-blue-50"
+          className="mb-6 hover:bg-white/50 shadow-sm"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Notes
         </Button>
         <div>
           {/* Note Header */}
-          <Card className="mb-8 bg-blue-50 border-blue-200">
+          <Card className="mb-8 bg-white border-0 shadow-lg">
             <CardContent className="p-8">
               <div className="space-y-6">
                 {/* Title and Course Badge */}
                 <div className="space-y-4">
                   <div className="flex items-start gap-3">
                     {note.courses && (
-                      <Badge className="bg-blue-600 hover:bg-blue-700 text-white">
+                      <Badge className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 shadow-md">
                         {note.courses.course_code}
                       </Badge>
                     )}
-                    <Badge variant="outline" className="bg-white">
+                    <Badge
+                      variant="outline"
+                      className="bg-blue-50 border-blue-200 text-blue-700 font-medium"
+                    >
                       {note.file_type.toUpperCase()}
                     </Badge>
                     <Badge variant="outline" className="bg-white">
                       {formatFileSize(note.file_size_bytes)}
                     </Badge>
                   </div>
-                  <h1 className="text-3xl font-bold text-gray-900">
+                  <h1 className="text-4xl font-bold text-slate-900">
                     {note.title}
                   </h1>
                   {note.description && (
-                    <p className="text-lg text-gray-600">{note.description}</p>
+                    <p className="text-lg text-slate-600">{note.description}</p>
                   )}
                 </div>
 
                 {/* Author Info */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
-                    <Avatar className="h-12 w-12">
+                    <Avatar className="h-12 w-12 ring-2 ring-blue-100">
                       <AvatarImage
                         src={note.users.profile_picture_url}
                         alt={note.users.name}
                       />
-                      <AvatarFallback className="bg-blue-200 text-blue-700">
+                      <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-500 text-white">
                         {note.users.name
                           .split(" ")
                           .map((n) => n[0])
@@ -378,23 +381,23 @@ export default function ViewNotePage() {
                     </Avatar>
                     <div>
                       <div className="flex items-center space-x-2">
-                        <span className="font-semibold text-gray-900">
+                        <span className="font-bold text-slate-900">
                           {note.users.name}
                         </span>
-                        <span className="text-gray-500">•</span>
-                        <span className="text-gray-500">
+                        <span className="text-slate-400">•</span>
+                        <span className="text-slate-600 font-medium">
                           {note.users.department}
                         </span>
                         {note.users.semester && (
                           <>
-                            <span className="text-gray-500">•</span>
-                            <span className="text-gray-500">
+                            <span className="text-slate-400">•</span>
+                            <span className="text-slate-600">
                               Semester {note.users.semester}
                             </span>
                           </>
                         )}
                       </div>
-                      <div className="flex items-center space-x-4 text-sm text-gray-500 mt-1">
+                      <div className="flex items-center space-x-4 text-sm text-slate-500 mt-1">
                         <div className="flex items-center space-x-1">
                           <Calendar className="w-4 h-4" />
                           <span>

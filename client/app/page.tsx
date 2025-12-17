@@ -6,7 +6,7 @@ import {
   SocialProofSection,
   ProductShowcaseSection,
   FeatureDeepDiveSection,
-  PricingPreviewSection,
+  
   FinalCTASection,
 } from "@/components/landing-sections";
 
@@ -32,8 +32,6 @@ export default function HomePage() {
         {/* 5. Feature Deep Dive - Alternating text + visuals */}
         <FeatureDeepDiveSection />
 
-        {/* 6. Pricing Preview - 3 clear plans with "Most Popular" highlight */}
-        <PricingPreviewSection />
 
         {/* 7. Final Call to Action - Conversion booster before footer */}
         <FinalCTASection />

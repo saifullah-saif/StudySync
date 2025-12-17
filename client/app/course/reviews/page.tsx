@@ -262,23 +262,23 @@ function ReviewsPageContent() {
       <SafeSearchParamsHandler onParamsChange={handleSearchParamsChange} />
 
       <Header />
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           {/* Header */}
-          <div className="mb-8">
+          <div className="mb-12">
             <Button
               variant="ghost"
               onClick={() => router.back()}
-              className="mb-4 hover:bg-gray-200 dark:hover:bg-gray-700"
+              className="mb-6 hover:bg-white/50 shadow-sm"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Courses
             </Button>
 
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
               Course Reviews
             </h1>
-            <p className="text-xl text-gray-600 dark:text-gray-400">
+            <p className="text-xl text-slate-600">
               {course.course_code} - {course.course_name}
             </p>
           </div>
@@ -291,45 +291,47 @@ function ReviewsPageContent() {
             <div className="space-y-6">
               {/* Stats Section */}
               {stats && stats.total_reviews > 0 && (
-                <Card>
+                <Card className="bg-white border-0 shadow-lg">
                   <CardHeader>
-                    <CardTitle>Review Summary</CardTitle>
+                    <CardTitle className="text-2xl font-bold text-slate-900">
+                      Review Summary
+                    </CardTitle>
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
-                      <div>
-                        <div className="text-3xl font-bold text-blue-600 mb-1">
+                      <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl">
+                        <div className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
                           {stats.total_reviews}
                         </div>
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm font-medium text-slate-600">
                           Total Reviews
                         </div>
                       </div>
-                      <div>
-                        <div className="flex items-center justify-center mb-1">
+                      <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl">
+                        <div className="flex items-center justify-center mb-2">
                           <StarDisplay
                             rating={Math.round(stats.average_difficulty)}
                             showNumber={false}
                           />
-                          <span className="ml-2 text-2xl font-bold">
-                            {stats.average_difficulty}
+                          <span className="ml-2 text-3xl font-bold text-slate-900">
+                            {stats.average_difficulty.toFixed(1)}
                           </span>
                         </div>
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm font-medium text-slate-600">
                           Average Difficulty
                         </div>
                       </div>
-                      <div>
-                        <div className="flex items-center justify-center mb-1">
+                      <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl">
+                        <div className="flex items-center justify-center mb-2">
                           <StarDisplay
                             rating={Math.round(stats.average_workload)}
                             showNumber={false}
                           />
-                          <span className="ml-2 text-2xl font-bold">
-                            {stats.average_workload}
+                          <span className="ml-2 text-3xl font-bold text-slate-900">
+                            {stats.average_workload.toFixed(1)}
                           </span>
                         </div>
-                        <div className="text-sm text-gray-600">
+                        <div className="text-sm font-medium text-slate-600">
                           Average Workload
                         </div>
                       </div>
@@ -340,13 +342,13 @@ function ReviewsPageContent() {
 
               {/* Reviews List */}
               {reviews.length === 0 ? (
-                <Card>
-                  <CardContent className="py-12 text-center">
-                    <BookOpen className="mx-auto h-16 w-16 text-gray-400 mb-6" />
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                <Card className="bg-white border-0 shadow-lg">
+                  <CardContent className="py-16 text-center">
+                    <BookOpen className="mx-auto h-16 w-16 text-slate-400 mb-6" />
+                    <h3 className="text-2xl font-bold text-slate-900 mb-3">
                       Sorry, no reviews yet
                     </h3>
-                    <p className="text-gray-600 dark:text-gray-400">
+                    <p className="text-lg text-slate-600">
                       Be the first to share your experience with this course!
                     </p>
                   </CardContent>
@@ -354,7 +356,10 @@ function ReviewsPageContent() {
               ) : (
                 <div className="space-y-4">
                   {reviews.map((review) => (
-                    <Card key={review.id}>
+                    <Card
+                      key={review.id}
+                      className="bg-white border-0 shadow-lg hover:shadow-xl transition-all duration-300"
+                    >
                       <CardContent className="p-6 space-y-4">
                         {/* User Info */}
                         <div className="flex items-center space-x-3">
@@ -375,12 +380,12 @@ function ReviewsPageContent() {
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1">
-                            <div className="font-semibold">
+                            <div className="font-bold text-slate-900">
                               {review.is_anonymous
                                 ? "Anonymous"
                                 : review.users?.name || "Unknown User"}
                             </div>
-                            <div className="text-sm text-gray-500 flex items-center space-x-2">
+                            <div className="text-sm text-slate-600 flex items-center space-x-2">
                               {!review.is_anonymous && review.users && (
                                 <>
                                   <span>{review.users.department}</span>
@@ -395,7 +400,10 @@ function ReviewsPageContent() {
                               </div>
                             </div>
                           </div>
-                          <Badge variant="outline">
+                          <Badge
+                            variant="outline"
+                            className="bg-blue-50 border-blue-200 text-blue-700 font-medium"
+                          >
                             {new Date(review.created_at).toLocaleDateString()}
                           </Badge>
                         </div>

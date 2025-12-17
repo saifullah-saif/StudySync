@@ -256,11 +256,11 @@ export default function UploadNotes() {
 
   return (
     <div className="space-y-8">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">
+      <div className="text-center mb-12">
+        <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
           Upload Your Notes
         </h1>
-        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+        <p className="text-xl text-slate-600 max-w-2xl mx-auto">
           Share your lecture notes with fellow students and help them succeed.
         </p>
       </div>
@@ -290,7 +290,7 @@ export default function UploadNotes() {
       )}
 
       {/* Upload Module */}
-      <Card className="bg-blue-50 border-blue-200 max-w-2xl mx-auto">
+      <Card className="bg-white border-0 shadow-lg max-w-2xl mx-auto">
         <CardContent className="p-8">
           <div className="space-y-6">
             {/* File Input */}
@@ -347,7 +347,7 @@ export default function UploadNotes() {
                   </div>
                   <Button
                     variant="outline"
-                    className="mx-auto bg-blue-600 hover:bg-blue-700 text-white "
+                    className="mx-auto bg-blue-600 hover:bg-blue-700 text-white border-0"
                     onClick={() => fileInputRef.current?.click()}
                   >
                     Choose File
@@ -365,7 +365,7 @@ export default function UploadNotes() {
             </div>
 
             {/* Supported Formats */}
-            <p className="text-sm text-gray-500 text-center">
+            <p className="text-sm text-slate-500 text-center">
               Supported formats: PDF, DOCX, TXT (Max 50MB)
             </p>
 
@@ -460,10 +460,10 @@ export default function UploadNotes() {
 
             {/* Submit Button */}
             <Button
-              className={`w-full text-white ${
+              className={`w-full text-white transition-all duration-300 ${
                 isUploading
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-blue-600 hover:bg-blue-700"
+                  ? "bg-slate-400 cursor-not-allowed"
+                  : "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl"
               }`}
               onClick={handleUpload}
               disabled={

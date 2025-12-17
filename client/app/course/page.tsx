@@ -199,80 +199,84 @@ export default function CoursesPage() {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+          <div className="mb-12 text-center">
+            <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
               Course Catalog
             </h1>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-xl text-slate-600 max-w-2xl mx-auto">
               Explore available courses and read reviews from fellow students
             </p>
           </div>
 
           {/* Filters */}
-          <div className="mb-8 grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="relative md:col-span-2">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search courses..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+          <Card className="mb-8 bg-white border-0 shadow-lg">
+            <CardContent className="pt-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="relative md:col-span-2">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+                  <Input
+                    placeholder="Search courses..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 bg-white"
+                  />
+                </div>
 
-            <Select
-              value={departmentFilter}
-              onValueChange={setDepartmentFilter}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Department" />
-              </SelectTrigger>
-              <SelectContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                <SelectItem value="all">All Departments</SelectItem>
-                {departments.map((dept) => (
-                  <SelectItem key={dept} value={dept}>
-                    {dept}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                <Select
+                  value={departmentFilter}
+                  onValueChange={setDepartmentFilter}
+                >
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="Department" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border border-gray-200 shadow-lg">
+                    <SelectItem value="all">All Departments</SelectItem>
+                    {departments.map((dept) => (
+                      <SelectItem key={dept} value={dept}>
+                        {dept}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
 
-            <Select
-              value={difficultyFilter}
-              onValueChange={setDifficultyFilter}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Difficulty" />
-              </SelectTrigger>
-              <SelectContent className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                <SelectItem value="all">All Difficulties</SelectItem>
-                <SelectItem value="Beginner">Beginner</SelectItem>
-                <SelectItem value="Intermediate">Intermediate</SelectItem>
-                <SelectItem value="Advanced">Advanced</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+                <Select
+                  value={difficultyFilter}
+                  onValueChange={setDifficultyFilter}
+                >
+                  <SelectTrigger className="bg-white">
+                    <SelectValue placeholder="Difficulty" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white border border-gray-200 shadow-lg">
+                    <SelectItem value="all">All Difficulties</SelectItem>
+                    <SelectItem value="Beginner">Beginner</SelectItem>
+                    <SelectItem value="Intermediate">Intermediate</SelectItem>
+                    <SelectItem value="Advanced">Advanced</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Course Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredCourses.map((course) => (
               <Card
                 key={course.id}
-                className="group hover:shadow-lg transition-all duration-200 border border-gray-200 dark:border-gray-700"
+                className="group bg-white border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2"
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex-1 min-w-0">
                       <Badge
                         variant="outline"
-                        className="mb-2 text-sm font-bold px-3 py-1 text-blue-700 border-blue-300 bg-blue-50 dark:text-blue-300 dark:border-blue-600 dark:bg-blue-900/20"
+                        className="mb-3 text-sm font-bold px-3 py-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 shadow-md"
                       >
                         {course.course_code}
                       </Badge>
-                      <CardTitle className="text-lg font-semibold leading-tight mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                      <CardTitle className="text-lg font-bold leading-tight mb-3 text-slate-900 group-hover:text-blue-600 transition-colors">
                         {course.course_name}
                       </CardTitle>
                     </div>
@@ -296,12 +300,12 @@ export default function CoursesPage() {
 
                 <CardContent className="pt-0">
                   <div className="space-y-3">
-                    <div className="text-sm text-gray-600 dark:text-gray-400">
-                      <span className="font-medium">Department:</span>{" "}
+                    <div className="text-sm text-slate-600">
+                      <span className="font-semibold">Department:</span>{" "}
                       {course.department}
                     </div>
 
-                    <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+                    <div className="flex items-center gap-4 text-sm text-slate-600">
                       <div className="flex items-center gap-1">
                         <Clock className="h-4 w-4" />
                         <span>{course.credit_hours} credits</span>
@@ -315,7 +319,7 @@ export default function CoursesPage() {
                     {course.prerequisites &&
                       course.prerequisites.length > 0 && (
                         <div className="text-sm">
-                          <span className="font-medium text-gray-700 dark:text-gray-300">
+                          <span className="font-semibold text-slate-700">
                             Prerequisites:
                           </span>
                           <div className="flex flex-wrap gap-1 mt-1">
@@ -323,7 +327,7 @@ export default function CoursesPage() {
                               <Badge
                                 key={index}
                                 variant="outline"
-                                className="text-xs bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800"
+                                className="text-xs bg-red-50 text-red-700 border-red-200 font-medium"
                               >
                                 {prereq}
                               </Badge>
@@ -333,15 +337,15 @@ export default function CoursesPage() {
                       )}
 
                     {course.description && (
-                      <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
+                      <p className="text-sm text-slate-600 line-clamp-2">
                         {course.description}
                       </p>
                     )}
 
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 pt-2 border-t border-slate-100">
                       <Button
                         onClick={() => handleViewReviews(course)}
-                        className="flex-1 bg-gray-600 hover:bg-gray-700 text-white transition-all duration-200 hover:scale-105"
+                        className="flex-1 bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:border-slate-300 shadow-sm hover:shadow-md transition-all duration-300"
                         size="sm"
                       >
                         <Eye className="h-4 w-4 mr-2" />
@@ -349,7 +353,7 @@ export default function CoursesPage() {
                       </Button>
                       <Button
                         onClick={() => handleAddReview(course)}
-                        className="flex-1 bg-blue-600 hover:bg-blue-700 text-white transition-all duration-200 hover:scale-105"
+                        className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-md hover:shadow-lg transition-all duration-300"
                         size="sm"
                       >
                         <MessageSquarePlus className="h-4 w-4 mr-2" />
@@ -363,15 +367,17 @@ export default function CoursesPage() {
           </div>
 
           {filteredCourses.length === 0 && !isLoading && (
-            <div className="text-center py-12">
-              <BookOpen className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
-                No courses found
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400">
-                Try adjusting your search criteria or filters.
-              </p>
-            </div>
+            <Card className="bg-white border-0 shadow-lg">
+              <CardContent className="text-center py-16">
+                <BookOpen className="mx-auto h-16 w-16 text-slate-400 mb-6" />
+                <h3 className="text-2xl font-bold text-slate-900 mb-3">
+                  No courses found
+                </h3>
+                <p className="text-lg text-slate-600">
+                  Try adjusting your search criteria or filters.
+                </p>
+              </CardContent>
+            </Card>
           )}
         </div>
       </div>
