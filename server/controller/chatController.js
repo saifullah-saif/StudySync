@@ -41,18 +41,12 @@ class ChatController {
 
       const result = await chatService.sendMessage(senderId, userId, content.trim());
       
-      // Emit the message to both sender and receiver via socket.io
-      const io = req.app.get('io');
-      if (io) {
-        // Emit to receiver
-        io.to(`user_${userId}`).emit('new_message', {
+      // Trigger Pusher event to receiver
+      const pusher = req.app.get('pusher');
+      if (pusher) {
+        await pusher.trigger(`user_${userId}`, 'new_message', {
           message: result.data.message,
           sender_id: senderId,
-        });
-        
-        // Emit to sender for real-time update
-        io.to(`user_${senderId}`).emit('message_sent', {
-          message: result.data.message,
         });
       }
 
@@ -96,10 +90,10 @@ class ChatController {
 
       const result = await chatService.markAsRead(userId, currentUserId);
       
-      // Emit read status update via socket.io
-      const io = req.app.get('io');
-      if (io) {
-        io.to(`user_${userId}`).emit('messages_read', {
+      // Trigger Pusher event for read status update
+      const pusher = req.app.get('pusher');
+      if (pusher) {
+        await pusher.trigger(`user_${userId}`, 'messages_read', {
           reader_id: currentUserId,
         });
       }

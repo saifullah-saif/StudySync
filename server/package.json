@@ -25,6 +25,7 @@
     "multer": "^2.0.2",
     "pdf-lib": "^1.17.1",
     "prisma": "^6.13.0",
+    "pusher": "^5.2.0",
     "socket.io": "^4.8.1"
   },
   "devDependencies": {
