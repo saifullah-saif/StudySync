@@ -5,10 +5,11 @@ const BACKEND_URL =
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { fileId: string } }
+  { params }: { params: Promise<{ fileId: string }> }
 ) {
   try {
-    const { fileId } = params;
+    // Await params in Next.js 15+
+    const { fileId } = await params;
 
     const response = await fetch(
       `${BACKEND_URL}/api/server/podcasts/file/${fileId}`,
