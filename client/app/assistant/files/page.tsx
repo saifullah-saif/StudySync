@@ -59,8 +59,7 @@ import FileUpload from "../components/file-upload";
 import { langchainAPI } from "@/lib/api";
 import { generateQsAns } from "@/actions/upload-actions";
 import FlashcardsPanel from "@/components/FlashcardsPanel";
-import PodcastPlayer from "@/components/PodcastPlayer";
-import LiveTTSPlayer from "@/components/LiveTTSPlayer";
+import AudioPodcastPlayer from "@/components/AudioPodcastPlayer";
 import Header from "@/components/header";
 
 interface FileItem {
@@ -126,6 +125,7 @@ export default function FilesPage() {
 
   // Podcast-related states
   const [generatingPodcast, setGeneratingPodcast] = useState(false);
+  const [filePodcasts, setFilePodcasts] = useState<Map<number, any>>(new Map());
   const [podcastData, setPodcastData] = useState<{
     episodeId: string;
     audioUrl: string;
@@ -175,16 +175,24 @@ export default function FilesPage() {
       );
 
       // Ensure we have a valid response structure
+      let loadedFiles: FileItem[] = [];
       if (response && response.data && response.data.files) {
-        setFiles(response.data.files || []);
+        loadedFiles = response.data.files || [];
+        setFiles(loadedFiles);
         setTotalPages(response.data.pagination?.totalPages || 1);
       } else if (response && Array.isArray(response.files)) {
-        setFiles(response.files || []);
+        loadedFiles = response.files || [];
+        setFiles(loadedFiles);
         setTotalPages(response.pagination?.totalPages || 1);
       } else {
         console.warn("Unexpected response structure:", response);
         setFiles([]);
         setTotalPages(1);
+      }
+
+      // Check which files have podcasts
+      if (loadedFiles.length > 0) {
+        checkFilesForPodcasts(loadedFiles);
       }
     } catch (error: any) {
       console.error("Load files error:", error);
@@ -194,6 +202,24 @@ export default function FilesPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const checkFilesForPodcasts = async (filesToCheck: FileItem[]) => {
+    const newFilePodcasts = new Map(filePodcasts);
+
+    for (const file of filesToCheck) {
+      try {
+        const result = await podcastAPI.getPodcastByFileId(file.id);
+        if (result.success && result.hasPodcast && result.podcast) {
+          newFilePodcasts.set(file.id, result.podcast);
+        }
+      } catch (error) {
+        // Silently fail - podcast check is not critical
+        console.debug(`Failed to check podcast for file ${file.id}`);
+      }
+    }
+
+    setFilePodcasts(newFilePodcasts);
   };
 
   const loadStats = async () => {
@@ -564,39 +590,61 @@ export default function FilesPage() {
 
       console.log("🎙️ Starting podcast generation for file:", file.id);
 
-      // Generate podcast using the extracted text
-      const result = await podcastAPI.generatePodcast({
+      // Check if user is authenticated
+      if (!user?.id) {
+        throw new Error("User authentication required");
+      }
+
+      // Create podcast using the new API
+      const result = await podcastAPI.createPodcast({
         text: qsAnsData.extractedText,
         title: `${file.title} - StudySync Podcast`,
+        userId: user.id,
+        fileId: String(file.id),
         lang: "en",
       });
 
-      if (result.success && result.episodeId) {
-        toast.success(
-          `Successfully generated podcast! Duration: ${Math.round(
-            result.duration || 0
-          )}s`,
-          {
-            duration: 5000,
-          }
-        );
-
-        console.log("🎵 Generated podcast:", result);
-
-        // Store podcast data to show player
-        setPodcastData({
-          episodeId: result.episodeId,
-          audioUrl: result.audioUrl || "",
-          downloadUrl: result.audioUrl || "",
-          chapters: result.chapters || [],
-          title: result.title || file.title,
-          fileId: file.id,
-          demoMode: result.demoMode || false, // Flag from API response
-          textChunks: result.textChunks || [], // Text content for each chapter
-          extractedText: qsAnsData.extractedText, // Full text for TTS
+      if (result.success && result.podcastId) {
+        toast.success("Podcast created! Generating audio...", {
+          duration: 3000,
         });
+
+        console.log("🎵 Podcast created:", result);
+
+        // Poll for podcast completion
+        toast.info("Waiting for audio generation to complete...");
+
+        const podcast = await podcastAPI.pollPodcastStatus(result.podcastId);
+
+        if (podcast?.status === "ready") {
+          toast.success("Podcast ready to play!", {
+            duration: 5000,
+          });
+
+          // Add podcast to filePodcasts map
+          const newFilePodcasts = new Map(filePodcasts);
+          newFilePodcasts.set(file.id, podcast);
+          setFilePodcasts(newFilePodcasts);
+
+          // Store podcast data to show player
+          setPodcastData({
+            episodeId: podcast.id,
+            audioUrl: podcast.audio_url || "",
+            downloadUrl: podcast.audio_url || "",
+            chapters: [],
+            title: podcast.title,
+            fileId: file.id,
+            demoMode: false,
+            textChunks: [],
+            extractedText: qsAnsData.extractedText,
+          });
+        } else if (podcast?.status === "failed") {
+          throw new Error(podcast.error_message || "Podcast generation failed");
+        } else {
+          throw new Error("Podcast generation timed out");
+        }
       } else {
-        throw new Error(result.error || "Failed to generate podcast");
+        throw new Error(result.error || "Failed to create podcast");
       }
     } catch (error: any) {
       console.error("Generate podcast error:", error);
@@ -1216,29 +1264,53 @@ export default function FilesPage() {
                     {/* Generate Podcast Button */}
                     {(() => {
                       const hasQsAns = extractedQsAns.has(file.id);
-                      return (
-                        hasQsAns && extractedQsAns.get(file.id)?.extractedText
-                      );
-                    })() && (
-                      <Button
-                        size="default"
-                        onClick={() => handleGeneratePodcast(file)}
-                        disabled={generatingPodcast}
-                        className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-md"
-                      >
-                        {generatingPodcast ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Generating Podcast...
-                          </>
-                        ) : (
-                          <>
+                      const hasPodcast = filePodcasts.has(file.id);
+                      const podcast = filePodcasts.get(file.id);
+
+                      if (!hasQsAns || !extractedQsAns.get(file.id)?.extractedText) {
+                        return null;
+                      }
+
+                      // If podcast exists, show "View Podcast" button
+                      if (hasPodcast && podcast) {
+                        return (
+                          <Button
+                            size="default"
+                            onClick={() => {
+                              router.push(`/assistant/podcasts?highlight=${podcast.id}`);
+                            }}
+                            className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-md"
+                          >
                             <Headphones className="h-4 w-4 mr-2" />
-                            Generate Podcast
-                          </>
-                        )}
-                      </Button>
-                    )}
+                            {podcast.status === "ready" && "View Podcast"}
+                            {podcast.status === "pending" && "Podcast Generating..."}
+                            {podcast.status === "failed" && "Podcast Failed - Retry"}
+                          </Button>
+                        );
+                      }
+
+                      // Otherwise, show "Generate Podcast" button
+                      return (
+                        <Button
+                          size="default"
+                          onClick={() => handleGeneratePodcast(file)}
+                          disabled={generatingPodcast}
+                          className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-md"
+                        >
+                          {generatingPodcast ? (
+                            <>
+                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              Generating Podcast...
+                            </>
+                          ) : (
+                            <>
+                              <Headphones className="h-4 w-4 mr-2" />
+                              Generate Podcast
+                            </>
+                          )}
+                        </Button>
+                      );
+                    })()}
                   </div>
                 </div>
               </CardContent>
@@ -1610,32 +1682,17 @@ export default function FilesPage() {
             </DialogHeader>
 
             <div className="space-y-4">
-              {podcastData.demoMode ? (
-                <LiveTTSPlayer
-                  chapters={podcastData.chapters}
-                  title={podcastData.title}
-                  episodeId={podcastData.episodeId}
-                  textChunks={podcastData.textChunks || []}
-                />
-              ) : (
-                <PodcastPlayer
-                  audioUrl={podcastData.audioUrl}
-                  chapters={podcastData.chapters}
-                  title={podcastData.title}
-                  episodeId={podcastData.episodeId}
-                  downloadUrl={podcastData.downloadUrl}
-                  demoMode={podcastData.demoMode}
-                />
-              )}
+              <AudioPodcastPlayer
+                audioUrl={podcastData.audioUrl}
+                title={podcastData.title}
+                podcastId={podcastData.episodeId}
+              />
 
               <div className="flex justify-between items-center pt-4 border-t">
                 <div className="text-sm text-gray-600">
                   📝 Generated from:{" "}
                   {files.find((f) => f.id === podcastData.fileId)?.title ||
                     "Unknown file"}
-                </div>
-                <div className="text-sm text-gray-600">
-                  🎵 {podcastData.chapters.length} chapters
                 </div>
               </div>
             </div>
