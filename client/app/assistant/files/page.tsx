@@ -60,7 +60,6 @@ import { langchainAPI } from "@/lib/api";
 import { generateQsAns } from "@/actions/upload-actions";
 import FlashcardsPanel from "@/components/FlashcardsPanel";
 import AudioPodcastPlayer from "@/components/AudioPodcastPlayer";
-import Header from "@/components/header";
 
 interface FileItem {
   id: number;
@@ -894,9 +893,7 @@ export default function FilesPage() {
   };
 
   return (
-    <>
-      <Header />
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50">
         <div className="container mx-auto px-4 py-8 space-y-8">
         {/* Header */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -1810,6 +1807,5 @@ export default function FilesPage() {
         </div>
         </div>
       </div>
-    </>
   );
 }

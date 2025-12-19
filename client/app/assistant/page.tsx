@@ -3,6 +3,7 @@
 import type React from "react";
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import Header from "@/components/header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -658,28 +659,13 @@ export default function AssistantPage() {
   ];
 
   return (
-    <>
-      <Header />
-
-      <main>
-        <Tabs
-          value={activeMainTab}
-          onValueChange={setActiveMainTab}
-          className="w-full"
-        >
-          <div className="bg-white border-b border-slate-200 px-6 py-4">
-            <div className="max-w-7xl mx-auto">
-              <TabsList className="grid w-full grid-cols-4 lg:w-[800px]">
-                <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-                <TabsTrigger value="flashcards">Create Flashcards</TabsTrigger>
-                <TabsTrigger value="files">My Files</TabsTrigger>
-                <TabsTrigger value="podcasts">Podcasts</TabsTrigger>
-              </TabsList>
-            </div>
-          </div>
-
-          {/* Dashboard Tab - New Minimalist Design */}
-          <TabsContent value="dashboard" className="m-0">
+    <Tabs
+      value={activeMainTab}
+      onValueChange={setActiveMainTab}
+      className="w-full"
+    >
+      {/* Dashboard Tab - New Minimalist Design */}
+      <TabsContent value="dashboard" className="m-0">
             <DashboardShell>
               {/* KPI Row - Full Width */}
               <KpiRow />
@@ -734,12 +720,6 @@ export default function AssistantPage() {
               </div>
             </div>
           </TabsContent>
-
-          <TabsContent value="podcasts" className="p-6">
-            <PodcastsTab user={user} router={router} />
-          </TabsContent>
         </Tabs>
-      </main>
-    </>
   );
 }

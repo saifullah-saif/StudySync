@@ -17,9 +17,9 @@ import {
   CheckCircle,
   XCircle,
   RefreshCw,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
-import Header from "@/components/header";
 
 export default function PodcastsPage() {
   const router = useRouter();
@@ -57,7 +57,7 @@ export default function PodcastsPage() {
     setError(null);
 
     try {
-      const result = await podcastAPI.getUserPodcasts(user.id);
+      const result = await podcastAPI.getUserPodcasts(String(user.id));
 
       if (result.success && result.podcasts) {
         setPodcasts(result.podcasts);
@@ -158,9 +158,7 @@ export default function PodcastsPage() {
   }
 
   return (
-    <>
-      <Header />
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
+    <div className="container mx-auto px-4 py-8 max-w-7xl">
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">
@@ -360,6 +358,5 @@ export default function PodcastsPage() {
           </div>
         )}
       </div>
-    </>
   );
 }
