@@ -34,6 +34,7 @@ interface AudioPodcastPlayerProps {
   title?: string;
   podcastId?: string;
   className?: string;
+  showHeader?: boolean;
 }
 
 export default function AudioPodcastPlayer({
@@ -41,6 +42,7 @@ export default function AudioPodcastPlayer({
   title = "Podcast",
   podcastId,
   className = "",
+  showHeader = true,
 }: AudioPodcastPlayerProps) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -207,44 +209,46 @@ export default function AudioPodcastPlayer({
   return (
     <Card className={`w-full border-none shadow-xl overflow-hidden ${className}`}>
       {/* Header */}
-      <CardHeader className="bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 text-white pb-8">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
-                <Headphones className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <CardTitle className="text-2xl font-bold text-white">
-                  {title}
-                </CardTitle>
-                <p className="text-white/80 text-sm mt-1">
-                  {formatTime(duration)}
-                </p>
+      {showHeader && (
+        <CardHeader className="bg-gradient-to-r from-purple-600 via-pink-600 to-red-600 text-white pb-8">
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                  <Headphones className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="text-2xl font-bold text-white">
+                    {title}
+                  </CardTitle>
+                  <p className="text-white/80 text-sm mt-1">
+                    {formatTime(duration)}
+                  </p>
+                </div>
               </div>
             </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleDownload}
+              className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+            >
+              <Download className="h-4 w-4 mr-1" />
+              Download
+            </Button>
           </div>
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={handleDownload}
-            className="bg-white/20 hover:bg-white/30 text-white border-white/30"
-          >
-            <Download className="h-4 w-4 mr-1" />
-            Download
-          </Button>
-        </div>
 
-        {/* Progress Bar */}
-        <div className="mt-4">
-          <div className="relative h-2 bg-white/20 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-white/80 transition-all duration-300"
-              style={{ width: `${progressPercent}%` }}
-            />
+          {/* Progress Bar */}
+          <div className="mt-4">
+            <div className="relative h-2 bg-white/20 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-white/80 transition-all duration-300"
+                style={{ width: `${progressPercent}%` }}
+              />
+            </div>
           </div>
-        </div>
-      </CardHeader>
+        </CardHeader>
+      )}
 
       <CardContent className="space-y-6 pt-6">
         {/* Native Audio Element */}
@@ -258,8 +262,8 @@ export default function AudioPodcastPlayer({
           </div>
         )}
 
-        {/* Progress Slider */}
-        <div className="space-y-3">
+        {/* Timeline Section */}
+        <div className="space-y-2">
           <Slider
             value={[currentTime]}
             max={duration || 100}
@@ -275,11 +279,13 @@ export default function AudioPodcastPlayer({
             className="w-full cursor-pointer"
             disabled={isLoading}
           />
-          <div className="flex justify-between items-center text-sm">
-            <span className="font-mono font-semibold text-purple-600">
+          <div className="flex justify-between items-center px-1">
+            <span className="text-xs font-medium text-gray-900">
               {formatTime(currentTime)}
             </span>
-            <span className="font-mono text-gray-600">{formatTime(duration)}</span>
+            <span className="text-xs text-gray-400">
+              {formatTime(duration)}
+            </span>
           </div>
         </div>
 
@@ -319,10 +325,10 @@ export default function AudioPodcastPlayer({
           </Button>
         </div>
 
-        {/* Secondary Controls */}
-        <div className="flex items-center justify-between gap-4 pt-2">
+        {/* Secondary Controls - Vertically Stacked */}
+        <div className="flex flex-col items-center gap-4 pt-2">
           {/* Volume Control */}
-          <div className="flex items-center gap-3 flex-1">
+          <div className="flex items-center gap-3 w-full max-w-xs">
             <Button
               variant="ghost"
               size="sm"
@@ -340,15 +346,12 @@ export default function AudioPodcastPlayer({
               max={1}
               step={0.01}
               onValueChange={handleVolumeChange}
-              className="flex-1 max-w-[150px]"
+              className="flex-1"
             />
-            <span className="text-sm text-gray-600 font-medium min-w-[3rem]">
-              {Math.round(volume * 100)}%
-            </span>
           </div>
 
-          {/* Playback Speed */}
-          <div className="flex gap-1">
+          {/* Playback Speed - Centered */}
+          <div className="flex gap-2 justify-center">
             {[0.75, 1, 1.25, 1.5, 2].map((rate) => (
               <Button
                 key={rate}

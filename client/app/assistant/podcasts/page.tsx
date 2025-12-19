@@ -1,43 +1,29 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { podcastAPI, Podcast } from "@/lib/podcasts";
 import AudioPodcastPlayer from "@/components/AudioPodcastPlayer";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
-  Headphones,
-  Loader2,
-  Music,
-  AlertCircle,
-  Clock,
-  CheckCircle,
-  XCircle,
-  RefreshCw,
-  Plus,
-} from "lucide-react";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Loader2, Music, Headphones } from "lucide-react";
 import { toast } from "sonner";
 
 export default function PodcastsPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { user } = useAuth();
 
   const [podcasts, setPodcasts] = useState<Podcast[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [highlightId, setHighlightId] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Check for highlight parameter
-    const highlight = searchParams.get("highlight");
-    if (highlight) {
-      setHighlightId(highlight);
-    }
-  }, [searchParams]);
+  const [selectedPodcast, setSelectedPodcast] = useState<Podcast | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -60,7 +46,8 @@ export default function PodcastsPage() {
       const result = await podcastAPI.getUserPodcasts(String(user.id));
 
       if (result.success && result.podcasts) {
-        setPodcasts(result.podcasts);
+        // Filter only ready podcasts for the table view
+        setPodcasts(result.podcasts.filter((p) => p.status === "ready"));
       } else {
         setError(result.error || "Failed to load podcasts");
         toast.error("Failed to load podcasts");
@@ -74,289 +61,266 @@ export default function PodcastsPage() {
     }
   };
 
-  const handleRetry = async (podcastId: string) => {
-    try {
-      const result = await podcastAPI.retryPodcast(podcastId);
-      if (result.success) {
-        toast.success("Retrying podcast generation...");
-        // Refresh the list
-        fetchPodcasts();
-      } else {
-        toast.error(result.error || "Failed to retry");
-      }
-    } catch (err) {
-      toast.error("Failed to retry podcast generation");
-    }
-  };
-
-  const handleDelete = async (podcastId: string) => {
-    try {
-      const result = await podcastAPI.deletePodcast(podcastId);
-      if (result.success) {
-        toast.success("Podcast deleted successfully");
-        // Remove from list
-        setPodcasts(podcasts.filter((p) => p.id !== podcastId));
-      } else {
-        toast.error(result.error || "Failed to delete");
-      }
-    } catch (err) {
-      toast.error("Failed to delete podcast");
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "ready":
-        return (
-          <Badge className="bg-green-500 hover:bg-green-600">
-            <CheckCircle className="h-3 w-3 mr-1" />
-            Ready
-          </Badge>
-        );
-      case "pending":
-        return (
-          <Badge className="bg-yellow-500 hover:bg-yellow-600">
-            <Clock className="h-3 w-3 mr-1" />
-            Generating
-          </Badge>
-        );
-      case "failed":
-        return (
-          <Badge className="bg-red-500 hover:bg-red-600">
-            <XCircle className="h-3 w-3 mr-1" />
-            Failed
-          </Badge>
-        );
-      default:
-        return <Badge>{status}</Badge>;
-    }
-  };
-
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
 
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? "s" : ""} ago`;
-    if (diffHours < 24)
-      return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
-    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+  const formatDuration = (seconds?: number) => {
+    if (!seconds) return "—";
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
 
-    return date.toLocaleDateString();
+  const handleRowClick = (podcast: Podcast) => {
+    setSelectedPodcast(podcast);
+    setIsModalOpen(true);
   };
 
   if (!user) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+      <div className="flex items-center justify-center min-h-screen bg-slate-900">
+        <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 bg-gradient-to-br from-purple-600 to-pink-600 rounded-xl flex items-center justify-center">
-              <Music className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold">My Podcasts</h1>
-              <p className="text-gray-600">
-                Listen to all your generated podcasts
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Loading State */}
-        {loading && (
-          <div className="flex flex-col items-center justify-center py-20">
-            <Loader2 className="h-12 w-12 animate-spin text-purple-600 mb-4" />
-            <p className="text-gray-600">Loading your podcasts...</p>
-          </div>
-        )}
-
-        {/* Error State */}
-        {error && !loading && (
-          <Card className="border-red-200 bg-red-50">
-            <CardContent className="pt-6">
-              <div className="flex items-start gap-3">
-                <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
-                <div className="flex-1">
-                  <h3 className="font-semibold text-red-900">
-                    Failed to load podcasts
-                  </h3>
-                  <p className="text-sm text-red-700 mt-1">{error}</p>
-                  <Button
-                    onClick={fetchPodcasts}
-                    variant="outline"
-                    className="mt-3 border-red-300 text-red-700 hover:bg-red-100"
-                    size="sm"
-                  >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Try Again
-                  </Button>
-                </div>
+    <>
+      <div
+        className="min-h-screen text-slate-200"
+        style={{ background: '#0F172A' }}
+      >
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          {/* Header with subtle gradient */}
+          <div
+            className="mb-8 pb-6 rounded-t-2xl"
+            style={{
+              background: 'linear-gradient(to bottom, rgba(139,92,246,0.12), transparent)'
+            }}
+          >
+            <div className="flex items-center gap-4">
+              <div
+                className="w-16 h-16 rounded-lg flex items-center justify-center shadow-xl"
+                style={{
+                  background: 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)'
+                }}
+              >
+                <Headphones className="w-8 h-8 text-white" />
               </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Empty State */}
-        {!loading && !error && podcasts.length === 0 && (
-          <Card className="border-dashed">
-            <CardContent className="py-20">
-              <div className="flex flex-col items-center justify-center text-center">
-                <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mb-4">
-                  <Headphones className="w-10 h-10 text-purple-600" />
-                </div>
-                <h3 className="text-xl font-semibold mb-2">
-                  No podcasts yet
-                </h3>
-                <p className="text-gray-600 mb-4 max-w-md">
-                  Upload a PDF and generate your first podcast to get started
+              <div>
+                <h1 className="text-5xl font-bold text-slate-100">Podcasts</h1>
+                <p className="text-slate-400 mt-1">
+                  {podcasts.length} {podcasts.length === 1 ? "episode" : "episodes"}
                 </p>
-                <Button
-                  onClick={() => router.push("/assistant/files")}
-                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Go to Files
-                </Button>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+          </div>
 
-        {/* Podcasts List */}
-        {!loading && !error && podcasts.length > 0 && (
-          <div className="space-y-6">
-            {podcasts.map((podcast) => {
-              const isHighlighted = highlightId === podcast.id;
-
-              return (
+          {/* Loading State */}
+          {loading && (
+            <div className="space-y-3">
+              {[1, 2, 3, 4, 5].map((i) => (
                 <div
-                  key={podcast.id}
-                  id={podcast.id}
-                  className={`transition-all duration-300 ${
-                    isHighlighted
-                      ? "ring-4 ring-purple-400 rounded-lg"
-                      : ""
-                  }`}
-                >
-                  {/* Podcast Status Card for pending/failed */}
-                  {podcast.status !== "ready" && (
-                    <Card className="mb-4">
-                      <CardHeader>
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <CardTitle className="text-lg">
-                                {podcast.title}
-                              </CardTitle>
-                              {getStatusBadge(podcast.status)}
-                            </div>
-                            <p className="text-sm text-gray-600">
-                              {podcast.status === "pending" &&
-                                "Generating audio in background..."}
-                              {podcast.status === "failed" &&
-                                `Failed: ${podcast.error_message || "Unknown error"}`}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              Created {formatDate(podcast.created_at)}
-                            </p>
-                          </div>
-                          <div className="flex gap-2">
-                            {podcast.status === "failed" && (
-                              <Button
-                                onClick={() => handleRetry(podcast.id)}
-                                variant="outline"
-                                size="sm"
-                                className="border-yellow-500 text-yellow-700 hover:bg-yellow-50"
-                              >
-                                <RefreshCw className="h-4 w-4 mr-1" />
-                                Retry
-                              </Button>
-                            )}
-                            <Button
-                              onClick={() => handleDelete(podcast.id)}
-                              variant="outline"
-                              size="sm"
-                              className="border-red-500 text-red-700 hover:bg-red-50"
-                            >
-                              Delete
-                            </Button>
-                          </div>
-                        </div>
-                      </CardHeader>
-                    </Card>
-                  )}
+                  key={i}
+                  className="h-16 rounded"
+                  style={{ background: '#1E293B', opacity: 0.5 }}
+                />
+              ))}
+            </div>
+          )}
 
-                  {/* Audio Player for ready podcasts */}
-                  {podcast.status === "ready" && podcast.audio_url && (
-                    <div className="relative">
-                      {isHighlighted && (
-                        <div className="absolute -top-3 left-4 z-10">
-                          <Badge className="bg-purple-600 text-white shadow-lg">
-                            Playing Now
-                          </Badge>
-                        </div>
-                      )}
-                      <AudioPodcastPlayer
-                        audioUrl={podcast.audio_url}
-                        title={podcast.title}
-                        podcastId={podcast.id}
-                        className={isHighlighted ? "shadow-2xl" : ""}
-                      />
-                      <div className="flex items-center justify-between mt-2 px-2">
-                        <p className="text-xs text-gray-500">
-                          Created {formatDate(podcast.created_at)}
-                        </p>
-                        <Button
-                          onClick={() => handleDelete(podcast.id)}
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50"
+          {/* Error State */}
+          {error && !loading && (
+            <div
+              className="rounded-lg p-6 text-center"
+              style={{
+                background: 'rgba(239,68,68,0.1)',
+                border: '1px solid rgba(239,68,68,0.3)'
+              }}
+            >
+              <p className="text-red-400">{error}</p>
+              <Button
+                onClick={fetchPodcasts}
+                variant="outline"
+                className="mt-4 border-red-500 text-red-400 hover:bg-red-500/10"
+                size="sm"
+              >
+                Try Again
+              </Button>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!loading && !error && podcasts.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div
+                className="w-24 h-24 rounded-full flex items-center justify-center mb-6"
+                style={{ background: '#1E293B' }}
+              >
+                <Music className="w-12 h-12 text-slate-600" />
+              </div>
+              <h3 className="text-2xl font-semibold mb-2 text-slate-100">
+                No podcasts yet
+              </h3>
+              <p className="text-slate-400 mb-6 max-w-md">
+                Generate your first podcast from a document to get started
+              </p>
+              <Button
+                onClick={() => router.push("/assistant/files")}
+                className="bg-violet-600 hover:bg-violet-700 text-white"
+              >
+                Go to Files
+              </Button>
+            </div>
+          )}
+
+          {/* Table View */}
+          {!loading && !error && podcasts.length > 0 && (
+            <div
+              className="rounded-xl overflow-hidden"
+              style={{
+                background: '#111827',
+                border: '1px solid rgba(255,255,255,0.06)',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.3)'
+              }}
+            >
+              {/* Table Header */}
+              <div
+                className="grid grid-cols-12 gap-4 px-6 py-3 border-b text-sm font-medium uppercase tracking-wider sticky top-0 backdrop-blur-sm"
+                style={{
+                  borderColor: 'rgba(255,255,255,0.06)',
+                  background: 'rgba(17,24,39,0.8)',
+                  color: '#9CA3AF'
+                }}
+              >
+                <div className="col-span-1">#</div>
+                <div className="col-span-7">Podcast Title</div>
+                <div className="col-span-2">Date Added</div>
+                <div className="col-span-2">Duration</div>
+              </div>
+
+              {/* Table Rows */}
+              <div>
+                {podcasts.map((podcast, index) => (
+                  <div
+                    key={podcast.id}
+                    onClick={() => handleRowClick(podcast)}
+                    className="grid grid-cols-12 gap-4 px-6 py-4 border-b transition-all cursor-pointer group"
+                    style={{
+                      borderColor: 'rgba(255,255,255,0.04)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(139,92,246,0.08)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent';
+                    }}
+                  >
+                    {/* Index */}
+                    <div className="col-span-1 flex items-center text-sm" style={{ color: '#9CA3AF' }}>
+                      {index + 1}
+                    </div>
+
+                    {/* Title */}
+                    <div className="col-span-7 flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded flex items-center justify-center flex-shrink-0"
+                        style={{
+                          background: 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)'
+                        }}
+                      >
+                        <Music className="w-5 h-5 text-white" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div
+                          className="font-semibold truncate transition-colors group-hover:text-violet-400"
+                          style={{ color: '#E5E7EB' }}
                         >
-                          Delete
-                        </Button>
+                          {podcast.title}
+                        </div>
+                        <div className="text-sm truncate" style={{ color: '#6B7280' }}>
+                          Study podcast
+                        </div>
                       </div>
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
 
-        {/* Stats Footer */}
-        {!loading && !error && podcasts.length > 0 && (
-          <div className="mt-8 p-4 bg-gray-50 rounded-lg">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-600">
-                Total podcasts: <span className="font-semibold">{podcasts.length}</span>
-              </span>
-              <span className="text-gray-600">
-                Ready to play:{" "}
-                <span className="font-semibold text-green-600">
-                  {podcasts.filter((p) => p.status === "ready").length}
-                </span>
-              </span>
-              <span className="text-gray-600">
-                Generating:{" "}
-                <span className="font-semibold text-yellow-600">
-                  {podcasts.filter((p) => p.status === "pending").length}
-                </span>
-              </span>
+                    {/* Date */}
+                    <div className="col-span-2 flex items-center text-sm" style={{ color: '#9CA3AF' }}>
+                      {formatDate(podcast.created_at)}
+                    </div>
+
+                    {/* Duration */}
+                    <div className="col-span-2 flex items-center text-sm" style={{ color: '#9CA3AF' }}>
+                      {formatDuration(podcast.duration)}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
+
+      {/* Podcast Modal */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent
+          className="max-w-lg text-slate-100 p-0 overflow-hidden"
+          style={{
+            background: '#111827',
+            borderColor: 'rgba(255,255,255,0.1)',
+            maxHeight: '90vh'
+          }}
+        >
+          {selectedPodcast && (
+            <div className="flex flex-col" style={{ maxHeight: '90vh' }}>
+              {/* Header - Compact */}
+              <div className="px-6 py-4 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-semibold pr-8" style={{ color: '#E5E7EB' }}>
+                    {selectedPodcast.title}
+                  </DialogTitle>
+                  <p className="text-xs mt-1" style={{ color: '#9CA3AF' }}>
+                    {formatDate(selectedPodcast.created_at)} • {formatDuration(selectedPodcast.duration)}
+                  </p>
+                </DialogHeader>
+              </div>
+
+              {/* Scrollable Content */}
+              <div className="overflow-y-auto px-6 py-6 space-y-4">
+                {/* Artwork - Constrained */}
+                <div className="flex justify-center">
+                  <div
+                    className="w-64 h-64 rounded-lg flex items-center justify-center shadow-xl"
+                    style={{
+                      background: 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 50%, #8B5CF6 100%)'
+                    }}
+                  >
+                    <Headphones className="w-24 h-24 text-white/80" />
+                  </div>
+                </div>
+
+                {/* Audio Player - Simplified */}
+                {selectedPodcast.audio_url && (
+                  <div className="pt-2">
+                    <AudioPodcastPlayer
+                      audioUrl={selectedPodcast.audio_url}
+                      title={selectedPodcast.title}
+                      podcastId={selectedPodcast.id}
+                      showHeader={false}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
