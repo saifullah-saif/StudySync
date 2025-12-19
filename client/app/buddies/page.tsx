@@ -32,6 +32,7 @@ import {
   XCircle,
   UserCheck,
 } from "lucide-react";
+import { BuddyProfileModal } from "./components/buddy-profile-modal";
 
 interface Buddy {
   id: number;
@@ -40,7 +41,10 @@ interface Buddy {
   department: string;
   semester: number;
   profile_picture_url?: string;
+  bio?: string;
   sharedCourses: Array<{ code: string; name: string }>;
+  currentCourses?: Array<{ code: string; name: string }>;
+  previousCourses?: Array<{ code: string; name: string }>;
   type: "peer" | "mentor";
   connection_status?: "pending" | "accepted" | "rejected" | null;
   connection_type?: "peer" | "mentor" | null;
@@ -89,6 +93,7 @@ export default function BuddiesPage() {
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searching, setSearching] = useState(false);
   const [invitationsLoading, setInvitationsLoading] = useState(false);
   const [connectionsLoading, setConnectionsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -101,11 +106,21 @@ export default function BuddiesPage() {
   const [respondLoading, setRespondLoading] = useState<{
     [key: number]: boolean;
   }>({});
+  const [selectedBuddy, setSelectedBuddy] = useState<Buddy | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
-  // Load buddies data on component mount and when type changes
+  // Load buddies data when type or search changes
   useEffect(() => {
-    loadBuddies();
-  }, [buddyType]);
+    // Clear any pending timeouts when buddy type changes
+    const timeoutId = setTimeout(
+      () => {
+        loadBuddies();
+      },
+      searchQuery ? 300 : 0
+    ); // Reduced debounce to 300ms for faster search
+
+    return () => clearTimeout(timeoutId);
+  }, [buddyType, searchQuery]);
 
   // Load invitations when component mounts
   useEffect(() => {
@@ -128,7 +143,12 @@ export default function BuddiesPage() {
 
   const loadBuddies = async () => {
     try {
-      setLoading(true);
+      // Use searching state if already loaded, loading state only for initial load
+      if (loading) {
+        setLoading(true);
+      } else {
+        setSearching(true);
+      }
       setError("");
       setSentInvites({}); // Clear sent invites when reloading
       const response = await buddyAPI.getBuddies(buddyType, searchQuery);
@@ -263,6 +283,11 @@ export default function BuddiesPage() {
     router.push(`/buddies/chat?${queryParams.toString()}`);
   };
 
+  const handleBuddyCardClick = (buddy: Buddy) => {
+    setSelectedBuddy(buddy);
+    setModalOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
       <Header />
@@ -309,8 +334,13 @@ export default function BuddiesPage() {
                     placeholder="Search by name or course starting with...."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 pr-10"
                   />
+                  {searching && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -364,13 +394,22 @@ export default function BuddiesPage() {
                       ? "Try a different search term or clear the search"
                       : "Try changing your preferences or add more courses to your profile"}
                   </p>
+                  {!searchQuery && (
+                    <Button
+                      onClick={() => router.push("/profile?edit=true")}
+                      className="mt-4 bg-blue-600 hover:bg-blue-700"
+                    >
+                      Edit Profile
+                    </Button>
+                  )}
                 </div>
               ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {filteredBuddies.map((buddy) => (
                     <Card
                       key={buddy.id}
-                      className="group bg-white border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2"
+                      className="bg-white/70 backdrop-blur-sm  border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2cursor-pointer"
+                      onClick={() => handleBuddyCardClick(buddy)}
                     >
                       <CardHeader className="pb-3">
                         <div className="flex items-center space-x-3">
@@ -423,6 +462,7 @@ export default function BuddiesPage() {
                             className="w-full bg-green-600 hover:bg-green-600 cursor-not-allowed shadow-md"
                             size="sm"
                             disabled={true}
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <UserCheck className="w-4 h-4 mr-2" />
                             Connected
@@ -432,6 +472,7 @@ export default function BuddiesPage() {
                             className="w-full bg-yellow-600 hover:bg-yellow-600 cursor-not-allowed shadow-md"
                             size="sm"
                             disabled={true}
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <Clock className="w-4 h-4 mr-2" />
                             {buddy.is_requester
@@ -440,7 +481,10 @@ export default function BuddiesPage() {
                           </Button>
                         ) : (
                           <Button
-                            onClick={() => handleInvite(buddy.id, buddyType)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleInvite(buddy.id, buddyType);
+                            }}
                             className="group w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-300"
                             size="sm"
                             disabled={
@@ -678,6 +722,13 @@ export default function BuddiesPage() {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Buddy Profile Modal */}
+      <BuddyProfileModal
+        buddy={selectedBuddy}
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+      />
     </div>
   );
 }
