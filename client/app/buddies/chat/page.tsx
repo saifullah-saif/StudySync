@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { ArrowLeft, Send, MessageCircle } from "lucide-react"
 import { useAuth } from "@/contexts/auth-context"
-import { socketManager } from "@/lib/socket"
+import { pusherManager } from "@/lib/socket"
 
 interface Message {
   id: number
@@ -73,11 +73,11 @@ export default function ChatPage() {
       semester: userSemester ? parseInt(userSemester) : undefined,
     })
 
-    // Initialize Socket.IO connection
-    const socket = socketManager.connect(user.id)
+    // Initialize Pusher connection
+    const channel = pusherManager.connect(user.id)
 
-    // Listen for new messages
-    socket.on('new_message', (data: any) => {
+    // Define event handlers
+    const handleNewMessage = (data: any) => {
       if (data.sender_id === parseInt(userId)) {
         setMessages(prev => {
           // Check if message already exists to prevent duplicates
@@ -91,25 +91,28 @@ export default function ChatPage() {
         // Mark message as read since user is actively viewing chat
         markAsRead()
       }
-    })
+    }
 
-    // Remove the message_sent listener since we handle optimistic updates differently
-    // socket.on('message_sent', (data: any) => { ... })
-
-    // Listen for read status updates
-    socket.on('messages_read', (data: any) => {
+    const handleMessagesRead = (data: any) => {
       if (data.reader_id === parseInt(userId)) {
         setMessages(prev => prev.map(msg => 
           msg.sender_id === user.id ? { ...msg, is_read: true } : msg
         ))
       }
-    })
+    }
+
+    // Bind event handlers
+    channel.bind('new_message', handleNewMessage)
+    channel.bind('messages_read', handleMessagesRead)
 
     // Load chat history
     loadChatHistory()
 
     return () => {
-      socketManager.disconnect()
+      // Unbind event handlers before disconnecting
+      channel.unbind('new_message', handleNewMessage)
+      channel.unbind('messages_read', handleMessagesRead)
+      pusherManager.disconnect()
     }
   }, [userId, userName, user, router])
 
@@ -264,9 +267,9 @@ export default function ChatPage() {
             </CardTitle>
           </CardHeader>
 
-          <CardContent className="flex-1 flex flex-col p-0">
+          <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
             {/* Messages Area */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
               {loading ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center">
@@ -305,21 +308,21 @@ export default function ChatPage() {
                       key={messageKey}
                       className={`flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`}
                     >
-                      <div className={`flex items-end space-x-2 max-w-xs lg:max-w-md ${isCurrentUser ? 'flex-row-reverse space-x-reverse' : ''}`}>
-                        <Avatar className="w-8 h-8">
+                      <div className={`flex items-end space-x-2 max-w-[70%] ${isCurrentUser ? 'flex-row-reverse space-x-reverse' : ''}`}>
+                        <Avatar className="w-8 h-8 flex-shrink-0">
                           <AvatarImage src={message.sender.profile_picture_url || "/placeholder.svg"} />
                           <AvatarFallback className="text-xs">
                             {message.sender.name.split(" ").map((n) => n[0]).join("")}
                           </AvatarFallback>
                         </Avatar>
                         <div
-                          className={`rounded-lg px-3 py-2 ${
+                          className={`rounded-lg px-3 py-2 break-words ${
                             isCurrentUser
                               ? 'bg-blue-600 text-white'
                               : 'bg-gray-200 text-gray-900'
                           }`}
                         >
-                          <p className="text-sm">{message.content}</p>
+                          <p className="text-sm break-words">{message.content}</p>
                           <div className={`flex items-center justify-between mt-1 ${isCurrentUser ? 'text-blue-100' : 'text-gray-500'}`}>
                             <span className="text-xs">{formatTime(message.timestamp)}</span>
                             {isCurrentUser && (

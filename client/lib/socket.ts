@@ -1,53 +1,55 @@
-import { io, Socket } from 'socket.io-client'
+import Pusher from 'pusher-js'
 
-class SocketManager {
-  private socket: Socket | null = null
+class PusherManager {
+  private pusher: Pusher | null = null
   private userId: number | null = null
+  private channel: any = null
 
   connect(userId: number) {
-    if (this.socket?.connected && this.userId === userId) {
-      return this.socket
+    if (this.pusher && this.userId === userId && this.channel) {
+      return this.channel
     }
 
     this.disconnect()
     this.userId = userId
 
-    this.socket = io(process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') || 'http://localhost:5000', {
-      withCredentials: true,
-      transports: ['websocket', 'polling'],
+    // Initialize Pusher client
+    this.pusher = new Pusher(process.env.NEXT_PUBLIC_PUSHER_KEY || '', {
+      cluster: process.env.NEXT_PUBLIC_PUSHER_CLUSTER || '',
     })
 
-    this.socket.emit('join_user_room', userId)
+    // Subscribe to user's private channel
+    this.channel = this.pusher.subscribe(`user_${userId}`)
 
-    this.socket.on('connect', () => {
-      console.log('Socket connected:', this.socket?.id)
+    this.channel.bind('pusher:subscription_succeeded', () => {
+      console.log('Pusher subscribed to channel:', `user_${userId}`)
     })
 
-    this.socket.on('disconnect', () => {
-      console.log('Socket disconnected')
+    this.channel.bind('pusher:subscription_error', (error: any) => {
+      console.error('Pusher subscription error:', error)
     })
 
-    return this.socket
+    return this.channel
   }
 
   disconnect() {
-    if (this.socket) {
-      if (this.userId) {
-        this.socket.emit('leave_user_room', this.userId)
-      }
-      this.socket.disconnect()
-      this.socket = null
+    if (this.pusher && this.userId) {
+      this.pusher.unsubscribe(`user_${this.userId}`)
+      this.pusher.disconnect()
+      this.pusher = null
+      this.channel = null
       this.userId = null
     }
   }
 
-  getSocket() {
-    return this.socket
+  getChannel() {
+    return this.channel
   }
 
   isConnected() {
-    return this.socket?.connected || false
+    return this.channel !== null
   }
 }
 
-export const socketManager = new SocketManager()
+export const pusherManager = new PusherManager()
+export default pusherManager
