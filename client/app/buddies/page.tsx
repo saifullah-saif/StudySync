@@ -74,6 +74,7 @@ export default function BuddiesPage() {
   const [connections, setConnections] = useState<Connection[]>([])
   const [loading, setLoading] = useState(true)
   const [searching, setSearching] = useState(false)
+  const [switchingType, setSwitchingType] = useState(false)
   const [invitationsLoading, setInvitationsLoading] = useState(false)
   const [connectionsLoading, setConnectionsLoading] = useState(false)
   const [error, setError] = useState("")
@@ -82,9 +83,16 @@ export default function BuddiesPage() {
   const [respondLoading, setRespondLoading] = useState<{ [key: number]: boolean }>({})
   const [selectedBuddy, setSelectedBuddy] = useState<Buddy | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
+  const [prevBuddyType, setPrevBuddyType] = useState(buddyType)
 
   // Load buddies data when type or search changes
   useEffect(() => {
+    // Detect if buddyType changed
+    if (prevBuddyType !== buddyType) {
+      setSwitchingType(true)
+      setPrevBuddyType(buddyType)
+    }
+    
     // Clear any pending timeouts when buddy type changes
     const timeoutId = setTimeout(() => {
       loadBuddies()
@@ -105,9 +113,11 @@ export default function BuddiesPage() {
 
   const loadBuddies = async () => {
     try {
-      // Use searching state if already loaded, loading state only for initial load
+      // Use appropriate loading state based on action
       if (loading) {
         setLoading(true)
+      } else if (switchingType) {
+        // Keep switchingType true, will be cleared in finally
       } else {
         setSearching(true)
       }
@@ -126,6 +136,7 @@ export default function BuddiesPage() {
     } finally {
       setLoading(false)
       setSearching(false)
+      setSwitchingType(false)
     }
   }
 
@@ -293,7 +304,7 @@ export default function BuddiesPage() {
                 </Select>
               </div>
 
-              {loading ? (
+              {loading || switchingType ? (
                 <div className="flex items-center justify-center h-64">
                   <div className="text-center">
                     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
@@ -331,10 +342,10 @@ export default function BuddiesPage() {
                   </p>
                   {!searchQuery && (
                     <Button
-                      onClick={() => router.push('/profile?edit=true')}
+                      onClick={() => router.push('/profile')}
                       className="mt-4 bg-blue-600 hover:bg-blue-700"
                     >
-                      Edit Profile
+                      Go to Profile
                     </Button>
                   )}
                 </div>
