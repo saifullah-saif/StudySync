@@ -32,58 +32,16 @@ class BuddyService {
 
       const userCourseIds = userCurrentCourses.map(uc => uc.course_id);
 
-      // Build search conditions for users and courses (prefix matching)
-      const searchConditions = [];
-      if (searchQuery && searchQuery.trim()) {
-        const trimmedQuery = searchQuery.trim();
-        searchConditions.push(
-          {
-            users: {
-              name: {
-                startsWith: trimmedQuery,
-                mode: 'insensitive'
-              }
-            }
-          },
-          {
-            courses: {
-              course_code: {
-                startsWith: trimmedQuery,
-                mode: 'insensitive'
-              }
-            }
-          },
-          {
-            courses: {
-              course_name: {
-                startsWith: trimmedQuery,
-                mode: 'insensitive'
-              }
-            }
-          }
-        );
-      }
-
-      // Find other users who have the same current courses
+      // Find other users who have the same current courses (no search in DB for performance)
       const peersData = await prisma.user_courses.findMany({
         where: {
-          AND: [
-            {
-              course_id: {
-                in: userCourseIds,
-              },
-            },
-            {
-              is_completed: false,
-            },
-            {
-              user_id: {
-                not: userId, // Exclude current user
-              },
-            },
-            // Add search conditions if provided
-            ...(searchConditions.length > 0 ? [{ OR: searchConditions }] : [])
-          ]
+          course_id: {
+            in: userCourseIds,
+          },
+          is_completed: false,
+          user_id: {
+            not: userId,
+          },
         },
         include: {
           users: {
@@ -94,6 +52,7 @@ class BuddyService {
               department: true,
               semester: true,
               profile_picture_url: true,
+              bio: true,
             },
           },
           courses: {
@@ -110,10 +69,25 @@ class BuddyService {
       
       peersData.forEach(record => {
         const userId = record.users.id;
+        
+        // Apply search filter in memory if provided
+        if (searchQuery && searchQuery.trim()) {
+          const query = searchQuery.trim().toLowerCase();
+          const nameMatch = record.users.name.toLowerCase().startsWith(query);
+          const codeMatch = record.courses.course_code.toLowerCase().startsWith(query);
+          const courseNameMatch = record.courses.course_name.toLowerCase().startsWith(query);
+          
+          if (!nameMatch && !codeMatch && !courseNameMatch) {
+            return; // Skip this record if no match
+          }
+        }
+        
         if (!peersMap.has(userId)) {
           peersMap.set(userId, {
             ...record.users,
             sharedCourses: [],
+            currentCourses: [],
+            previousCourses: [],
             type: 'peer',
           });
         }
@@ -122,6 +96,41 @@ class BuddyService {
           name: record.courses.course_name,
         });
       });
+
+      // Fetch both current and previous courses for each peer in one query
+      const peerIds = Array.from(peersMap.keys());
+      if (peerIds.length > 0) {
+        const allCoursesData = await prisma.user_courses.findMany({
+          where: {
+            user_id: { in: peerIds },
+          },
+          include: {
+            courses: {
+              select: {
+                course_code: true,
+                course_name: true,
+              },
+            },
+          },
+        });
+
+        // Separate and add courses to each peer
+        allCoursesData.forEach(record => {
+          const peer = peersMap.get(record.user_id);
+          if (peer) {
+            const courseData = {
+              code: record.courses.course_code,
+              name: record.courses.course_name,
+            };
+            
+            if (record.is_completed) {
+              peer.previousCourses.push(courseData);
+            } else {
+              peer.currentCourses.push(courseData);
+            }
+          }
+        });
+      }
 
       return Array.from(peersMap.values());
     } catch (error) {
@@ -150,58 +159,16 @@ class BuddyService {
 
       const userCourseIds = userCurrentCourses.map(uc => uc.course_id);
 
-      // Build search conditions for users and courses (prefix matching)
-      const searchConditions = [];
-      if (searchQuery && searchQuery.trim()) {
-        const trimmedQuery = searchQuery.trim();
-        searchConditions.push(
-          {
-            users: {
-              name: {
-                startsWith: trimmedQuery,
-                mode: 'insensitive'
-              }
-            }
-          },
-          {
-            courses: {
-              course_code: {
-                startsWith: trimmedQuery,
-                mode: 'insensitive'
-              }
-            }
-          },
-          {
-            courses: {
-              course_name: {
-                startsWith: trimmedQuery,
-                mode: 'insensitive'
-              }
-            }
-          }
-        );
-      }
-
-      // Find users who have completed these courses (potential mentors)
+      // Find users who have completed these courses (potential mentors, no search in DB for performance)
       const mentorsData = await prisma.user_courses.findMany({
         where: {
-          AND: [
-            {
-              course_id: {
-                in: userCourseIds,
-              },
-            },
-            {
-              is_completed: true, // They have completed the course
-            },
-            {
-              user_id: {
-                not: userId, // Exclude current user
-              },
-            },
-            // Add search conditions if provided
-            ...(searchConditions.length > 0 ? [{ OR: searchConditions }] : [])
-          ]
+          course_id: {
+            in: userCourseIds,
+          },
+          is_completed: true,
+          user_id: {
+            not: userId,
+          },
         },
         include: {
           users: {
@@ -212,6 +179,7 @@ class BuddyService {
               department: true,
               semester: true,
               profile_picture_url: true,
+              bio: true,
             },
           },
           courses: {
@@ -228,10 +196,25 @@ class BuddyService {
       
       mentorsData.forEach(record => {
         const userId = record.users.id;
+        
+        // Apply search filter in memory if provided
+        if (searchQuery && searchQuery.trim()) {
+          const query = searchQuery.trim().toLowerCase();
+          const nameMatch = record.users.name.toLowerCase().startsWith(query);
+          const codeMatch = record.courses.course_code.toLowerCase().startsWith(query);
+          const courseNameMatch = record.courses.course_name.toLowerCase().startsWith(query);
+          
+          if (!nameMatch && !codeMatch && !courseNameMatch) {
+            return; // Skip this record if no match
+          }
+        }
+        
         if (!mentorsMap.has(userId)) {
           mentorsMap.set(userId, {
             ...record.users,
             sharedCourses: [],
+            currentCourses: [],
+            previousCourses: [],
             type: 'mentor',
           });
         }
@@ -240,6 +223,41 @@ class BuddyService {
           name: record.courses.course_name,
         });
       });
+
+      // Fetch both current and previous courses for each mentor in one query
+      const mentorIds = Array.from(mentorsMap.keys());
+      if (mentorIds.length > 0) {
+        const allCoursesData = await prisma.user_courses.findMany({
+          where: {
+            user_id: { in: mentorIds },
+          },
+          include: {
+            courses: {
+              select: {
+                course_code: true,
+                course_name: true,
+              },
+            },
+          },
+        });
+
+        // Separate and add courses to each mentor
+        allCoursesData.forEach(record => {
+          const mentor = mentorsMap.get(record.user_id);
+          if (mentor) {
+            const courseData = {
+              code: record.courses.course_code,
+              name: record.courses.course_name,
+            };
+            
+            if (record.is_completed) {
+              mentor.previousCourses.push(courseData);
+            } else {
+              mentor.currentCourses.push(courseData);
+            }
+          }
+        });
+      }
 
       return Array.from(mentorsMap.values());
     } catch (error) {
