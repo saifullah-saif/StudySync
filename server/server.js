@@ -18,18 +18,13 @@ app.use(cookieParser());
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      const allowedOrigins = getAllowedOrigins();
-
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) return callback(null, true);
-
-      if (allowedOrigins.indexOf(origin) !== -1) {
-        callback(null, true);
-      } else {
-        callback(new Error("Not allowed by CORS"));
-      }
-    },
+    origin: [
+      "http://localhost:3000",
+      "http://localhost:3001",
+      process.env.CLIENT_URL,
+      process.env.SERVER_URL,
+      
+    ].filter(Boolean),
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
     allowedHeaders: [
@@ -41,7 +36,7 @@ app.use(
       "Access-Control-Request-Method",
       "Access-Control-Request-Headers",
     ],
-    exposedHeaders: ["Set-Cookie"],
+    exposedHeaders: ["Content-Length", "Content-Type", "Set-Cookie"],
     preflightContinue: false,
     optionsSuccessStatus: 200,
   })
