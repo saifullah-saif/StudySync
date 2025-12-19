@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
+import { useParams } from "next/navigation"
 import Header from "@/components/header"
 import { profileAPI } from "@/lib/api"
 import { Button } from "@/components/ui/button"
@@ -26,7 +26,7 @@ interface Course {
 }
 
 export default function ProfilePage() {
-  const searchParams = useSearchParams()
+  const params = useParams()
   const [isEditing, setIsEditing] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -56,7 +56,7 @@ export default function ProfilePage() {
     loadAvailableCourses()
     
     // Check if edit mode should be enabled from URL parameter
-    if (searchParams.get('edit') === 'true') {
+    if (params.edit === 'true') {
       setIsEditing(true)
     }
   }, [])
