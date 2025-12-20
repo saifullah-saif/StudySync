@@ -2,8 +2,35 @@ const express = require("express");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const Pusher = require("pusher");
+const http = require("http");
+require("dotenv").config();
 
+const reservationsService = require("./services/reservationsService");
 const app = express();
+const server = http.createServer(app);
+
+const getAllowedOrigins = () => {
+  const baseOrigins = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "https://study-sync-client.vercel.app",
+    "https://study-sync-server-sigma.vercel.app",
+  ];
+
+  // Add environment-specific origins if they exist and are different
+  const envOrigins = [
+    process.env.CLIENT_URL,
+    process.env.SERVER_URL,
+    process.env.PRODUCTION_CLIENT_URL,
+    process.env.PRODUCTION_SERVER_URL,
+  ].filter(Boolean);
+
+  // Combine and deduplicate origins
+  const allOrigins = [...baseOrigins, ...envOrigins];
+  const uniqueOrigins = [...new Set(allOrigins)];
+
+  return uniqueOrigins;
+};
 
 // Initialize Pusher
 const pusher = new Pusher({
@@ -18,13 +45,18 @@ app.use(cookieParser());
 
 app.use(
   cors({
-    origin: [
-      "http://localhost:3000",
-      "http://localhost:3001",
-      process.env.CLIENT_URL,
-      process.env.SERVER_URL,
-      
-    ].filter(Boolean),
+    origin: function (origin, callback) {
+      const allowedOrigins = getAllowedOrigins();
+
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
     allowedHeaders: [
@@ -36,7 +68,7 @@ app.use(
       "Access-Control-Request-Method",
       "Access-Control-Request-Headers",
     ],
-    exposedHeaders: ["Content-Length", "Content-Type", "Set-Cookie"],
+    exposedHeaders: ["Set-Cookie"],
     preflightContinue: false,
     optionsSuccessStatus: 200,
   })
