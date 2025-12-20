@@ -5,7 +5,6 @@ const Pusher = require("pusher");
 const http = require("http");
 require("dotenv").config();
 
-const reservationsService = require("./services/reservationsService");
 const app = express();
 const server = http.createServer(app);
 
@@ -71,7 +70,7 @@ app.use(
       "Access-Control-Request-Method",
       "Access-Control-Request-Headers",
     ],
-    exposedHeaders: ["Set-Cookie"],
+    exposedHeaders: ["Content-Length", "Content-Type", "Set-Cookie"],
     preflightContinue: false,
     optionsSuccessStatus: 200,
   })
@@ -139,18 +138,11 @@ app.get("/api/health", (req, res) => {
 
 const port = process.env.PORT || 5000;
 
-// Auto-update room availability every minute
-setInterval(async () => {
-  try {
-    await reservationsService.updateRoomAvailability();
-  } catch (error) {
-    console.error("Error in auto room availability update:", error);
-  }
-}, 60000); // Run every 60 seconds
+// Run every 60 seconds
 
 async function startServer() {
   try {
-    app.listen(port, () => {
+    server.listen(port, () => {
       console.log(`Server is running on port ${port}`);
       console.log(`Environment: ${process.env.NODE_ENV || "development"}`);
       console.log("Room availability auto-update is running every minute");
