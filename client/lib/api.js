@@ -1,8 +1,8 @@
 import axios from "axios";
 
-// Determine the correct API URL based on environment
+
 const getApiUrl = () => {
-  // In production, use the production API URL
+  
   if (process.env.NODE_ENV === "production") {
     return (
       process.env.NEXT_PUBLIC_API_URL ||
@@ -10,7 +10,7 @@ const getApiUrl = () => {
     );
   }
 
-  // In development, use local or specified URL
+  
   return process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 };
 
