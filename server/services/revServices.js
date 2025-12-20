@@ -204,6 +204,59 @@ const reviewServices = {
       console.error('Error deleting review:', error);
       throw error;
     }
+  },
+
+  // Update a review
+  updateReview: async (reviewId, userId, reviewData) => {
+    try {
+      // First check if the review belongs to the user
+      const review = await prisma.course_reviews.findFirst({
+        where: {
+          id: parseInt(reviewId),
+          user_id: parseInt(userId)
+        }
+      });
+
+      if (!review) {
+        throw new Error('Review not found or unauthorized');
+      }
+
+      // Update the review
+      const updatedReview = await prisma.course_reviews.update({
+        where: {
+          id: parseInt(reviewId)
+        },
+        data: {
+          difficulty_rating: reviewData.difficulty_rating,
+          workload_rating: reviewData.workload_rating,
+          review_text: reviewData.review_text,
+          semester_taken: reviewData.semester_taken,
+          year_taken: reviewData.year_taken,
+          is_anonymous: reviewData.is_anonymous
+        },
+        include: {
+          users: {
+            select: {
+              id: true,
+              name: true,
+              department: true
+            }
+          },
+          courses: {
+            select: {
+              id: true,
+              course_code: true,
+              course_name: true
+            }
+          }
+        }
+      });
+
+      return updatedReview;
+    } catch (error) {
+      console.error('Error updating review:', error);
+      throw error;
+    }
   }
 };
 

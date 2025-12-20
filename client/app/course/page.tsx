@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Search,
   BookOpen,
@@ -41,6 +42,16 @@ interface Course {
   _count: {
     course_reviews: number;
   };
+  user_review?: {
+    id: number;
+    difficulty_rating: number;
+    workload_rating: number | null;
+    review_text: string | null;
+    semester_taken: string;
+    year_taken: number;
+    is_anonymous: boolean;
+    created_at: string;
+  } | null;
 }
 
 export default function CoursesPage() {
@@ -48,26 +59,30 @@ export default function CoursesPage() {
   const { toast } = useToast();
   const router = useRouter();
   const [courses, setCourses] = useState<Course[]>([]);
+  const [myCourses, setMyCourses] = useState<Course[]>([]);
   const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
+  const [filteredMyCourses, setFilteredMyCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [difficultyFilter, setDifficultyFilter] = useState("all");
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("all");
 
   // Get unique departments for filter
   const departments = Array.from(
-    new Set(courses.map((course) => course.department))
+    new Set([...courses, ...myCourses].map((course) => course.department))
   );
 
   useEffect(() => {
     fetchCourses();
+    fetchMyCourses();
   }, []);
 
   useEffect(() => {
     filterCourses();
-  }, [courses, searchQuery, departmentFilter, difficultyFilter]);
+  }, [courses, myCourses, searchQuery, departmentFilter, difficultyFilter]);
 
   const fetchCourses = async () => {
     try {
@@ -91,38 +106,52 @@ export default function CoursesPage() {
     }
   };
 
+  const fetchMyCourses = async () => {
+    try {
+      const response = await courseAPI.getMyCompletedCourses();
+      const data = await response.data;
+      if (data.success) {
+        setMyCourses(data.data);
+      } else {
+        throw new Error(data.message || "Failed to fetch your courses");
+      }
+    } catch (error) {
+      console.error("Error fetching my courses:", error);
+      // Don't show error toast for my courses as it's not critical
+    }
+  };
+
   const filterCourses = () => {
-    let filtered = courses;
+    let filteredAll = courses;
+    let filteredMy = myCourses;
 
     // Filter by search query
     if (searchQuery) {
-      filtered = filtered.filter(
-        (course) =>
-          course.course_code
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          course.course_name
-            .toLowerCase()
-            .includes(searchQuery.toLowerCase()) ||
-          course.department.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+      const filterFn = (course: Course) =>
+        course.course_code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        course.course_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        course.department.toLowerCase().includes(searchQuery.toLowerCase());
+
+      filteredAll = filteredAll.filter(filterFn);
+      filteredMy = filteredMy.filter(filterFn);
     }
 
     // Filter by department
     if (departmentFilter !== "all") {
-      filtered = filtered.filter(
-        (course) => course.department === departmentFilter
-      );
+      const filterFn = (course: Course) => course.department === departmentFilter;
+      filteredAll = filteredAll.filter(filterFn);
+      filteredMy = filteredMy.filter(filterFn);
     }
 
     // Filter by difficulty
     if (difficultyFilter !== "all") {
-      filtered = filtered.filter(
-        (course) => course.difficulty === difficultyFilter
-      );
+      const filterFn = (course: Course) => course.difficulty === difficultyFilter;
+      filteredAll = filteredAll.filter(filterFn);
+      filteredMy = filteredMy.filter(filterFn);
     }
 
-    setFilteredCourses(filtered);
+    setFilteredCourses(filteredAll);
+    setFilteredMyCourses(filteredMy);
   };
 
   const getDifficultyColor = (difficulty: string) => {
@@ -163,8 +192,12 @@ export default function CoursesPage() {
   const handleReviewSubmitted = () => {
     toast({
       title: "Success",
-      description: "Your review has been submitted successfully!",
+      description: selectedCourse?.user_review
+        ? "Your review has been updated successfully!"
+        : "Your review has been submitted successfully!",
     });
+    // Refresh the courses list
+    fetchMyCourses();
   };
 
   if (!user) {
@@ -260,125 +293,249 @@ export default function CoursesPage() {
             </CardContent>
           </Card>
 
-          {/* Course Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCourses.map((course) => (
-              <Card
-                key={course.id}
-                className="group bg-white border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2"
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <Badge
-                        variant="outline"
-                        className="mb-3 text-sm font-bold px-3 py-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 shadow-md"
-                      >
-                        {course.course_code}
-                      </Badge>
-                      <CardTitle className="text-lg font-bold leading-tight mb-3 text-slate-900 group-hover:text-blue-600 transition-colors">
-                        {course.course_name}
-                      </CardTitle>
-                    </div>
-                  </div>
+          {/* Tabs for All Courses and My Courses */}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
+              <TabsTrigger value="all">All Courses</TabsTrigger>
+              <TabsTrigger value="my">My Courses</TabsTrigger>
+            </TabsList>
 
-                  <div className="flex flex-wrap gap-2">
-                    <Badge
-                      className={getDifficultyColor(course.difficulty)}
-                      variant="secondary"
-                    >
-                      {course.difficulty}
-                    </Badge>
-                    <Badge
-                      className={getCourseTypeColor(course.course_type)}
-                      variant="secondary"
-                    >
-                      {course.course_type}
-                    </Badge>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="pt-0">
-                  <div className="space-y-3">
-                    <div className="text-sm text-slate-600">
-                      <span className="font-semibold">Department:</span>{" "}
-                      {course.department}
-                    </div>
-
-                    <div className="flex items-center gap-4 text-sm text-slate-600">
-                      <div className="flex items-center gap-1">
-                        <Clock className="h-4 w-4" />
-                        <span>{course.credit_hours} credits</span>
+            <TabsContent value="all">
+              {/* Course Grid for All Courses */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredCourses.map((course) => (
+                  <Card
+                    key={course.id}
+                    className="group bg-white border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2"
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <Badge
+                            variant="outline"
+                            className="mb-3 text-sm font-bold px-3 py-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 shadow-md"
+                          >
+                            {course.course_code}
+                          </Badge>
+                          <CardTitle className="text-lg font-bold leading-tight mb-3 text-slate-900 group-hover:text-blue-600 transition-colors">
+                            {course.course_name}
+                          </CardTitle>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4" />
-                        <span>{course._count.course_reviews} reviews</span>
-                      </div>
-                    </div>
 
-                    {course.prerequisites &&
-                      course.prerequisites.length > 0 && (
-                        <div className="text-sm">
-                          <span className="font-semibold text-slate-700">
-                            Prerequisites:
-                          </span>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {course.prerequisites.map((prereq, index) => (
-                              <Badge
-                                key={index}
-                                variant="outline"
-                                className="text-xs bg-red-50 text-red-700 border-red-200 font-medium"
-                              >
-                                {prereq}
-                              </Badge>
-                            ))}
+                      <div className="flex flex-wrap gap-2">
+                        <Badge
+                          className={getDifficultyColor(course.difficulty)}
+                          variant="secondary"
+                        >
+                          {course.difficulty}
+                        </Badge>
+                        <Badge
+                          className={getCourseTypeColor(course.course_type)}
+                          variant="secondary"
+                        >
+                          {course.course_type}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="pt-0">
+                      <div className="space-y-3">
+                        <div className="text-sm text-slate-600">
+                          <span className="font-semibold">Department:</span>{" "}
+                          {course.department}
+                        </div>
+
+                        <div className="flex items-center gap-4 text-sm text-slate-600">
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-4 w-4" />
+                            <span>{course.credit_hours} credits</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Star className="h-4 w-4" />
+                            <span>{course._count.course_reviews} reviews</span>
                           </div>
                         </div>
-                      )}
 
-                    {course.description && (
-                      <p className="text-sm text-slate-600 line-clamp-2">
-                        {course.description}
-                      </p>
-                    )}
+                        {course.prerequisites &&
+                          course.prerequisites.length > 0 && (
+                            <div className="text-sm">
+                              <span className="font-semibold text-slate-700">
+                                Prerequisites:
+                              </span>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {course.prerequisites.map((prereq, index) => (
+                                  <Badge
+                                    key={index}
+                                    variant="outline"
+                                    className="text-xs bg-red-50 text-red-700 border-red-200 font-medium"
+                                  >
+                                    {prereq}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
 
-                    <div className="flex gap-2 pt-2 border-t border-slate-100">
-                      <Button
-                        onClick={() => handleViewReviews(course)}
-                        className="flex-1 bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:border-slate-300 shadow-sm hover:shadow-md transition-all duration-300"
-                        size="sm"
-                      >
-                        <Eye className="h-4 w-4 mr-2" />
-                        View Reviews
-                      </Button>
-                      <Button
-                        onClick={() => handleAddReview(course)}
-                        className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-md hover:shadow-lg transition-all duration-300"
-                        size="sm"
-                      >
-                        <MessageSquarePlus className="h-4 w-4 mr-2" />
-                        Add Review
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                        {course.description && (
+                          <p className="text-sm text-slate-600 line-clamp-2">
+                            {course.description}
+                          </p>
+                        )}
 
-          {filteredCourses.length === 0 && !isLoading && (
-            <Card className="bg-white border-0 shadow-lg">
-              <CardContent className="text-center py-16">
-                <BookOpen className="mx-auto h-16 w-16 text-slate-400 mb-6" />
-                <h3 className="text-2xl font-bold text-slate-900 mb-3">
-                  No courses found
-                </h3>
-                <p className="text-lg text-slate-600">
-                  Try adjusting your search criteria or filters.
-                </p>
-              </CardContent>
-            </Card>
-          )}
+                        <div className="flex gap-2 pt-2 border-t border-slate-100">
+                          <Button
+                            onClick={() => handleViewReviews(course)}
+                            className="flex-1 bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:border-slate-300 shadow-sm hover:shadow-md transition-all duration-300"
+                            size="sm"
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Reviews
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {filteredCourses.length === 0 && !isLoading && (
+                <Card className="bg-white border-0 shadow-lg">
+                  <CardContent className="text-center py-16">
+                    <BookOpen className="mx-auto h-16 w-16 text-slate-400 mb-6" />
+                    <h3 className="text-2xl font-bold text-slate-900 mb-3">
+                      No courses found
+                    </h3>
+                    <p className="text-lg text-slate-600">
+                      Try adjusting your search criteria or filters.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+
+            <TabsContent value="my">
+              {/* Course Grid for My Courses */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredMyCourses.map((course) => (
+                  <Card
+                    key={course.id}
+                    className="group bg-white border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2"
+                  >
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1 min-w-0">
+                          <Badge
+                            variant="outline"
+                            className="mb-3 text-sm font-bold px-3 py-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white border-0 shadow-md"
+                          >
+                            {course.course_code}
+                          </Badge>
+                          <CardTitle className="text-lg font-bold leading-tight mb-3 text-slate-900 group-hover:text-blue-600 transition-colors">
+                            {course.course_name}
+                          </CardTitle>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <Badge
+                          className={getDifficultyColor(course.difficulty)}
+                          variant="secondary"
+                        >
+                          {course.difficulty}
+                        </Badge>
+                        <Badge
+                          className={getCourseTypeColor(course.course_type)}
+                          variant="secondary"
+                        >
+                          {course.course_type}
+                        </Badge>
+                      </div>
+                    </CardHeader>
+
+                    <CardContent className="pt-0">
+                      <div className="space-y-3">
+                        <div className="text-sm text-slate-600">
+                          <span className="font-semibold">Department:</span>{" "}
+                          {course.department}
+                        </div>
+
+                        <div className="flex items-center gap-4 text-sm text-slate-600">
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-4 w-4" />
+                            <span>{course.credit_hours} credits</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Star className="h-4 w-4" />
+                            <span>{course._count.course_reviews} reviews</span>
+                          </div>
+                        </div>
+
+                        {course.prerequisites &&
+                          course.prerequisites.length > 0 && (
+                            <div className="text-sm">
+                              <span className="font-semibold text-slate-700">
+                                Prerequisites:
+                              </span>
+                              <div className="flex flex-wrap gap-1 mt-1">
+                                {course.prerequisites.map((prereq, index) => (
+                                  <Badge
+                                    key={index}
+                                    variant="outline"
+                                    className="text-xs bg-red-50 text-red-700 border-red-200 font-medium"
+                                  >
+                                    {prereq}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                        {course.description && (
+                          <p className="text-sm text-slate-600 line-clamp-2">
+                            {course.description}
+                          </p>
+                        )}
+
+                        <div className="flex gap-2 pt-2 border-t border-slate-100">
+                          <Button
+                            onClick={() => handleViewReviews(course)}
+                            className="flex-1 bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 hover:border-slate-300 shadow-sm hover:shadow-md transition-all duration-300"
+                            size="sm"
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Reviews
+                          </Button>
+                          <Button
+                            onClick={() => handleAddReview(course)}
+                            className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-md hover:shadow-lg transition-all duration-300"
+                            size="sm"
+                          >
+                            <MessageSquarePlus className="h-4 w-4 mr-2" />
+                            {course.user_review ? "Edit Review" : "Add Review"}
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              {filteredMyCourses.length === 0 && !isLoading && (
+                <Card className="bg-white border-0 shadow-lg">
+                  <CardContent className="text-center py-16">
+                    <BookOpen className="mx-auto h-16 w-16 text-slate-400 mb-6" />
+                    <h3 className="text-2xl font-bold text-slate-900 mb-3">
+                      No completed courses found
+                    </h3>
+                    <p className="text-lg text-slate-600">
+                      Complete courses to see them here and add reviews.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
 
@@ -388,6 +545,7 @@ export default function CoursesPage() {
           isOpen={isReviewModalOpen}
           onClose={() => setIsReviewModalOpen(false)}
           course={selectedCourse}
+          existingReview={selectedCourse.user_review}
           onReviewSubmitted={handleReviewSubmitted}
         />
       )}

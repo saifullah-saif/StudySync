@@ -316,7 +316,7 @@ class BuddyService {
         });
       });
 
-      // Add connection status to each buddy
+      // Add connection status to each buddy and filter out already connected users
       const buddiesWithStatus = buddies.map(buddy => {
         const connectionInfo = connectionMap.get(buddy.id);
         return {
@@ -327,7 +327,7 @@ class BuddyService {
           is_connected: connectionInfo?.status === 'accepted',
           has_pending_request: connectionInfo?.status === 'pending'
         };
-      });
+      }).filter(buddy => !buddy.is_connected); // Exclude already connected users
 
       return buddiesWithStatus;
     } catch (error) {
@@ -444,6 +444,7 @@ class BuddyService {
               department: true,
               semester: true,
               profile_picture_url: true,
+              bio: true,
             }
           }
         },
@@ -452,13 +453,57 @@ class BuddyService {
         }
       });
 
-      return connections.map(conn => ({
-        id: conn.id,
-        request_type: conn.request_type,
-        status: conn.status,
-        created_at: conn.created_at,
-        requester: conn.users_user_connections_requester_idTousers,
-      }));
+      // Get requester IDs to fetch their courses
+      const requesterIds = connections.map(conn => conn.requester_id);
+      
+      // Fetch courses for all requesters
+      let coursesMap = new Map();
+      if (requesterIds.length > 0) {
+        const allCoursesData = await prisma.user_courses.findMany({
+          where: {
+            user_id: { in: requesterIds },
+          },
+          include: {
+            courses: {
+              select: {
+                course_code: true,
+                course_name: true,
+              },
+            },
+          },
+        });
+
+        // Group courses by user
+        allCoursesData.forEach(record => {
+          if (!coursesMap.has(record.user_id)) {
+            coursesMap.set(record.user_id, { current: [], previous: [] });
+          }
+          const courseData = {
+            code: record.courses.course_code,
+            name: record.courses.course_name,
+          };
+          if (record.is_completed) {
+            coursesMap.get(record.user_id).previous.push(courseData);
+          } else {
+            coursesMap.get(record.user_id).current.push(courseData);
+          }
+        });
+      }
+
+      return connections.map(conn => {
+        const courses = coursesMap.get(conn.requester_id) || { current: [], previous: [] };
+        return {
+          id: conn.id,
+          request_type: conn.request_type,
+          status: conn.status,
+          created_at: conn.created_at,
+          requester: {
+            ...conn.users_user_connections_requester_idTousers,
+            currentCourses: courses.current,
+            previousCourses: courses.previous,
+          },
+        };
+      });
     } catch (error) {
       console.error("Get pending connections error:", error);
       throw error;
@@ -626,6 +671,7 @@ class BuddyService {
               department: true,
               semester: true,
               profile_picture_url: true,
+              bio: true,
             }
           },
           users_user_connections_addressee_idTousers: {
@@ -636,6 +682,7 @@ class BuddyService {
               department: true,
               semester: true,
               profile_picture_url: true,
+              bio: true,
             }
           }
         },
@@ -644,12 +691,54 @@ class BuddyService {
         }
       });
 
+      // Get all connected user IDs
+      const connectedUserIds = connections.map(conn => 
+        conn.requester_id === userId ? conn.addressee_id : conn.requester_id
+      );
+      
+      // Fetch courses for all connected users
+      let coursesMap = new Map();
+      if (connectedUserIds.length > 0) {
+        const allCoursesData = await prisma.user_courses.findMany({
+          where: {
+            user_id: { in: connectedUserIds },
+          },
+          include: {
+            courses: {
+              select: {
+                course_code: true,
+                course_name: true,
+              },
+            },
+          },
+        });
+
+        // Group courses by user
+        allCoursesData.forEach(record => {
+          if (!coursesMap.has(record.user_id)) {
+            coursesMap.set(record.user_id, { current: [], previous: [] });
+          }
+          const courseData = {
+            code: record.courses.course_code,
+            name: record.courses.course_name,
+          };
+          if (record.is_completed) {
+            coursesMap.get(record.user_id).previous.push(courseData);
+          } else {
+            coursesMap.get(record.user_id).current.push(courseData);
+          }
+        });
+      }
+
       // Transform the data to show the "other" user in each connection
       return connections.map(conn => {
         const isRequester = conn.requester_id === userId;
         const connectedUser = isRequester 
           ? conn.users_user_connections_addressee_idTousers 
           : conn.users_user_connections_requester_idTousers;
+        
+        const connectedUserId = isRequester ? conn.addressee_id : conn.requester_id;
+        const courses = coursesMap.get(connectedUserId) || { current: [], previous: [] };
 
         return {
           id: conn.id,
@@ -658,7 +747,11 @@ class BuddyService {
           created_at: conn.created_at,
           accepted_at: conn.updated_at,
           user_role: isRequester ? 'requester' : 'addressee',
-          connected_user: connectedUser,
+          connected_user: {
+            ...connectedUser,
+            currentCourses: courses.current,
+            previousCourses: courses.previous,
+          },
         };
       });
     } catch (error) {

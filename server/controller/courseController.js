@@ -97,9 +97,31 @@ const searchCourses = async (req, res) => {
   }
 };
 
+// Get user's completed courses
+const getMyCompletedCourses = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const courses = await courseServices.getMyCompletedCourses(userId);
+    
+    res.status(200).json({
+      success: true,
+      data: courses,
+      message: "Your completed courses retrieved successfully"
+    });
+  } catch (error) {
+    console.error("Error in getMyCompletedCourses controller:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to retrieve your courses",
+      error: error.message
+    });
+  }
+};
+
 module.exports = {
   getAllCourses,
   getCourseById,
   getCoursesByDepartment,
-  searchCourses
+  searchCourses,
+  getMyCompletedCourses
 };

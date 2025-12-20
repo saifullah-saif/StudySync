@@ -6,6 +6,9 @@ const { authenticateToken } = require("../middleware/authMiddleware");
 // Get all courses (temporarily without auth for testing)
 router.get("/", courseController.getAllCourses);
 
+// Get user's completed courses
+router.get("/my-courses", authenticateToken, courseController.getMyCompletedCourses);
+
 // Search courses
 router.get("/search", authenticateToken, courseController.searchCourses);
 

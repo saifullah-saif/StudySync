@@ -65,6 +65,9 @@ interface Invitation {
     department?: string;
     semester?: number;
     profile_picture_url?: string;
+    bio?: string;
+    currentCourses?: Array<{ code: string; name: string }>;
+    previousCourses?: Array<{ code: string; name: string }>;
   };
 }
 
@@ -82,6 +85,9 @@ interface Connection {
     department?: string;
     semester?: number;
     profile_picture_url?: string;
+    bio?: string;
+    currentCourses?: Array<{ code: string; name: string }>;
+    previousCourses?: Array<{ code: string; name: string }>;
   };
 }
 
@@ -295,8 +301,59 @@ export default function BuddiesPage() {
     router.push(`/buddies/chat?${queryParams.toString()}`);
   };
 
-  const handleBuddyCardClick = (buddy: Buddy) => {
-    setSelectedBuddy(buddy);
+  const handleBuddyCardClick = (data: Buddy | Invitation | Connection) => {
+    let buddyData: Buddy;
+
+    // If it's already a Buddy, use it directly
+    if ('sharedCourses' in data) {
+      buddyData = data as Buddy;
+    }
+    // If it's an Invitation
+    else if ('requester' in data) {
+      const invitation = data as Invitation;
+      buddyData = {
+        id: invitation.requester.id,
+        name: invitation.requester.name,
+        email: invitation.requester.email,
+        department: invitation.requester.department || "",
+        semester: invitation.requester.semester || 0,
+        profile_picture_url: invitation.requester.profile_picture_url,
+        bio: invitation.requester.bio || "",
+        sharedCourses: [],
+        currentCourses: invitation.requester.currentCourses || [],
+        previousCourses: invitation.requester.previousCourses || [],
+        type: invitation.request_type === "mentor" ? "mentor" : "peer",
+        connection_status: "pending",
+        connection_type: invitation.request_type,
+        is_requester: false,
+        is_connected: false,
+        has_pending_request: true,
+      };
+    }
+    // If it's a Connection
+    else {
+      const connection = data as Connection;
+      buddyData = {
+        id: connection.connected_user.id,
+        name: connection.connected_user.name,
+        email: connection.connected_user.email,
+        department: connection.connected_user.department || "",
+        semester: connection.connected_user.semester || 0,
+        profile_picture_url: connection.connected_user.profile_picture_url,
+        bio: connection.connected_user.bio || "",
+        sharedCourses: [],
+        currentCourses: connection.connected_user.currentCourses || [],
+        previousCourses: connection.connected_user.previousCourses || [],
+        type: connection.request_type === "mentor" ? "mentor" : "peer",
+        connection_status: "accepted",
+        connection_type: connection.request_type,
+        is_requester: connection.user_role === "requester",
+        is_connected: true,
+        has_pending_request: false,
+      };
+    }
+
+    setSelectedBuddy(buddyData);
     setModalOpen(true);
   };
 
@@ -546,7 +603,8 @@ export default function BuddiesPage() {
                   {invitations.map((invitation) => (
                     <Card
                       key={invitation.id}
-                      className="bg-white border-0 shadow-lg hover:shadow-xl transition-all duration-300"
+                      className="bg-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer"
+                      onClick={() => handleBuddyCardClick(invitation)}
                     >
                       <CardContent className="pt-6">
                         <div className="flex items-center justify-between">
@@ -594,7 +652,7 @@ export default function BuddiesPage() {
                               </p>
                             </div>
                           </div>
-                          <div className="flex space-x-2">
+                          <div className="flex space-x-2" onClick={(e) => e.stopPropagation()}>
                             <Button
                               onClick={() =>
                                 handleInvitationResponse(
@@ -665,6 +723,7 @@ export default function BuddiesPage() {
                     <Card
                       key={connection.id}
                       className="bg-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer"
+                      onClick={() => handleBuddyCardClick(connection)}
                     >
                       <CardContent className="pt-6">
                         <div className="flex items-center justify-between">
@@ -713,7 +772,7 @@ export default function BuddiesPage() {
                               </div>
                             </div>
                           </div>
-                          <div className="text-right">
+                          <div className="text-right" onClick={(e) => e.stopPropagation()}>
                             <Button
                               size="sm"
                               variant="outline"
