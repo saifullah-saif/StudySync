@@ -56,9 +56,6 @@ import { fileAPI, generationAPI, flashcardAPI, documentAPI } from "@/lib/api";
 import { podcastAPI } from "@/lib/podcasts";
 import { useAuth } from "@/contexts/auth-context";
 import FileUpload from "../components/file-upload";
-import { langchainAPI } from "@/lib/api";
-import { generateQsAns } from "@/actions/upload-actions";
-import FlashcardsPanel from "@/components/FlashcardsPanel";
 import AudioPodcastPlayer from "@/components/AudioPodcastPlayer";
 
 interface FileItem {
@@ -90,7 +87,6 @@ export default function FilesPage() {
   const [filteredFiles, setFilteredFiles] = useState<FileItem[]>([]);
   const [stats, setStats] = useState<FileStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [extractedText, setExtractedText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFileType, setSelectedFileType] = useState("all");
   const [sortBy, setSortBy] = useState("upload_date"); // Match backend field name
@@ -411,21 +407,16 @@ export default function FilesPage() {
         throw new Error("Could not get file download URL");
       }
 
-      console.log("Processing file with URL:", fileUrl);
+      console.log("Extracting text from document ID:", file.id);
 
-      // Use LangChain API directly instead of generateQsAns
-      const result = await langchainAPI.processFileFromUrl(fileUrl, fileName);
+      // Use documentAPI.extractText instead of langchain
+      const result = await documentAPI.extractText(file.id);
 
       if (result.success) {
-        toast.success(`Successfully processed "${file.title}"`, {
-          description: `Extracted ${
-            result.data.wordCount
-          } words and generated ${result.data.qsAns?.length || 0} Q&A pairs`,
+        toast.success(`Successfully extracted text from "${file.title}"`, {
+          description: `Extracted ${result.data.wordCount} words`,
           duration: 5000,
         });
-
-        const extractedText = result.data.extractedText || "";
-        setExtractedText(extractedText);
 
         console.log(
           "📄 Extracted text preview:",
@@ -512,8 +503,8 @@ export default function FilesPage() {
           throw new Error("Could not get file download URL");
         }
 
-        // Extract text directly (don't rely on state updates)
-        const result = await langchainAPI.processFileFromUrl(fileUrl, fileName);
+        // Extract text directly using documentAPI
+        const result = await documentAPI.extractText(file.id);
 
         if (result.success && result.data.extractedText) {
           extractedText = result.data.extractedText;
@@ -640,8 +631,8 @@ export default function FilesPage() {
           throw new Error("Could not get file download URL");
         }
 
-        // Extract text directly (don't rely on state updates)
-        const result = await langchainAPI.processFileFromUrl(fileUrl, fileName);
+        // Extract text directly using documentAPI
+        const result = await documentAPI.extractText(file.id);
 
         if (result.success && result.data.extractedText) {
           // Store in state for future use
@@ -1921,8 +1912,6 @@ export default function FilesPage() {
             </DialogContent>
           </Dialog>
         )}
-
-        <div>extractedText: {extractedText}</div>
       </div>
     </div>
   );

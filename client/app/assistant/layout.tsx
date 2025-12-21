@@ -6,7 +6,7 @@ import Header from "@/components/header";
 
 const assistantNavigation = [
   { name: "Dashboard", href: "/assistant" },
-  { name: "Create Flashcards", href: "/assistant?tab=flashcards" },
+  { name: "Create Flashcards", href: "/assistant/create-flashcards" },
   { name: "My Files", href: "/assistant/files" },
   { name: "Podcasts", href: "/assistant/podcasts" },
 ];

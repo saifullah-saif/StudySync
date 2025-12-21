@@ -1,5 +1,7 @@
 const { PrismaClient } = require("@prisma/client");
-const flashcardGenerationService = require("../services/flashcardGenerationService");
+// DEPRECATED: flashcardGenerationService was removed during langchain migration
+// Flashcard generation is now handled in documentController.js
+// const flashcardGenerationService = require("../services/flashcardGenerationService");
 
 const prisma = new PrismaClient();
 
@@ -86,23 +88,13 @@ const generateFlashcardsFromFile = async (req, res) => {
       maxCards,
     });
 
-    // Use the async flashcard generation service
-    const result = await flashcardGenerationService.enqueueGenerationJob(
-      parseInt(documentId),
-      userId,
-      {
-        deckTitle: deckTitle || document.title,
-        cardType,
-        targetDifficulty,
-        maxCards,
-        templateId,
-      }
-    );
-
-    // Return 202 Accepted with job information
-    res.status(202).json({
-      success: true,
-      data: result,
+    // DEPRECATED: This endpoint is no longer used
+    // Please use POST /api/documents/generate-flashcards instead
+    res.status(410).json({
+      success: false,
+      message: "This endpoint is deprecated. Please use POST /api/documents/generate-flashcards instead",
+      redirectTo: "/api/documents/generate-flashcards",
+      migrationNote: "The flashcard generation service was consolidated into documentController during the langchain migration",
     });
   } catch (error) {
     console.error("Generate flashcards error:", error);
@@ -112,13 +104,6 @@ const generateFlashcardsFromFile = async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Document not found or access denied",
-      });
-    }
-
-    if (error.message.includes("OpenAI")) {
-      return res.status(500).json({
-        success: false,
-        message: "AI service temporarily unavailable. Please try again later.",
       });
     }
 
@@ -158,11 +143,37 @@ const getJobStatus = async (req, res) => {
       });
     }
 
-    // Get real job status from service
-    const jobStatus = await flashcardGenerationService.getJobStatus(
-      parseInt(jobId),
-      userId
-    );
+    // Get job status directly from database (service was removed)
+    const job = await prisma.generation_jobs.findFirst({
+      where: {
+        id: parseInt(jobId),
+        user_id: userId,
+      },
+      include: {
+        notes: {
+          select: {
+            title: true,
+          },
+        },
+      },
+    });
+
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: "Job not found or access denied",
+      });
+    }
+
+    const jobStatus = {
+      id: job.id,
+      status: job.status,
+      cardsGenerated: job.cards_generated || 0,
+      errorMessage: job.error_message,
+      startedAt: job.started_at,
+      completedAt: job.completed_at,
+      documentTitle: job.notes?.title,
+    };
 
     res.json({
       success: true,

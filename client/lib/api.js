@@ -196,6 +196,12 @@ export const documentAPI = {
     const response = await api.get(`/practice/decks/${deckId}`);
     return response.data;
   },
+
+  // Extract text from document (replaces langchain extraction)
+  extractText: async (documentId) => {
+    const response = await api.get(`/documents/extract/${documentId}`);
+    return response.data;
+  },
 };
 
 // File Management API
@@ -273,42 +279,21 @@ export const fileAPI = {
   },
 };
 
-// Add this langchainAPI object to your existing api.js
+// DEPRECATED: langchainAPI - Replaced by documentAPI.extractText()
+// Kept for reference during migration, will be removed after testing
 export const langchainAPI = {
-  // Process file with LangChain
-  processFile: async (fileId) => {
-    const response = await api.post(`/langchain/process/${fileId}`);
-    return response.data;
-  },
-
-  // Get processed file content
-  getFileContent: async (fileId) => {
-    const response = await api.get(`/langchain/content/${fileId}`);
-    return response.data;
-  },
-
-  // Extract chunks from text
-  extractChunks: async (text, options = {}) => {
-    const response = await api.post("/langchain/extract-chunks", {
-      text,
-      options,
-    });
-    return response.data;
-  },
-
-  // Process file from URL with LangChain
+  // DEPRECATED: Use documentAPI.extractText(documentId) instead
   processFileFromUrl: async (fileUrl, fileName) => {
-    const response = await api.post("/langchain/process-url", {
-      fileUrl,
-      fileName,
-    });
-    return response.data;
+    console.warn("⚠️ langchainAPI.processFileFromUrl is deprecated. Use documentAPI.extractText() instead");
+    // For backward compatibility during migration, extract documentId from fileUrl
+    // This is a temporary shim that will be removed
+    throw new Error("langchainAPI is deprecated. Please use documentAPI.extractText(documentId) instead");
   },
 
-  // Extract text from document by ID
+  // DEPRECATED: Use documentAPI.extractText(documentId) instead
   extractTextFromDocument: async (documentId) => {
-    const response = await api.get(`/langchain/extract/${documentId}`);
-    return response.data;
+    console.warn("⚠️ langchainAPI.extractTextFromDocument is deprecated. Use documentAPI.extractText() instead");
+    throw new Error("langchainAPI is deprecated. Please use documentAPI.extractText(documentId) instead");
   },
 };
 

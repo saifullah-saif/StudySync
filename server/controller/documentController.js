@@ -652,6 +652,7 @@ async function extractTextFromDocument(document) {
     // Extract text
     const extractedText = await extractTextFromFile(
       buffer,
+      document.file_type,
       document.file_name,
       getMimeType(document.file_type)
     );
@@ -707,10 +708,90 @@ function getMimeType(fileType) {
   }
 }
 
+/**
+ * Get extracted text from a document
+ * Replaces langchain text extraction functionality
+ */
+const getExtractedText = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    console.log(`📄 Getting extracted text for document ${id}`);
+
+    // Find document with chunks
+    const document = await prisma.notes.findFirst({
+      where: {
+        id: parseInt(id),
+        user_id: userId,
+      },
+      include: {
+        document_chunks: {
+          orderBy: {
+            chunk_order: "asc",
+          },
+        },
+      },
+    });
+
+    if (!document) {
+      return res.status(404).json({
+        success: false,
+        message: "Document not found or access denied",
+      });
+    }
+
+    let extractedText = "";
+    let wordCount = 0;
+    let pageCount = 1;
+
+    // Check if text has already been extracted
+    if (document.document_chunks && document.document_chunks.length > 0) {
+      console.log(
+        `✅ Found ${document.document_chunks.length} existing chunks`
+      );
+      extractedText = document.document_chunks
+        .map((chunk) => chunk.chunk_text)
+        .join("\n\n");
+      wordCount = extractedText.split(/\s+/).filter((w) => w.length > 0).length;
+    } else {
+      // Extract text from file
+      console.log("🔄 Extracting text from file...");
+      extractedText = await extractTextFromDocument(document);
+      wordCount = extractedText.split(/\s+/).filter((w) => w.length > 0).length;
+
+      // Estimate page count (rough estimate: 250 words per page)
+      pageCount = Math.ceil(wordCount / 250);
+    }
+
+    // Return extracted text with metadata
+    res.json({
+      success: true,
+      message: "Text extracted successfully",
+      data: {
+        extractedText,
+        wordCount,
+        pageCount,
+        preview:
+          extractedText.substring(0, 1000) +
+          (extractedText.length > 1000 ? "..." : ""),
+        qsAns: [], // Empty array for compatibility with langchain response format
+      },
+    });
+  } catch (error) {
+    console.error("❌ Get extracted text error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to extract text from document",
+    });
+  }
+};
+
 module.exports = {
   upload,
   uploadDocument,
   pasteDocument,
   generateFlashcardsFromDocument,
   getDeck,
+  getExtractedText,
 };
