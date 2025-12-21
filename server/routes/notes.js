@@ -1,7 +1,10 @@
 const express = require("express");
 const multer = require("multer");
 const NotesController = require("../controller/notesController");
-const { verifyTokenFromCookie } = require("../middleware/jwtCookieMiddleware");
+const {
+  verifyTokenFromCookie,
+  optionalVerifyTokenFromCookie,
+} = require("../middleware/jwtCookieMiddleware");
 
 const router = express.Router();
 
@@ -33,8 +36,8 @@ const upload = multer({
   },
 });
 
-// Public routes
-router.get("/", NotesController.getAllNotes);
+// Routes with optional authentication for visibility filtering
+router.get("/", optionalVerifyTokenFromCookie, NotesController.getAllNotes);
 router.get("/courses", NotesController.getCourses);
 router.get("/:id", NotesController.getNoteById);
 router.get("/:id/download", NotesController.downloadNote);

@@ -225,6 +225,14 @@ rules
 .rules.
 
 
+
+.playwright-mcp/
+.playwright-mcp-report/
+.playwright-mcp-report-html/
+.playwright-mcp-report-json/
+playwright-mcp
+
+
 # Documentation builds
 docs/build/
 
@@ -233,3 +241,7 @@ storybook-static/
 
 # Bundle analyzer
 .bundle-analyzer/
+
+
+#Ignore vscode AI rules
+.github\instructions\codacy.instructions.md

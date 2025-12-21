@@ -1,12 +1,28 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Filter, Grid3X3, List, Heart, User, Calendar, Download } from "lucide-react"
-import { notesAPI } from "@/lib/api"
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Search,
+  Filter,
+  Grid3X3,
+  List,
+  Heart,
+  User,
+  Calendar,
+  Download,
+} from "lucide-react";
+import { notesAPI } from "@/lib/api";
 
 interface Note {
   id: number;
@@ -39,104 +55,121 @@ interface Course {
 }
 
 export default function BrowseNotes() {
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCourse, setSelectedCourse] = useState("all")
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  const [notes, setNotes] = useState<Note[]>([])
-  const [courses, setCourses] = useState<Course[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState("")
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCourse, setSelectedCourse] = useState("all");
+  const [selectedVisibility, setSelectedVisibility] = useState("all");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [notes, setNotes] = useState<Note[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
 
   // Fetch courses on component mount
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const response = await notesAPI.getCourses()
+        const response = await notesAPI.getCourses();
         if (response.success) {
-          setCourses(response.data)
+          setCourses(response.data);
         }
       } catch (error) {
-        console.error("Error fetching courses:", error)
+        console.error("Error fetching courses:", error);
       }
-    }
+    };
 
-    fetchCourses()
-  }, [])
+    fetchCourses();
+  }, []);
 
   // Fetch notes when filters change
   useEffect(() => {
     const fetchNotes = async () => {
-      setIsLoading(true)
-      setError("")
-      
+      setIsLoading(true);
+      setError("");
+
       try {
         const filters: any = {
-          visibility: "public",
+          // Remove hardcoded visibility to get all notes user has permission to see
           limit: 20,
           offset: 0,
-        }
+        };
 
         if (selectedCourse !== "all") {
-          filters.course = selectedCourse
+          filters.course = selectedCourse;
+        }
+
+        if (selectedVisibility !== "all") {
+          filters.visibility = selectedVisibility;
         }
 
         if (searchQuery.trim()) {
-          filters.search = searchQuery.trim()
+          filters.search = searchQuery.trim();
         }
 
-        const response = await notesAPI.getAllNotes(filters)
-        
+        const response = await notesAPI.getAllNotes(filters);
+
         if (response.success) {
-          setNotes(response.data)
+          setNotes(response.data);
         } else {
-          setError("Failed to fetch notes")
+          setError("Failed to fetch notes");
         }
       } catch (error: any) {
-        console.error("Error fetching notes:", error)
-        setError("Failed to fetch notes")
+        console.error("Error fetching notes:", error);
+        setError("Failed to fetch notes");
       } finally {
-        setIsLoading(false)
+        setIsLoading(false);
       }
-    }
+    };
 
-    fetchNotes()
-  }, [selectedCourse, searchQuery])
+    fetchNotes();
+  }, [selectedCourse, selectedVisibility, searchQuery]);
 
   const formatFileSize = (bytes: string) => {
-    const size = parseInt(bytes)
-    if (size < 1024) return `${size} B`
-    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
-    return `${(size / (1024 * 1024)).toFixed(1)} MB`
-  }
+    const size = parseInt(bytes);
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric'
-    })
-  }
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const handleNoteClick = (noteId: number) => {
+    router.push(`/view-notes/${noteId}`);
+  };
 
   const handleDownload = async (noteId: number) => {
     try {
       // This would typically open a download link
-      window.open(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"}/notes/${noteId}/download`, '_blank')
+      window.open(
+        `${
+          process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"
+        }/notes/${noteId}/download`,
+        "_blank"
+      );
     } catch (error) {
-      console.error("Download error:", error)
+      console.error("Download error:", error);
     }
-  }
+  };
 
   return (
     <div className="space-y-8">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">Browse Notes</h1>
-        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+      <div className="text-center mb-12">
+        <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
+          Browse Notes
+        </h1>
+        <p className="text-xl text-slate-600 max-w-2xl mx-auto">
           Discover and learn from notes shared by your fellow students.
         </p>
       </div>
 
       {/* Search and Filter Bar */}
-      <Card className="bg-blue-50 border-blue-200">
+      <Card className="bg-white border-0 shadow-lg">
         <CardContent className="pt-6">
           <div className="space-y-4">
             <div className="flex items-center gap-4">
@@ -154,7 +187,9 @@ export default function BrowseNotes() {
                   variant={viewMode === "grid" ? "default" : "ghost"}
                   size="icon"
                   onClick={() => setViewMode("grid")}
-                  className={viewMode === "grid" ? "bg-blue-600 hover:bg-blue-700" : ""}
+                  className={
+                    viewMode === "grid" ? "bg-blue-600 hover:bg-blue-700" : ""
+                  }
                 >
                   <Grid3X3 className="w-4 h-4" />
                 </Button>
@@ -168,21 +203,43 @@ export default function BrowseNotes() {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <Filter className="w-4 h-4 text-gray-500" />
-              <Select value={selectedCourse} onValueChange={setSelectedCourse}>
-                <SelectTrigger className="w-48 bg-white">
-                  <SelectValue placeholder="All Courses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Courses</SelectItem>
-                  {courses.map((course) => (
-                    <SelectItem key={course.id} value={course.course_code}>
-                      {course.course_code} - {course.course_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-gray-500" />
+                <Select
+                  value={selectedCourse}
+                  onValueChange={setSelectedCourse}
+                >
+                  <SelectTrigger className="w-48 bg-white">
+                    <SelectValue placeholder="All Courses" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white max-h-60">
+                    <SelectItem value="all">All Courses</SelectItem>
+                    {courses.map((course) => (
+                      <SelectItem key={course.id} value={course.course_code}>
+                        {course.course_code} - {course.course_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Select
+                  value={selectedVisibility}
+                  onValueChange={setSelectedVisibility}
+                >
+                  <SelectTrigger className="w-40 bg-white">
+                    <SelectValue placeholder="All Types" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-white">
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="public">Public</SelectItem>
+                    <SelectItem value="course_only">Course Only</SelectItem>
+                    <SelectItem value="private">Private</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -190,7 +247,7 @@ export default function BrowseNotes() {
 
       {/* Results Count */}
       <div className="text-left">
-        <p className="text-gray-600">
+        <p className="text-lg text-slate-600 font-medium">
           {isLoading ? "Loading..." : `${notes.length} Notes Found`}
         </p>
       </div>
@@ -206,14 +263,14 @@ export default function BrowseNotes() {
       {isLoading ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {[...Array(6)].map((_, i) => (
-            <Card key={i} className="bg-blue-50 border-blue-200 animate-pulse">
+            <Card key={i} className="bg-white border-0 shadow-lg animate-pulse">
               <CardContent className="p-6">
-                <div className="h-4 bg-gray-300 rounded mb-3"></div>
-                <div className="h-3 bg-gray-300 rounded mb-2"></div>
-                <div className="h-3 bg-gray-300 rounded mb-4"></div>
+                <div className="h-4 bg-slate-200 rounded mb-3"></div>
+                <div className="h-3 bg-slate-200 rounded mb-2"></div>
+                <div className="h-3 bg-slate-200 rounded mb-4"></div>
                 <div className="flex justify-between">
-                  <div className="h-3 bg-gray-300 rounded w-16"></div>
-                  <div className="h-3 bg-gray-300 rounded w-16"></div>
+                  <div className="h-3 bg-slate-200 rounded w-16"></div>
+                  <div className="h-3 bg-slate-200 rounded w-16"></div>
                 </div>
               </CardContent>
             </Card>
@@ -221,26 +278,42 @@ export default function BrowseNotes() {
         </div>
       ) : (
         /* Notes Grid */
-        <div className={`grid gap-6 ${viewMode === "grid" ? "md:grid-cols-2 lg:grid-cols-3" : "grid-cols-1"}`}>
+        <div
+          className={`grid gap-6 ${
+            viewMode === "grid"
+              ? "md:grid-cols-2 lg:grid-cols-3"
+              : "grid-cols-1"
+          }`}
+        >
           {notes.length === 0 ? (
             <div className="col-span-full text-center py-12">
-              <p className="text-gray-500 text-lg">No notes found matching your criteria.</p>
+              <p className="text-slate-500 text-lg">
+                No notes found matching your criteria.
+              </p>
             </div>
           ) : (
             notes.map((note) => (
-              <Card key={note.id} className="bg-blue-50 border-blue-200 hover:shadow-lg transition-shadow">
+              <Card
+                key={note.id}
+                className="group bg-white border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2 cursor-pointer"
+                onClick={() => handleNoteClick(note.id)}
+              >
                 <CardContent className="p-6">
-                  <div className="flex items-start justify-between mb-3">
-                    <h3 className="text-lg font-semibold text-gray-900 flex-1 line-clamp-2">{note.title}</h3>
+                  <div className="flex items-start justify-between mb-4">
+                    <h3 className="text-lg font-bold text-slate-900 flex-1 line-clamp-2 group-hover:text-blue-600 transition-colors">
+                      {note.title}
+                    </h3>
                     <div className="flex items-center space-x-1 text-red-500 ml-2">
-                      <Heart className="w-4 h-4" />
-                      <span className="text-sm font-medium">{note.like_count || 0}</span>
+                      <Heart className="w-4 h-4 fill-current" />
+                      <span className="text-sm font-medium">
+                        {note.like_count || 0}
+                      </span>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2 mb-3">
                     <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
-                      {note.courses.course_code}
+                      {note.courses?.course_code || "No Course"}
                     </span>
                     <span className="bg-gray-100 text-gray-700 px-2 py-1 rounded text-xs font-medium">
                       {note.file_type.toUpperCase()}
@@ -248,16 +321,36 @@ export default function BrowseNotes() {
                     <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-medium">
                       {formatFileSize(note.file_size_bytes)}
                     </span>
+                    {/* Visibility indicator badge */}
+                    <span
+                      className={`px-2 py-1 rounded text-xs font-medium ${
+                        note.visibility === "public"
+                          ? "bg-emerald-100 text-emerald-800"
+                          : note.visibility === "course_only"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-red-100 text-red-800"
+                      }`}
+                    >
+                      {note.visibility === "public"
+                        ? "Public"
+                        : note.visibility === "course_only"
+                        ? "Course Only"
+                        : "Private"}
+                    </span>
                   </div>
 
                   {note.description && (
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">{note.description}</p>
+                    <p className="text-slate-600 text-sm mb-4 line-clamp-2">
+                      {note.description}
+                    </p>
                   )}
 
-                  <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
+                  <div className="flex items-center justify-between text-sm text-slate-500 mb-4">
                     <div className="flex items-center space-x-1">
                       <User className="w-4 h-4" />
-                      <span>{note.users.name}</span>
+                      <span className="font-medium">
+                        {note.users?.name || "Unknown User"}
+                      </span>
                     </div>
                     <div className="flex items-center space-x-1">
                       <Calendar className="w-4 h-4" />
@@ -265,17 +358,23 @@ export default function BrowseNotes() {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-1 text-gray-500">
+                  <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                    <div className="flex items-center space-x-1 text-slate-500">
                       <Download className="w-4 h-4" />
-                      <span className="text-xs">{note.download_count || 0} downloads</span>
+                      <span className="text-xs font-medium">
+                        {note.download_count || 0} downloads
+                      </span>
                     </div>
-                    
+
                     <div className="flex gap-2">
-                      <Button 
-                        variant="outline" 
+                      <Button
+                        variant="outline"
                         size="sm"
-                        onClick={() => handleDownload(note.id)}
+                        className="bg-blue-600 text-white hover:bg-blue-700 border-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownload(note.id);
+                        }}
                       >
                         <Download className="w-4 h-4 mr-1" />
                         Download
@@ -289,5 +388,5 @@ export default function BrowseNotes() {
         </div>
       )}
     </div>
-  )
+  );
 }

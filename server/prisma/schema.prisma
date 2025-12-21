@@ -62,7 +62,6 @@ model brainrot_sessions {
   users                    users?         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model card_progress {
   id                    Int                    @id @default(autoincrement())
   user_id               Int?
@@ -115,7 +114,6 @@ model chat_messages {
   users_chat_messages_sender_idTousers   users?    @relation("chat_messages_sender_idTousers", fields: [sender_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model course_reviews {
   id                Int       @id @default(autoincrement())
   user_id           Int?
@@ -226,7 +224,6 @@ model flashcard_tags {
   @@id([flashcard_id, tag_id])
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model flashcards {
   id                Int                 @id @default(autoincrement())
   deck_id           Int?
@@ -276,7 +273,6 @@ model generation_templates {
   user_preferences  user_preferences[]
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model library_rooms {
   id           Int             @id @default(autoincrement())
   name         String          @db.VarChar(255)
@@ -378,7 +374,6 @@ model repetition_algorithms {
   user_preferences    user_preferences[]
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model reservations {
   id            Int            @id @default(autoincrement())
   user_id       Int?
@@ -450,7 +445,6 @@ model user_activity {
   @@index([user_id], map: "idx_user_activity_user_id")
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model user_connections {
   id                                         Int       @id @default(autoincrement())
   requester_id                               Int?
@@ -517,7 +511,6 @@ model user_stats {
   users                     users?    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model users {
   id                                                    Int                 @id @default(autoincrement())
   name                                                  String              @db.VarChar(255)

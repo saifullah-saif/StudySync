@@ -84,6 +84,24 @@ class NotesService {
     }
   }
 
+  async getFilePublicUrl(filePath) {
+    try {
+      const { data, error } = this.supabase.storage
+        .from("study-sync-documents")
+        .getPublicUrl(filePath);
+
+      if (error) {
+        console.error("Supabase get public URL error:", error);
+        throw new Error(`Failed to get public URL for file: ${error.message}`);
+      }
+
+      return data.publicUrl;
+    } catch (error) {
+      console.error("Get public URL error:", error);
+      throw error;
+    }
+  }
+
   // Download file from Supabase Storage
   async downloadFileFromStorage(filePath) {
     try {
@@ -143,11 +161,11 @@ class NotesService {
 
       // Generate unique file name
       const fileExtension = this.getFileExtension(file.mimetype);
-      const uniqueFileName = `${uuidv4()}${fileExtension}`;
+      const uniqueFileName = `${title}-${uuidv4()}${fileExtension}`;
 
       // Upload file to Supabase Storage
       const filePath = await this.uploadFileToStorage(file, uniqueFileName);
-
+      const fileUrl = await this.getFilePublicUrl(filePath);
       // Get file type for database
       const fileType = this.getFileTypeFromMime(file.mimetype);
 
@@ -162,6 +180,7 @@ class NotesService {
           file_path: filePath,
           file_type: fileType,
           file_size_bytes: BigInt(file.size),
+          file_url: fileUrl,
           visibility,
           tags: [], // Empty array for now, can be enhanced later
         },
@@ -197,11 +216,91 @@ class NotesService {
   }
 
   // Get all notes with filters
-  async getAllNotes({ course, search, visibility, limit, offset }) {
+  async getAllNotes({ userId, course, search, visibility, limit, offset }) {
     try {
+      // Build the visibility filter based on user authentication and permissions
+      let visibilityFilter;
+
+      if (userId) {
+        // For authenticated users: implement comprehensive filtering
+        if (visibility && visibility !== "all") {
+          // If a specific visibility is requested, filter by it (with permission checks)
+          switch (visibility) {
+            case "public":
+              visibilityFilter = { visibility: "public" };
+              break;
+            case "private":
+              // Only show private notes uploaded by the current user
+              visibilityFilter = {
+                AND: [{ visibility: "private" }, { user_id: userId }],
+              };
+              break;
+            case "course_only":
+              // Only show course_only notes for courses where user is enrolled
+              visibilityFilter = {
+                AND: [
+                  { visibility: "course_only" },
+                  {
+                    courses: {
+                      user_courses: {
+                        some: {
+                          user_id: userId,
+                        },
+                      },
+                    },
+                  },
+                ],
+              };
+              break;
+            default:
+              // Default to public for invalid visibility values
+              visibilityFilter = { visibility: "public" };
+          }
+        } else {
+          // No specific visibility requested - show all notes user has permission to see
+          visibilityFilter = {
+            OR: [
+              // 1. All public notes
+              { visibility: "public" },
+              // 2. Course-only notes for courses where user is enrolled
+              {
+                AND: [
+                  { visibility: "course_only" },
+                  {
+                    courses: {
+                      user_courses: {
+                        some: {
+                          user_id: userId,
+                        },
+                      },
+                    },
+                  },
+                ],
+              },
+              // 3. Private notes uploaded by the current user
+              {
+                AND: [{ visibility: "private" }, { user_id: userId }],
+              },
+            ],
+          };
+        }
+      } else {
+        // For unauthenticated users: only show public notes
+        if (visibility && visibility === "public") {
+          visibilityFilter = { visibility: "public" };
+        } else if (visibility && visibility !== "public") {
+          // Non-authenticated users cannot access private or course_only notes
+          visibilityFilter = { visibility: "public" };
+        } else {
+          // Default to public for unauthenticated users
+          visibilityFilter = { visibility: "public" };
+        }
+      }
+
+      // Build the complete where clause
       const where = {
         AND: [
-          visibility ? { visibility } : {},
+          visibilityFilter,
           course
             ? {
                 courses: {
@@ -413,7 +512,6 @@ class NotesService {
   // Update note
   async updateNote(id, userId, updateData) {
     try {
-     
       const existingNote = await this.prisma.notes.findUnique({
         where: { id: parseInt(id) },
       });
@@ -426,10 +524,8 @@ class NotesService {
         throw new Error("Access denied");
       }
 
-      
       const dataToUpdate = {};
 
-      
       if (updateData.title !== undefined && updateData.title !== null) {
         dataToUpdate.title = updateData.title;
       }
@@ -448,7 +544,6 @@ class NotesService {
         dataToUpdate.visibility = updateData.visibility;
       }
 
-      
       dataToUpdate.last_modified = new Date();
 
       const updatedNote = await this.prisma.notes.update({

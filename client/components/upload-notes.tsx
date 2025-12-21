@@ -1,17 +1,30 @@
-"use client"
+"use client";
 
-import { useState, useRef, useCallback, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Card, CardContent } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Progress } from "@/components/ui/progress"
-import { Upload, Cloud, X, FileText, AlertCircle, CheckCircle } from "lucide-react"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { apiRequest, notesAPI } from "@/lib/api"
+import { useState, useRef, useCallback, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Progress } from "@/components/ui/progress";
+import {
+  Upload,
+  Cloud,
+  X,
+  FileText,
+  AlertCircle,
+  CheckCircle,
+} from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { apiRequest, notesAPI } from "@/lib/api";
 
 interface AlertState {
   show: boolean;
@@ -27,220 +40,257 @@ interface Course {
 }
 
 export default function UploadNotes() {
-  const [uploadTitle, setUploadTitle] = useState("")
-  const [uploadCourse, setUploadCourse] = useState("")
-  const [uploadDescription, setUploadDescription] = useState("")
-  const [visibility, setVisibility] = useState("public")
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const [isUploading, setIsUploading] = useState(false)
-  const [uploadProgress, setUploadProgress] = useState(0)
-  const [isDragOver, setIsDragOver] = useState(false)
-  const [alert, setAlert] = useState<AlertState>({ show: false, type: "", message: "" })
-  const [courses, setCourses] = useState<Course[]>([])
-  const [coursesLoading, setCoursesLoading] = useState(true)
-  
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploadTitle, setUploadTitle] = useState("");
+  const [uploadCourse, setUploadCourse] = useState("");
+  const [uploadDescription, setUploadDescription] = useState("");
+  const [visibility, setVisibility] = useState("public");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [alert, setAlert] = useState<AlertState>({
+    show: false,
+    type: "",
+    message: "",
+  });
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [coursesLoading, setCoursesLoading] = useState(true);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch courses on component mount
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-
-
-        setCoursesLoading(true)
-        const response = await notesAPI.getCourses()
+        setCoursesLoading(true);
+        const response = await notesAPI.getCourses();
         if (response.success) {
-          setCourses(response.data)
-          console.log(response.data)
+          setCourses(response.data);
+          console.log(response.data);
         } else {
-          console.error("Failed to fetch courses:", response.message)
-          showAlert("error", "Failed to load courses. Please refresh the page.")
+          console.error("Failed to fetch courses:", response.message);
+          showAlert(
+            "error",
+            "Failed to load courses. Please refresh the page."
+          );
         }
       } catch (error) {
-        console.error("Error fetching courses:", error)
-        showAlert("error", "Failed to load courses. Please check your internet connection.")
+        console.error("Error fetching courses:", error);
+        showAlert(
+          "error",
+          "Failed to load courses. Please check your internet connection."
+        );
       } finally {
-        setCoursesLoading(false)
-
-      
+        setCoursesLoading(false);
       }
-    }
+    };
 
-    fetchCourses()
-  }, [])
+    fetchCourses();
+  }, []);
 
   // Supported file types and max size
-  const SUPPORTED_TYPES = ["application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "text/plain"]
-  const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
+  const SUPPORTED_TYPES = [
+    "application/pdf",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "text/plain",
+  ];
+  const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
   const showAlert = (type: "success" | "error", message: string) => {
-    setAlert({ show: true, type, message })
-    setTimeout(() => setAlert({ show: false, type: "", message: "" }), 5000)
-  }
+    setAlert({ show: true, type, message });
+    setTimeout(() => setAlert({ show: false, type: "", message: "" }), 5000);
+  };
 
   const validateFile = (file: File): boolean => {
     if (!SUPPORTED_TYPES.includes(file.type)) {
-      showAlert("error", "File type not supported. Please upload PDF, DOCX, or TXT files only.")
-      return false
+      showAlert(
+        "error",
+        "File type not supported. Please upload PDF, DOCX, or TXT files only."
+      );
+      return false;
     }
 
     if (file.size > MAX_FILE_SIZE) {
-      showAlert("error", "File size exceeds 50MB limit. Please choose a smaller file.")
-      return false
+      showAlert(
+        "error",
+        "File size exceeds 50MB limit. Please choose a smaller file."
+      );
+      return false;
     }
 
-    return true
-  }
+    return true;
+  };
 
   const handleFileSelect = (file: File) => {
     if (validateFile(file)) {
-      setSelectedFile(file)
-      showAlert("success", `File "${file.name}" selected successfully!`)
+      setSelectedFile(file);
+      showAlert("success", `File "${file.name}" selected successfully!`);
     }
-  }
+  };
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    setIsDragOver(true)
-  }, [])
+    e.preventDefault();
+    setIsDragOver(true);
+  }, []);
 
   const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    setIsDragOver(false)
-  }, [])
+    e.preventDefault();
+    setIsDragOver(false);
+  }, []);
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    setIsDragOver(false)
-    
-    const files = e.dataTransfer.files
+    e.preventDefault();
+    setIsDragOver(false);
+
+    const files = e.dataTransfer.files;
     if (files.length > 0) {
-      handleFileSelect(files[0])
+      handleFileSelect(files[0]);
     }
-  }, [])
+  }, []);
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
+    const files = e.target.files;
     if (files && files.length > 0) {
-      handleFileSelect(files[0])
+      handleFileSelect(files[0]);
     }
-  }
+  };
 
   const removeSelectedFile = () => {
-    setSelectedFile(null)
+    setSelectedFile(null);
     if (fileInputRef.current) {
-      fileInputRef.current.value = ""
+      fileInputRef.current.value = "";
     }
-  }
+  };
 
   const handleUpload = async () => {
     // Validation
     if (!selectedFile) {
-      showAlert("error", "Please select a file to upload.")
-      return
+      showAlert("error", "Please select a file to upload.");
+      return;
     }
 
     if (!uploadTitle.trim()) {
-      showAlert("error", "Please enter a title for your notes.")
-      return
+      showAlert("error", "Please enter a title for your notes.");
+      return;
     }
 
     if (!uploadCourse) {
-      showAlert("error", "Please select a course.")
-      return
+      showAlert("error", "Please select a course.");
+      return;
     }
 
-    setIsUploading(true)
-    setUploadProgress(0)
+    setIsUploading(true);
+    setUploadProgress(0);
 
     try {
       // Create FormData for file upload
-      const formData = new FormData()
-      formData.append("file", selectedFile)
-      formData.append("title", uploadTitle.trim())
-      formData.append("course", uploadCourse)
-      formData.append("description", uploadDescription.trim())
-      formData.append("visibility", visibility)
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("title", uploadTitle.trim());
+      formData.append("course", uploadCourse);
+      formData.append("description", uploadDescription.trim());
+      formData.append("visibility", visibility);
 
       // Simulate progress for better UX
       const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
+        setUploadProgress((prev) => {
           if (prev >= 90) {
-            clearInterval(progressInterval)
-            return prev
+            clearInterval(progressInterval);
+            return prev;
           }
-          return prev + 10
-        })
-      }, 200)
+          return prev + 10;
+        });
+      }, 200);
 
       const response = await apiRequest.post("/notes/upload", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
-      })
+      });
 
-      clearInterval(progressInterval)
-      setUploadProgress(100)
+      clearInterval(progressInterval);
+      setUploadProgress(100);
 
       if (response.success) {
-        showAlert("success", "Notes uploaded successfully!")
-        
+        showAlert("success", "Notes uploaded successfully!");
+
         // Reset form
-        setUploadTitle("")
-        setUploadCourse("")
-        setUploadDescription("")
-        setVisibility("public")
-        setSelectedFile(null)
+        setUploadTitle("");
+        setUploadCourse("");
+        setUploadDescription("");
+        setVisibility("public");
+        setSelectedFile(null);
         if (fileInputRef.current) {
-          fileInputRef.current.value = ""
+          fileInputRef.current.value = "";
         }
       } else {
-        throw new Error(response.message || "Upload failed")
+        throw new Error(response.message || "Upload failed");
       }
     } catch (error: any) {
-      console.error("Upload error:", error)
-      showAlert("error", error.response?.data?.message || error.message || "Failed to upload notes. Please try again.")
+      console.error("Upload error:", error);
+      showAlert(
+        "error",
+        error.response?.data?.message ||
+          error.message ||
+          "Failed to upload notes. Please try again."
+      );
     } finally {
-      setIsUploading(false)
-      setUploadProgress(0)
+      setIsUploading(false);
+      setUploadProgress(0);
     }
-  }
+  };
 
   const getFileTypeFromName = (fileName: string): string => {
-    const extension = fileName.split('.').pop()?.toLowerCase()
+    const extension = fileName.split(".").pop()?.toLowerCase();
     switch (extension) {
-      case 'pdf': return 'pdf'
-      case 'docx': return 'docx'
-      case 'txt': return 'txt'
-      default: return 'unknown'
+      case "pdf":
+        return "pdf";
+      case "docx":
+        return "docx";
+      case "txt":
+        return "txt";
+      default:
+        return "unknown";
     }
-  }
+  };
 
   return (
     <div className="space-y-8">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">Upload Your Notes</h1>
-        <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+      <div className="text-center mb-12">
+        <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
+          Upload Your Notes
+        </h1>
+        <p className="text-xl text-slate-600 max-w-2xl mx-auto">
           Share your lecture notes with fellow students and help them succeed.
         </p>
       </div>
 
       {/* Alert */}
       {alert.show && (
-        <Alert className={`max-w-2xl mx-auto ${alert.type === 'error' ? 'border-red-200 bg-red-50' : 'border-green-200 bg-green-50'}`}>
-          {alert.type === 'error' ? (
+        <Alert
+          className={`max-w-2xl mx-auto ${
+            alert.type === "error"
+              ? "border-red-200 bg-red-50"
+              : "border-green-200 bg-green-50"
+          }`}
+        >
+          {alert.type === "error" ? (
             <AlertCircle className="h-4 w-4 text-red-600" />
           ) : (
             <CheckCircle className="h-4 w-4 text-green-600" />
           )}
-          <AlertDescription className={alert.type === 'error' ? 'text-red-800' : 'text-green-800'}>
+          <AlertDescription
+            className={
+              alert.type === "error" ? "text-red-800" : "text-green-800"
+            }
+          >
             {alert.message}
           </AlertDescription>
         </Alert>
       )}
 
       {/* Upload Module */}
-      <Card className="bg-blue-50 border-blue-200 max-w-2xl mx-auto">
+      <Card className="bg-white border-0 shadow-lg max-w-2xl mx-auto">
         <CardContent className="p-8">
           <div className="space-y-6">
             {/* File Input */}
@@ -261,9 +311,12 @@ export default function UploadNotes() {
                   <div className="flex items-center justify-center space-x-2">
                     <FileText className="w-8 h-8 text-green-500" />
                     <div className="text-left">
-                      <p className="text-sm font-medium text-gray-900">{selectedFile.name}</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {selectedFile.name}
+                      </p>
                       <p className="text-xs text-gray-500">
-                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB • {getFileTypeFromName(selectedFile.name).toUpperCase()}
+                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB •{" "}
+                        {getFileTypeFromName(selectedFile.name).toUpperCase()}
                       </p>
                     </div>
                     <Button
@@ -287,19 +340,21 @@ export default function UploadNotes() {
                 <div className="space-y-4">
                   <Cloud className="w-12 h-12 text-blue-400 mx-auto" />
                   <div>
-                    <p className="text-gray-700 mb-2">Drag and drop your file here</p>
+                    <p className="text-gray-700 mb-2">
+                      Drag and drop your file here
+                    </p>
                     <p className="text-gray-500 mb-4">or click to browse</p>
                   </div>
                   <Button
                     variant="outline"
-                    className="bg-white"
+                    className="mx-auto bg-blue-600 hover:bg-blue-700 text-white border-0"
                     onClick={() => fileInputRef.current?.click()}
                   >
                     Choose File
                   </Button>
                 </div>
               )}
-              
+
               <input
                 ref={fileInputRef}
                 type="file"
@@ -310,7 +365,9 @@ export default function UploadNotes() {
             </div>
 
             {/* Supported Formats */}
-            <p className="text-sm text-gray-500 text-center">Supported formats: PDF, DOCX, TXT (Max 50MB)</p>
+            <p className="text-sm text-slate-500 text-center">
+              Supported formats: PDF, DOCX, TXT (Max 50MB)
+            </p>
 
             {/* Upload Progress */}
             {isUploading && (
@@ -339,11 +396,19 @@ export default function UploadNotes() {
             {/* Course Dropdown */}
             <div className="space-y-2">
               <Label htmlFor="course">Course *</Label>
-              <Select value={uploadCourse} onValueChange={setUploadCourse} disabled={isUploading || coursesLoading}>
+              <Select
+                value={uploadCourse}
+                onValueChange={setUploadCourse}
+                disabled={isUploading || coursesLoading}
+              >
                 <SelectTrigger className="bg-white">
-                  <SelectValue placeholder={coursesLoading ? "Loading courses..." : "Select a course"} />
+                  <SelectValue
+                    placeholder={
+                      coursesLoading ? "Loading courses..." : "Select a course"
+                    }
+                  />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white max-h-60">
                   {courses.map((course) => (
                     <SelectItem key={course.id} value={course.course_code}>
                       {course.course_code} - {course.course_name}
@@ -369,14 +434,22 @@ export default function UploadNotes() {
             {/* Visibility Options */}
             <div className="space-y-3">
               <Label>Visibility</Label>
-              <RadioGroup value={visibility} onValueChange={setVisibility} disabled={isUploading}>
+              <RadioGroup
+                value={visibility}
+                onValueChange={setVisibility}
+                disabled={isUploading}
+              >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="public" id="public" />
-                  <Label htmlFor="public">Public - Anyone can view and download</Label>
+                  <Label htmlFor="public">
+                    Public - Anyone can view and download
+                  </Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="course_only" id="course_only" />
-                  <Label htmlFor="course_only">Course Only - Only students in this course can view</Label>
+                  <Label htmlFor="course_only">
+                    Course Only - Only students in this course can view
+                  </Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="private" id="private" />
@@ -386,14 +459,19 @@ export default function UploadNotes() {
             </div>
 
             {/* Submit Button */}
-            <Button 
-              className={`w-full text-white ${
-                isUploading 
-                  ? "bg-gray-400 cursor-not-allowed" 
-                  : "bg-blue-600 hover:bg-blue-700"
+            <Button
+              className={`w-full text-white transition-all duration-300 ${
+                isUploading
+                  ? "bg-slate-400 cursor-not-allowed"
+                  : "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl"
               }`}
               onClick={handleUpload}
-              disabled={isUploading || !selectedFile || !uploadTitle.trim() || !uploadCourse}
+              disabled={
+                isUploading ||
+                !selectedFile ||
+                !uploadTitle.trim() ||
+                !uploadCourse
+              }
             >
               {isUploading ? (
                 <>
@@ -411,5 +489,5 @@ export default function UploadNotes() {
         </CardContent>
       </Card>
     </div>
-  )
+  );
 }

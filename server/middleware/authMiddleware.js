@@ -6,15 +6,23 @@ const authService = AuthService.getInstance();
 const authMiddleware = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
+    let token = null;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    // Check for Bearer token in Authorization header
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    }
+    // Check for token in cookies
+    else if (req.cookies && req.cookies.token) {
+      token = req.cookies.token;
+    }
+
+    if (!token) {
       return res.status(401).json({
         success: false,
         message: "Access token required",
       });
     }
-
-    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
 
     try {
       // Verify the token
@@ -135,6 +143,8 @@ const requireRole = (roles) => {
   };
 };
 
-module.exports = authMiddleware;
-module.exports.optionalAuth = optionalAuthMiddleware;
-module.exports.requireRole = requireRole;
+module.exports = {
+  authenticateToken: authMiddleware,
+  optionalAuth: optionalAuthMiddleware,
+  requireRole: requireRole,
+};
