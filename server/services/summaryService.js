@@ -3,31 +3,42 @@ const crypto = require("crypto");
 
 const prisma = new PrismaClient();
 
-// OpenAI setup
-let hasOpenAI = false;
-let openai = null;
+// AI Provider Setup - Only FREE providers
+let hasGroq = false;
+let hasHuggingFace = false;
+let groqClient = null;
 
+// Groq setup (FREE - 14,400 requests/day)
 try {
-  const { OpenAI } = require("openai");
-  if (process.env.OPENAI_API_KEY) {
-    openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-    hasOpenAI = true;
-    console.log("✅ OpenAI service initialized for summarization");
-  } else {
+  if (process.env.GROQ_API_KEY) {
+    groqClient = require("../lib/groqClient");
+    hasGroq = true;
     console.log(
-      "⚠️ OpenAI API key not found - falling back to HuggingFace for summarization"
+      "✅ Groq AI configured for summarization (FREE - 14,400 requests/day)"
     );
   }
 } catch (error) {
+  console.log("⚠️ Groq client not available for summarization");
+}
+
+// HuggingFace setup (backup)
+const axios = require("axios");
+if (process.env.HUGGINGFACE_API_KEY) {
+  hasHuggingFace = true;
   console.log(
-    "⚠️ OpenAI package not available - falling back to HuggingFace for summarization"
+    "✅ HuggingFace configured for summarization (FREE tier - backup)"
   );
 }
 
-// HuggingFace setup
-const axios = require("axios");
+// Determine which AI provider to use (priority: Groq > HuggingFace)
+const AI_PROVIDER = hasGroq ? "groq" : hasHuggingFace ? "huggingface" : "none";
+console.log(`🤖 Summary AI provider: ${AI_PROVIDER.toUpperCase()}`);
+
+if (!hasGroq && !hasHuggingFace) {
+  console.error(
+    "❌ No AI providers configured for summarization! Please add GROQ_API_KEY or HUGGINGFACE_API_KEY to .env"
+  );
+}
 
 class SummaryService {
   constructor() {
@@ -38,7 +49,7 @@ class SummaryService {
   }
 
   /**
-   * Generate summary using OpenAI or Hugging Face fallback
+   * Generate summary using Groq or Hugging Face fallback
    */
   async generateSummary(content, options = {}) {
     const startTime = Date.now();
@@ -51,55 +62,56 @@ class SummaryService {
       sourceType = "note", // note, pdf, document
     } = options;
 
-    try {
-      // Try OpenAI first
-      if (hasOpenAI && openai) {
-        const result = await this.generateWithOpenAI(content, {
+    let lastError = null;
+
+    // Try Groq first (primary FREE provider)
+    if (hasGroq) {
+      try {
+        console.log(`🚀 Generating ${summaryType} summary with Groq (FREE)...`);
+        const result = await groqClient.generateSummaryWithGroq(content, {
           summaryType,
           customInstructions,
           maxLength,
           sourceType,
         });
         result.processingTime = Date.now() - startTime;
+        console.log(
+          `✅ Successfully generated summary with Groq (${result.wordCount} words)`
+        );
         return result;
+      } catch (error) {
+        console.error(`❌ Groq failed: ${error.message}`);
+        lastError = error;
+        console.log("🔄 Falling back to Hugging Face...");
       }
-    } catch (error) {
-      console.warn(
-        "OpenAI failed, falling back to Hugging Face:",
-        error.message
-      );
     }
 
     // Fallback to Hugging Face
-    return await this.generateWithHuggingFace(content, options);
-  }
+    if (hasHuggingFace) {
+      try {
+        console.log(
+          `🤗 Generating ${summaryType} summary with Hugging Face (FREE backup)...`
+        );
+        const result = await this.generateWithHuggingFace(content, options);
+        console.log(
+          `✅ Successfully generated summary with Hugging Face (${result.wordCount} words)`
+        );
+        return result;
+      } catch (error) {
+        console.error(`❌ Hugging Face failed: ${error.message}`);
+        lastError = error;
+      }
+    }
 
-  async generateWithOpenAI(content, options) {
-    const prompt = this.buildPrompt(content, options);
-
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: this.getSystemPrompt(options.summaryType),
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature: 0.3,
-      max_tokens: Math.min(options.maxLength * 2, 1000),
-      response_format: { type: "json_object" },
-    });
-
-    const result = JSON.parse(response.choices[0].message.content);
+    // Final fallback to simple extractive summary
+    console.log("⚠️ All AI providers failed, using fallback summary...");
+    const summary = this.generateSimpleSummary(content, maxLength, summaryType);
     return {
-      summary: result.summary,
-      keyPoints: result.key_points || [],
-      wordCount: result.summary.split(" ").length,
-      provider: "openai",
+      summary,
+      keyPoints: this.extractKeyPoints(summary),
+      wordCount: summary.split(" ").length,
+      provider: "fallback",
+      processingTime: Date.now() - startTime,
     };
   }
 
@@ -475,42 +487,6 @@ class SummaryService {
       .split(/[.!?]+/)
       .filter((s) => s.trim().length > 10);
     return sentences.slice(0, 5).map((s) => s.trim());
-  }
-
-  buildPrompt(content, options) {
-    const basePrompt = `Please summarize the following ${options.sourceType} content`;
-
-    let instructions = "";
-    if (options.summaryType === "bullets") {
-      instructions = "in bullet point format";
-    } else if (options.summaryType === "detailed") {
-      instructions = "with detailed explanations";
-    } else if (options.summaryType === "outline") {
-      instructions = "in outline format with main topics and subtopics";
-    } else {
-      instructions = "concisely";
-    }
-
-    const customNote = options.customInstructions
-      ? `\n\nAdditional instructions: ${options.customInstructions}`
-      : "";
-
-    return `${basePrompt} ${instructions}. Aim for approximately ${options.maxLength} words.${customNote}\n\nContent:\n${content}`;
-  }
-
-  getSystemPrompt(summaryType) {
-    const prompts = {
-      concise:
-        "You are an expert summarizer. Create concise, accurate summaries that capture the essential information. Return JSON with 'summary' and 'key_points' fields.",
-      detailed:
-        "You are an expert summarizer. Create detailed summaries that explain concepts thoroughly while remaining clear. Return JSON with 'summary' and 'key_points' fields.",
-      bullets:
-        "You are an expert summarizer. Create bullet-point summaries that highlight key information clearly. Return JSON with 'summary' and 'key_points' fields.",
-      outline:
-        "You are an expert summarizer. Create structured outlines with main topics and subtopics. Return JSON with 'summary' and 'key_points' fields.",
-    };
-
-    return prompts[summaryType] || prompts.concise;
   }
 
   /**

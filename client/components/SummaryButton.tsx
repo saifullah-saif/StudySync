@@ -179,7 +179,7 @@ export default function SummaryButton({
                 </div>
               </div>
 
-              <div>
+              {/* <div>
                 <Label htmlFor="instructions">
                   Custom Instructions (Optional)
                 </Label>
@@ -190,7 +190,7 @@ export default function SummaryButton({
                   onChange={(e) => setCustomInstructions(e.target.value)}
                   className="min-h-[60px] resize-none"
                 />
-              </div>
+              </div> */}
             </CardContent>
           </Card>
         )}

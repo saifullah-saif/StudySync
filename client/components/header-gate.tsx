@@ -6,7 +6,7 @@ import Header from "@/components/header";
 export function HeaderGate() {
   const pathname = usePathname();
 
-  if (pathname === "/") return null;
+  // if (pathname === "/") return null;
 
   return <Header />;
 }
