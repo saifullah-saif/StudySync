@@ -145,7 +145,7 @@ app.use("/api/stats", statsRoutes);
 app.use("/api/summary", summaryRoutes);
 app.use("/api/notes", notesRoutes);
 app.use("/api/view-notes", viewNotesRoutes);
-app.use("/api/podcasts", podcastRoutes);
+app.use("/api/server/podcasts", podcastRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({

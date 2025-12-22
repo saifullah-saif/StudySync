@@ -59,7 +59,7 @@ import FileUpload from "../components/file-upload";
 import { langchainAPI } from "@/lib/api";
 import { generateQsAns } from "@/actions/upload-actions";
 import FlashcardsPanel from "@/components/FlashcardsPanel";
-import SimplePodcastPlayer from "@/components/SimplePodcastPlayer";
+import AudioPodcastPlayer from "@/components/AudioPodcastPlayer";
 
 interface FileItem {
   id: number;
@@ -114,7 +114,10 @@ export default function FilesPage() {
   const [extractedQsAns, setExtractedQsAns] = useState<Map<number, any>>(
     new Map()
   );
-  const [generatingFlashcards, setGeneratingFlashcards] = useState(false);
+  // ✅ Per-file loading state instead of global boolean
+  const [flashcardLoadingMap, setFlashcardLoadingMap] = useState<
+    Record<number, boolean>
+  >({});
   const [showFlashcardOptionsDialog, setShowFlashcardOptionsDialog] =
     useState(false);
   const [selectedFileForFlashcards, setSelectedFileForFlashcards] =
@@ -125,7 +128,11 @@ export default function FilesPage() {
   });
 
   // Podcast-related states
-  const [generatingPodcast, setGeneratingPodcast] = useState(false);
+  // ✅ Per-file loading state instead of global boolean
+  const [podcastLoadingMap, setPodcastLoadingMap] = useState<
+    Record<number, boolean>
+  >({});
+  const [filePodcasts, setFilePodcasts] = useState<Map<number, any>>(new Map());
   const [podcastData, setPodcastData] = useState<{
     episodeId: string;
     audioUrl: string;
@@ -141,9 +148,6 @@ export default function FilesPage() {
     demoMode?: boolean;
     textChunks?: string[];
     extractedText?: string;
-    fullText?: string;
-    wordCount?: number;
-    duration?: number;
   } | null>(null);
 
   const router = useRouter();
@@ -178,16 +182,24 @@ export default function FilesPage() {
       );
 
       // Ensure we have a valid response structure
+      let loadedFiles: FileItem[] = [];
       if (response && response.data && response.data.files) {
-        setFiles(response.data.files || []);
+        loadedFiles = response.data.files || [];
+        setFiles(loadedFiles);
         setTotalPages(response.data.pagination?.totalPages || 1);
       } else if (response && Array.isArray(response.files)) {
-        setFiles(response.files || []);
+        loadedFiles = response.files || [];
+        setFiles(loadedFiles);
         setTotalPages(response.pagination?.totalPages || 1);
       } else {
         console.warn("Unexpected response structure:", response);
         setFiles([]);
         setTotalPages(1);
+      }
+
+      // Check which files have podcasts
+      if (loadedFiles.length > 0) {
+        checkFilesForPodcasts(loadedFiles);
       }
     } catch (error: any) {
       console.error("Load files error:", error);
@@ -197,6 +209,24 @@ export default function FilesPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const checkFilesForPodcasts = async (filesToCheck: FileItem[]) => {
+    const newFilePodcasts = new Map(filePodcasts);
+
+    for (const file of filesToCheck) {
+      try {
+        const result = await podcastAPI.getPodcastByFileId(file.id);
+        if (result.success && result.hasPodcast && result.podcast) {
+          newFilePodcasts.set(file.id, result.podcast);
+        }
+      } catch (error) {
+        // Silently fail - podcast check is not critical
+        console.debug(`Failed to check podcast for file ${file.id}`);
+      }
+    }
+
+    setFilePodcasts(newFilePodcasts);
   };
 
   const loadStats = async () => {
@@ -383,15 +413,14 @@ export default function FilesPage() {
 
       console.log("Processing file with URL:", fileUrl);
 
-      // Use LangChain API - disable Q&A generation for text extraction
-      // Q&A pairs will be generated later if needed for podcast feature
-      const result = await langchainAPI.processFileFromUrl(fileUrl, fileName, {
-        generateQA: false, // Don't generate Q&A during text extraction
-      });
+      // Use LangChain API directly instead of generateQsAns
+      const result = await langchainAPI.processFileFromUrl(fileUrl, fileName);
 
       if (result.success) {
         toast.success(`Successfully processed "${file.title}"`, {
-          description: `Extracted ${result.data.wordCount} words from ${result.data.pageCount} pages`,
+          description: `Extracted ${
+            result.data.wordCount
+          } words and generated ${result.data.qsAns?.length || 0} Q&A pairs`,
           duration: 5000,
         });
 
@@ -403,18 +432,39 @@ export default function FilesPage() {
           result.data.extractedText?.substring(0, 500) + "..."
         );
 
-        // Store extracted text for flashcard/podcast generation
-        console.log(`✅ Storing extracted text for file ID ${file.id}`);
-
-        setExtractedQsAns((prev) => {
-          const newMap = new Map(prev).set(file.id, {
-            qsAns: result.data.qsAns || [], // Include Q&A if generated
-            title: file.title,
-            extractedText: result.data.extractedText,
+        // Print Q&A pairs to client console as well
+        if (result.data.qsAns && result.data.qsAns.length > 0) {
+          console.log("\n🎓 Generated Q&A Pairs:");
+          result.data.qsAns.forEach((item: any, index: number) => {
+            console.log(`${index + 1}. Q: ${item.question}`);
+            console.log(`   A: ${item.answer}\n`);
           });
-          console.log(`✅ Updated extractedQsAns map - file ${file.id} stored`);
-          return newMap;
-        });
+
+          // Store Q&A data for flashcard generation
+          console.log(`🔧 Debug: Storing Q&A data for file ID ${file.id}`);
+          console.log(`🔧 Debug: Q&A data:`, result.data.qsAns);
+
+          setExtractedQsAns((prev) => {
+            const newMap = new Map(prev).set(file.id, {
+              qsAns: result.data.qsAns,
+              title: file.title,
+              extractedText: result.data.extractedText,
+            });
+            console.log(`🔧 Debug: Updated extractedQsAns map:`, newMap);
+            console.log(
+              `🔧 Debug: Map has file ${file.id}:`,
+              newMap.has(file.id)
+            );
+            return newMap;
+          });
+        } else {
+          console.log("⚠️ No Q&A pairs found in result.data");
+          console.log("⚠️ Result.data structure:", result.data);
+          console.log("⚠️ Result.data keys:", Object.keys(result.data));
+          console.log("⚠️ Full result object:", result);
+          console.log("⚠️ Result.data.qsAns:", result.data.qsAns);
+          console.log("⚠️ Result.data.qsAns type:", typeof result.data.qsAns);
+        }
       } else {
         toast.error(`Failed to process "${file.title}": ${result.message}`);
       }
@@ -437,16 +487,60 @@ export default function FilesPage() {
   //redirect to the [id] summary page
 
   const handleGenerateFlashcards = async (file: FileItem) => {
-    // Check if we have extracted text for this file
-    const qsAnsData = extractedQsAns.get(file.id);
-
-    if (!qsAnsData || !qsAnsData.extractedText) {
-      toast.error("Please extract PDF text first");
-      return;
-    }
-
     try {
-      setGeneratingFlashcards(true);
+      // ✅ Set loading state for THIS file only
+      setFlashcardLoadingMap((prev) => ({ ...prev, [file.id]: true }));
+
+      // Check if we have extracted text for this file
+      let extractedText = extractedQsAns.get(file.id)?.extractedText;
+
+      // If no extracted text, extract it automatically
+      if (!extractedText) {
+        toast.info(`Extracting text from "${file.title}"...`, {
+          duration: 2000,
+        });
+
+        // Get the file download URL
+        console.log("Getting download URL for file:", file.id);
+        const downloadResponse = await fileAPI.downloadFile(file.id);
+        const downloadData = downloadResponse.data || downloadResponse;
+        const fileUrl =
+          downloadData.data?.downloadUrl || downloadData.downloadUrl;
+        const fileName = downloadData.data?.fileName || downloadData.fileName;
+
+        if (!fileUrl) {
+          throw new Error("Could not get file download URL");
+        }
+
+        // Extract text directly (don't rely on state updates)
+        const result = await langchainAPI.processFileFromUrl(fileUrl, fileName);
+
+        if (result.success && result.data.extractedText) {
+          extractedText = result.data.extractedText;
+          console.log(
+            `✅ Extracted ${result.data.wordCount} words from "${file.title}"`
+          );
+
+          // Store in state for future use (but don't wait for it)
+          setExtractedQsAns((prev) => {
+            const newMap = new Map(prev).set(file.id, {
+              qsAns: result.data.qsAns || [],
+              title: file.title,
+              extractedText: result.data.extractedText,
+            });
+            return newMap;
+          });
+        } else {
+          throw new Error(
+            result.message || "Failed to extract text from document"
+          );
+        }
+      }
+
+      if (!extractedText || extractedText.trim().length < 100) {
+        toast.error("Insufficient text content for flashcard generation");
+        return;
+      }
 
       toast.info(
         `Generating ${flashcardOptions.maxCards} ${flashcardOptions.difficultyLevel} flashcards from "${file.title}"...`,
@@ -455,9 +549,9 @@ export default function FilesPage() {
         }
       );
 
-      // Generate flashcards using Claude AI with user-selected options
+      // Generate flashcards using AI with user-selected options
       const result = await documentAPI.generateFlashcards({
-        text: qsAnsData.extractedText,
+        text: extractedText,
         deckTitle: file.title,
         maxCards: flashcardOptions.maxCards,
         difficultyLevel: flashcardOptions.difficultyLevel,
@@ -499,7 +593,7 @@ export default function FilesPage() {
               flashcards: result.data.flashcards || [],
               title: file.title,
               fileId: file.id,
-              qsAns: qsAnsData.qsAns,
+              qsAns: extractedQsAns.get(file.id)?.qsAns || [],
             };
 
             sessionStorage.setItem(
@@ -519,30 +613,69 @@ export default function FilesPage() {
       console.error("Generate flashcards error:", error);
       toast.error(`Failed to generate flashcards: ${error.message}`);
     } finally {
-      setGeneratingFlashcards(false);
+      // ✅ Clear loading state for THIS file only
+      setFlashcardLoadingMap((prev) => ({ ...prev, [file.id]: false }));
     }
   };
 
   const handleGeneratePodcast = async (file: FileItem) => {
-    // Check if we have Q&A data for this file (which means we have extracted text)
-    const qsAnsData = extractedQsAns.get(file.id);
-
-    if (!qsAnsData || !qsAnsData.extractedText) {
-      toast.error("Please extract PDF text first to generate podcast");
-      return;
-    }
-
-    // Show consent confirmation
-    const userConsent = window.confirm(
-      "By generating this podcast, you confirm that you have the rights to convert and distribute this document's content as audio. Do you want to proceed?"
-    );
-
-    if (!userConsent) {
-      return;
-    }
-
     try {
-      setGeneratingPodcast(true);
+      // ✅ Set loading state for THIS file only
+      setPodcastLoadingMap((prev) => ({ ...prev, [file.id]: true }));
+
+      // Check if we have Q&A data for this file (which means we have extracted text)
+      let qsAnsData = extractedQsAns.get(file.id);
+
+      // If no extracted text, extract it automatically (silently)
+      if (!qsAnsData || !qsAnsData.extractedText) {
+        // Get the file download URL
+        console.log("Auto-extracting text for podcast generation:", file.id);
+        const downloadResponse = await fileAPI.downloadFile(file.id);
+        const downloadData = downloadResponse.data || downloadResponse;
+        const fileUrl =
+          downloadData.data?.downloadUrl || downloadData.downloadUrl;
+        const fileName = downloadData.data?.fileName || downloadData.fileName;
+
+        if (!fileUrl) {
+          throw new Error("Could not get file download URL");
+        }
+
+        // Extract text directly (don't rely on state updates)
+        const result = await langchainAPI.processFileFromUrl(fileUrl, fileName);
+
+        if (result.success && result.data.extractedText) {
+          // Store in state for future use
+          qsAnsData = {
+            qsAns: result.data.qsAns || [],
+            title: file.title,
+            extractedText: result.data.extractedText,
+          };
+
+          setExtractedQsAns((prev) => {
+            const newMap = new Map(prev).set(file.id, qsAnsData!);
+            return newMap;
+          });
+
+          console.log(
+            `✅ Auto-extracted ${result.data.wordCount} words for podcast`
+          );
+        } else {
+          throw new Error(
+            result.message || "Failed to extract text from document"
+          );
+        }
+      }
+
+      // Show consent confirmation
+      const userConsent = window.confirm(
+        "By generating this podcast, you confirm that you have the rights to convert and distribute this document's content as audio. Do you want to proceed?"
+      );
+
+      if (!userConsent) {
+        // Clear loading state if user cancels
+        setPodcastLoadingMap((prev) => ({ ...prev, [file.id]: false }));
+        return;
+      }
 
       toast.info(`Generating podcast from "${file.title}"...`, {
         duration: 3000,
@@ -550,48 +683,68 @@ export default function FilesPage() {
 
       console.log("🎙️ Starting podcast generation for file:", file.id);
 
-      // Generate podcast using the extracted text
-      const result = await podcastAPI.generatePodcast({
+      // Check if user is authenticated
+      if (!user?.id) {
+        throw new Error("User authentication required");
+      }
+
+      // Create podcast using the new API
+      const result = await podcastAPI.createPodcast({
         text: qsAnsData.extractedText,
         title: `${file.title} - StudySync Podcast`,
+        userId: String(user.id),
+        fileId: String(file.id),
         lang: "en",
       });
 
-      if (result.success && result.episodeId) {
-        toast.success(
-          `Successfully generated podcast! Duration: ${Math.round(
-            result.duration || 0
-          )}s`,
-          {
-            duration: 5000,
-          }
-        );
-
-        console.log("🎵 Generated podcast:", result);
-
-        // Store podcast data to show player
-        setPodcastData({
-          episodeId: result.episodeId,
-          audioUrl: result.audioUrl || "",
-          downloadUrl: result.audioUrl || "",
-          chapters: result.chapters || [],
-          title: result.title || file.title,
-          fileId: file.id,
-          demoMode: result.demoMode || false, // Flag from API response
-          textChunks: result.textChunks || [], // Text content for each chapter
-          extractedText: qsAnsData.extractedText, // Full text for TTS
-          fullText: result.fullText || qsAnsData.extractedText, // Use fullText from API or fallback to extractedText
-          wordCount: result.wordCount,
-          duration: result.duration,
+      if (result.success && result.podcastId) {
+        toast.success("Podcast created! Generating audio...", {
+          duration: 3000,
         });
+
+        console.log("🎵 Podcast created:", result);
+
+        // Poll for podcast completion
+        toast.info("Waiting for audio generation to complete...");
+
+        const podcast = await podcastAPI.pollPodcastStatus(result.podcastId);
+
+        if (podcast?.status === "ready") {
+          toast.success("Podcast ready to play!", {
+            duration: 5000,
+          });
+
+          // Add podcast to filePodcasts map
+          const newFilePodcasts = new Map(filePodcasts);
+          newFilePodcasts.set(file.id, podcast);
+          setFilePodcasts(newFilePodcasts);
+
+          // Store podcast data to show player
+          setPodcastData({
+            episodeId: podcast.id,
+            audioUrl: podcast.audio_url || "",
+            downloadUrl: podcast.audio_url || "",
+            chapters: [],
+            title: podcast.title,
+            fileId: file.id,
+            demoMode: false,
+            textChunks: [],
+            extractedText: qsAnsData.extractedText,
+          });
+        } else if (podcast?.status === "failed") {
+          throw new Error(podcast.error_message || "Podcast generation failed");
+        } else {
+          throw new Error("Podcast generation timed out");
+        }
       } else {
-        throw new Error(result.error || "Failed to generate podcast");
+        throw new Error(result.error || "Failed to create podcast");
       }
     } catch (error: any) {
       console.error("Generate podcast error:", error);
       toast.error(`Failed to generate podcast: ${error.message}`);
     } finally {
-      setGeneratingPodcast(false);
+      // ✅ Clear loading state for THIS file only
+      setPodcastLoadingMap((prev) => ({ ...prev, [file.id]: false }));
     }
   };
 
@@ -1190,80 +1343,78 @@ export default function FilesPage() {
                         </AlertDialog>
                       </div>
 
-                      {/* Extract PDF Text Button */}
+                      {/* Generate Flashcards Button - Always visible */}
                       <Button
                         size="default"
-                        onClick={() => handleProcessPDF(file)}
-                        disabled={processingFiles.has(file.id)}
-                        className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-md"
+                        onClick={() => {
+                          setSelectedFileForFlashcards(file);
+                          setShowFlashcardOptionsDialog(true);
+                        }}
+                        disabled={flashcardLoadingMap[file.id]}
+                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md"
                       >
-                        {processingFiles.has(file.id) ? (
+                        {flashcardLoadingMap[file.id] ? (
                           <>
                             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Extracting Text...
+                            Generating Flashcards...
                           </>
                         ) : (
                           <>
-                            <FileText className="h-4 w-4 mr-2" />
-                            Extract Text
+                            <Zap className="h-4 w-4 mr-2" />
+                            Generate Flashcards
                           </>
                         )}
                       </Button>
 
-                      {/* Generate Flashcards Button */}
+                      {/* Generate Podcast Button - Always visible */}
                       {(() => {
-                        const hasQsAns = extractedQsAns.has(file.id);
-                        return hasQsAns;
-                      })() && (
-                        <Button
-                          size="default"
-                          onClick={() => {
-                            setSelectedFileForFlashcards(file);
-                            setShowFlashcardOptionsDialog(true);
-                          }}
-                          disabled={generatingFlashcards}
-                          className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md"
-                        >
-                          {generatingFlashcards ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Generating Flashcards...
-                            </>
-                          ) : (
-                            <>
-                              <Zap className="h-4 w-4 mr-2" />
-                              Generate Flashcards
-                            </>
-                          )}
-                        </Button>
-                      )}
+                        const hasPodcast = filePodcasts.has(file.id);
+                        const podcast = filePodcasts.get(file.id);
 
-                      {/* Generate Podcast Button */}
-                      {(() => {
-                        const hasQsAns = extractedQsAns.has(file.id);
-                        return (
-                          hasQsAns && extractedQsAns.get(file.id)?.extractedText
-                        );
-                      })() && (
-                        <Button
-                          size="default"
-                          onClick={() => handleGeneratePodcast(file)}
-                          disabled={generatingPodcast}
-                          className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-md"
-                        >
-                          {generatingPodcast ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Generating Podcast...
-                            </>
-                          ) : (
-                            <>
+                        // If podcast exists, show "View Podcast" button
+                        if (hasPodcast && podcast) {
+                          return (
+                            <Button
+                              size="default"
+                              onClick={() => {
+                                router.push(
+                                  `/assistant/podcasts?highlight=${podcast.id}`
+                                );
+                              }}
+                              className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-md"
+                            >
                               <Headphones className="h-4 w-4 mr-2" />
-                              Generate Podcast
-                            </>
-                          )}
-                        </Button>
-                      )}
+                              {podcast.status === "ready" && "View Podcast"}
+                              {podcast.status === "pending" &&
+                                "Podcast Generating..."}
+                              {podcast.status === "failed" &&
+                                "Podcast Failed - Retry"}
+                            </Button>
+                          );
+                        }
+
+                        // Otherwise, show "Generate Podcast" button
+                        return (
+                          <Button
+                            size="default"
+                            onClick={() => handleGeneratePodcast(file)}
+                            disabled={podcastLoadingMap[file.id]}
+                            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-md"
+                          >
+                            {podcastLoadingMap[file.id] ? (
+                              <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Generating Podcast...
+                              </>
+                            ) : (
+                              <>
+                                <Headphones className="h-4 w-4 mr-2" />
+                                Generate Podcast
+                              </>
+                            )}
+                          </Button>
+                        );
+                      })()}
                     </div>
                   </div>
                 </CardContent>
@@ -1641,11 +1792,10 @@ export default function FilesPage() {
               </DialogHeader>
 
               <div className="space-y-4">
-                <SimplePodcastPlayer
-                  fullText={podcastData.fullText || ""}
+                <AudioPodcastPlayer
+                  audioUrl={podcastData.audioUrl}
                   title={podcastData.title}
-                  episodeId={podcastData.episodeId}
-                  estimatedDuration={podcastData.duration || 0}
+                  podcastId={podcastData.episodeId}
                 />
 
                 <div className="flex justify-between items-center pt-4 border-t">
@@ -1653,9 +1803,6 @@ export default function FilesPage() {
                     📝 Generated from:{" "}
                     {files.find((f) => f.id === podcastData.fileId)?.title ||
                       "Unknown file"}
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    📊 {podcastData.wordCount || 0} words
                   </div>
                 </div>
               </div>
