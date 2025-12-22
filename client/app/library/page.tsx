@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Header from "@/components/header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,6 +23,7 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Search } from "lucide-react";
 import { libraryAPI } from "@/lib/api";
+import { toast } from "sonner";
 
 export default function LibraryPage() {
   const router = useRouter();
@@ -98,15 +98,21 @@ export default function LibraryPage() {
       const response = await libraryAPI.cancelReservation(reservationId);
 
       if (response.success) {
-        alert("Reservation cancelled successfully!");
+        toast.success("Reservation cancelled", {
+          description: "Your booking has been removed.",
+        });
         await fetchUserBookings();
         await fetchRooms(); // Refresh room availability
       } else {
-        alert(response.message || "Failed to cancel reservation");
+        toast.error("Cancellation failed", {
+          description: response.message || "Failed to cancel reservation.",
+        });
       }
     } catch (e: any) {
       console.error("Cancel error:", e);
-      alert(e.response?.data?.message || "Failed to cancel reservation");
+      toast.error("Cancellation failed", {
+        description: e.response?.data?.message || "Failed to cancel reservation.",
+      });
     }
   };
 
@@ -237,8 +243,6 @@ export default function LibraryPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      <Header />
-
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Hero Section */}
         <div className="relative bg-white/40 backdrop-blur-xl border border-white/50 rounded-3xl shadow-2xl hover:shadow-[0_0_40px_rgba(59,130,246,0.3)] transition-all duration-500 overflow-hidden mb-8">
@@ -373,34 +377,17 @@ export default function LibraryPage() {
                 className="group bg-white/40 backdrop-blur-xl border border-white/50 shadow-xl hover:shadow-[0_0_40px_rgba(59,130,246,0.4)] transition-all duration-500 hover:-translate-y-3 hover:scale-[1.02] flex flex-col h-full relative overflow-hidden before:absolute before:inset-0 before:bg-gradient-to-br before:from-blue-500/10 before:to-purple-500/10 before:opacity-0 hover:before:opacity-100 before:transition-opacity before:duration-500"
               >
                 <CardContent className="p-6 flex flex-col h-full relative z-10">
-                  {/* Top Section - Image and Basic Info */}
-                  <div className="flex items-start gap-4 mb-4">
-                    <div className="w-16 h-16 rounded-2xl overflow-hidden bg-white/60 backdrop-blur-sm border border-white/50 shadow-inner shrink-0">
-                      {room.image_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={room.image_url}
-                          alt={`${room.name || "Room"} thumbnail`}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-xs text-slate-500">
-                          No Image
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1 truncate">
-                        {room.name}
-                      </h3>
-                      <p className="text-gray-600 dark:text-gray-400 font-mono text-sm mb-1">
-                        ({formatRoomNumber(room)})
-                      </p>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Capacity: {room.capacity || 0}
-                      </p>
-                    </div>
+                  {/* Top Section - Basic Info */}
+                  <div className="mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1 truncate">
+                      {room.name}
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-400 font-mono text-sm mb-1">
+                      ({formatRoomNumber(room)})
+                    </p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Capacity: {room.capacity || 0}
+                    </p>
                   </div>
 
                   {/* Spacer to push buttons to bottom */}
@@ -437,9 +424,10 @@ export default function LibraryPage() {
                       disabled={userBookings.length >= 5}
                       onClick={() => {
                         if (userBookings.length >= 5) {
-                          alert(
-                            "You have reached the maximum limit of 5 room bookings."
-                          );
+                          toast.error("Booking limit reached", {
+                            description:
+                              "You have reached the maximum limit of 5 room bookings.",
+                          });
                           return;
                         }
                         // Open booking modal with room pre-selected

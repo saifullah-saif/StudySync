@@ -3,7 +3,6 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
-import Header from "@/components/header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -199,7 +198,6 @@ function ReviewsPageContent() {
   if (!user) {
     return (
       <>
-        <Header />
         <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
           <Card className="w-full max-w-md mx-4">
             <CardContent className="pt-6 text-center">
@@ -221,7 +219,6 @@ function ReviewsPageContent() {
   if (!searchParamsLoaded) {
     return (
       <>
-        <Header />
         <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
         </div>
@@ -233,7 +230,6 @@ function ReviewsPageContent() {
   if (!course || !courseId || !courseName || !courseCode) {
     return (
       <>
-        <Header />
         <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
           <Card className="w-full max-w-md mx-4">
             <CardContent className="pt-6 text-center">
@@ -260,8 +256,6 @@ function ReviewsPageContent() {
     <>
       {/* Handle search params safely */}
       <SafeSearchParamsHandler onParamsChange={handleSearchParamsChange} />
-
-      <Header />
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           {/* Header */}

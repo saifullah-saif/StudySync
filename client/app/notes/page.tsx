@@ -1,6 +1,5 @@
 "use client";
 
-import Header from "@/components/header";
 import UploadNotes from "@/components/upload-notes";
 import BrowseNotes from "@/components/browse-notes";
 import AISummarizer from "@/components/ai-summarizer";
@@ -9,8 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export default function NotesPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      <Header />
-
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <Tabs defaultValue="browse" className="space-y-8">
           <TabsList className="grid w-full grid-cols-2 lg:w-[600px] mx-auto bg-white shadow-lg border-0">

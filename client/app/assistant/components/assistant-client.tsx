@@ -3,7 +3,6 @@
 import type React from "react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Header from "@/components/header";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Plus, Flame } from "lucide-react";
@@ -88,8 +87,6 @@ export default function AssistantClientPage({
 
   return (
     <>
-      <Header />
-
       <main>
         <Tabs
           value={activeMainTab}

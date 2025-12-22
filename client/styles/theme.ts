@@ -243,7 +243,7 @@ export const COMPONENTS = {
   
   // Navbar Styles
   navbar: {
-    base: `bg-[#191265] border-b border-[#2d1b8f] shadow-lg`,
+    base: "bg-[#191265]/75 supports-[backdrop-filter]:bg-[#191265]/60 backdrop-blur-xl border-b border-white/10 shadow-lg",
     item: "text-white/80 hover:text-white hover:bg-white/10 transition-all duration-200 rounded-lg px-4 py-2 font-medium",
     itemActive: "text-white bg-white/20 rounded-lg px-4 py-2 font-medium",
   },

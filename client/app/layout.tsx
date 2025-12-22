@@ -3,8 +3,9 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/auth-context";
+import { HeaderGate } from "@/components/header-gate";
 import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "sonner";
+import { Toaster as Sonner } from "@/components/ui/sonner";
 import { FloatingChat } from "@/components/floating-chat";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -25,10 +26,16 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <AuthProvider>
+          <HeaderGate />
           {children}
           <FloatingChat />
           <Toaster />
-          <Sonner />
+          <Sonner
+            position="bottom-center"
+            closeButton
+            richColors
+            duration={5000}
+          />
         </AuthProvider>
       </body>
     </html>

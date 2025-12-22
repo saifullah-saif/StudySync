@@ -39,8 +39,11 @@ export default function Header() {
 
   return (
     <>
-      <header className={`${THEME.components.navbar.base} sticky top-0 z-50`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <header
+        className={`${THEME.components.navbar.base} sticky top-0 z-50 animate-slide-in-top transition-colors duration-300`}
+      >
+        <div className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-b from-white/12 to-transparent" />
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Left side - Logo */}
             <div className="flex items-center space-x-4">
@@ -99,7 +102,7 @@ export default function Header() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   align="end"
-                  className="w-56 bg-white border border-slate-200 shadow-lg"
+                  className="w-56 bg-white/90 backdrop-blur-xl border border-white/40 shadow-lg"
                 >
                   {user ? (
                     <>

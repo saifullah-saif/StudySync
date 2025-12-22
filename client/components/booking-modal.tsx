@@ -22,6 +22,7 @@ import {
 import { Clock, Users, MapPin, Search } from "lucide-react";
 import { RoomLayout } from "@/components/room-layout";
 import { libraryAPI } from "@/lib/api";
+import { toast } from "sonner";
 
 interface BookingModalProps {
   open: boolean;
@@ -261,7 +262,9 @@ export function BookingModal({
         return prev.filter((id) => id !== seatId);
       } else {
         if (prev.length >= 3) {
-          alert("You can only select up to 3 seats at a time");
+          toast.warning("Seat limit reached", {
+            description: "You can only select up to 3 seats at a time.",
+          });
           return prev;
         }
         return [...prev, seatId];
@@ -339,26 +342,30 @@ export function BookingModal({
   // Handle booking confirmation
   const handleConfirmBooking = async () => {
     if (!isBookingValid()) {
-      alert("Please complete all required fields");
+      toast.error("Missing details", {
+        description: "Please select date, time, and a room (and seats for large rooms).",
+      });
       return;
     }
 
     if (userBookingsCount != null && userBookingsCount >= MAX_RESERVATIONS) {
-      alert(
-        `You have reached the maximum limit of ${MAX_RESERVATIONS} room bookings.`
-      );
+      toast.error("Booking limit reached", {
+        description: `You already have ${MAX_RESERVATIONS} active bookings. Cancel one to book again.`,
+      });
       return;
     }
 
     if (wouldExceedLimit) {
-      alert(
-        `This reservation would exceed the maximum limit of ${MAX_RESERVATIONS}. Please cancel an existing booking first.`
-      );
+      toast.error("Too many bookings", {
+        description: `This would exceed the maximum limit of ${MAX_RESERVATIONS}. Please cancel an existing booking first.`,
+      });
       return;
     }
 
     if (selectedSeats.length > 3) {
-      alert("You can only book up to 3 seats at a time");
+      toast.error("Seat limit exceeded", {
+        description: "You can only book up to 3 seats at a time.",
+      });
       return;
     }
 
@@ -385,7 +392,9 @@ export function BookingModal({
       );
 
       if (response.data.success) {
-        alert("Reservation confirmed successfully!");
+        toast.success("Reservation confirmed", {
+          description: `${selectedRoom?.name || "Room"} booked for ${selectedDate} ${selectedStartTime}–${selectedEndTime}.`,
+        });
         onOpenChangeAction(false);
         if (onBookingSuccessAction) {
           onBookingSuccessAction();
@@ -398,14 +407,17 @@ export function BookingModal({
         setSelectedSeats([]);
         setSelectedRoom(null);
       } else {
-        alert(response.data.message || "Failed to book room");
+        toast.error("Booking failed", {
+          description: response.data.message || "Failed to book room. Please try again.",
+        });
       }
     } catch (error: any) {
       console.error("Booking error:", error);
-      alert(
-        error.response?.data?.message ||
-          "Failed to book room. Please try again."
-      );
+      toast.error("Booking failed", {
+        description:
+          error.response?.data?.message ||
+          "Failed to book room. Please try again.",
+      });
     } finally {
       setIsBooking(false);
     }

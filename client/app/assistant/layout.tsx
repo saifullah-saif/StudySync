@@ -1,7 +1,6 @@
 "use client";
 
 import React from "react";
-import Header from "@/components/header";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PodcastProvider, usePodcast } from "@/contexts/podcast-context";
@@ -153,7 +152,6 @@ export default function AssistantLayout({
   return (
     <PodcastProvider>
       <div className="min-h-screen bg-slate-50">
-        <Header />
         <InnerNav />
         <main className="pb-32">{children}</main>
         <AssistantMiniPlayer />
