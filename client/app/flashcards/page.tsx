@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Header from "@/components/header";
+import DashboardLayout from "@/components/dashboard-layout";
 import DeckList from "@/components/flashcards/DeckList";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -133,23 +133,22 @@ export default function FlashcardsPage() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Header />
-
+    <DashboardLayout>
       <main className="max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-8 animate-slide-down">
           <div className="flex items-center space-x-4">
             <Button
               variant="outline"
               size="sm"
               onClick={() => router.push("/assistant")}
+              className="hover:bg-slate-100 transition-colors"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
             </Button>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-4xl font-bold gradient-text">
                 Flashcard Decks
               </h1>
               <p className="text-gray-600 mt-1">
@@ -160,7 +159,7 @@ export default function FlashcardsPage() {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button className="bg-blue-600 hover:bg-blue-700">
+              <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg shadow-purple-500/30 transition-all duration-200">
                 <Plus className="w-4 h-4 mr-2" />
                 Create New Deck
                 <ChevronDown className="w-4 h-4 ml-2" />
@@ -186,7 +185,7 @@ export default function FlashcardsPage() {
         </div>
 
         {/* Filters and Search */}
-        <Card className="mb-8">
+        <Card className="mb-8 glass-effect border-slate-200/50 shadow-lg hover:shadow-xl transition-all duration-300 animate-fade-in">
           <CardContent className="p-6">
             <div className="flex flex-col sm:flex-row gap-4">
               {/* Search */}
@@ -197,7 +196,7 @@ export default function FlashcardsPage() {
                     placeholder="Search decks..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
+                    className="pl-10 border-slate-200/50 focus:border-purple-400 transition-colors"
                   />
                 </div>
               </div>
@@ -309,6 +308,6 @@ export default function FlashcardsPage() {
           </div>
         )}
       </main>
-    </div>
+    </DashboardLayout>
   );
 }

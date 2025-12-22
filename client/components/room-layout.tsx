@@ -24,6 +24,7 @@ interface RoomLayoutProps {
   roomId?: number;
   startTime?: string;
   endTime?: string;
+  interactive?: boolean; // Controls whether seats can be clicked
 }
 
 export function RoomLayout({
@@ -35,6 +36,7 @@ export function RoomLayout({
   roomId,
   startTime,
   endTime,
+  interactive = true,
 }: RoomLayoutProps) {
   const [seats, setSeats] = useState<Seat[]>([]);
   const [bookedSeats, setBookedSeats] = useState<string[]>([]);
@@ -189,6 +191,9 @@ export function RoomLayout({
   };
 
   const handleSeatClick = async (seat: Seat) => {
+    // Do nothing if interactive is disabled
+    if (!interactive) return;
+
     // Only allow interaction with available seats or already selected seats
     if (
       mode === "book" &&
@@ -259,10 +264,11 @@ export function RoomLayout({
               }
               rx="6"
               className={
-                (mode === "book" &&
+                interactive &&
+                ((mode === "book" &&
                   (seat.status === "available" ||
                     selectedSeats.includes(seat.id))) ||
-                (mode === "view" && seat.status === "available")
+                (mode === "view" && seat.status === "available"))
                   ? "cursor-pointer hover:opacity-80"
                   : ""
               }

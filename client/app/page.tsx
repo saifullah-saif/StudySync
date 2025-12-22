@@ -1,4 +1,6 @@
-import Header from "@/components/header";
+"use client";
+
+import { useState } from "react";
 import EnhancedFooter from "@/components/enhanced-footer";
 import {
   HeroSection,
@@ -6,39 +8,39 @@ import {
   SocialProofSection,
   ProductShowcaseSection,
   FeatureDeepDiveSection,
-  
   FinalCTASection,
 } from "@/components/landing-sections";
+import { AuthModals } from "@/components/auth-modals";
+import { Button } from "@/components/ui/button";
+import { UserPlus, LogIn, Zap } from "lucide-react";
 
 export default function HomePage() {
+  const [isSignInOpen, setIsSignInOpen] = useState(false);
+  const [isSignUpOpen, setIsSignUpOpen] = useState(false);
+
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Keep the existing header completely intact */}
-      <Header />
-
       <main className="flex-1">
         {/* 1. Hero Section - Value-driven headline, CTA, product screenshot */}
         <HeroSection />
 
         {/* 2. Key Benefits - 4 cards with icons + short copy */}
         <KeyBenefitsSection />
-
-        {/* 3. Social Proof - Stats, logos, trust indicators */}
         <SocialProofSection />
-
-        {/* 4. Product Showcase / How it Works - Screenshots, workflow steps */}
         <ProductShowcaseSection />
-
-        {/* 5. Feature Deep Dive - Alternating text + visuals */}
         <FeatureDeepDiveSection />
-
-
-        {/* 7. Final Call to Action - Conversion booster before footer */}
         <FinalCTASection />
       </main>
 
-      {/* 8. Enhanced Footer - Company links, product links, support links, legal, social */}
       <EnhancedFooter />
+
+      {/* Auth Modals */}
+      <AuthModals
+        isSignInOpen={isSignInOpen}
+        setIsSignInOpen={setIsSignInOpen}
+        isSignUpOpen={isSignUpOpen}
+        setIsSignUpOpen={setIsSignUpOpen}
+      />
     </div>
   );
 }

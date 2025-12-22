@@ -3,7 +3,6 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
-import Header from "@/components/header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -181,7 +180,6 @@ function ReviewsPageContent({ params }: ReviewsPageContentProps) {
   if (!user) {
     return (
       <>
-        <Header />
         <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
           <Card className="w-full max-w-md mx-4">
             <CardContent className="pt-6 text-center">
@@ -203,7 +201,6 @@ function ReviewsPageContent({ params }: ReviewsPageContentProps) {
   if (courseLoading) {
     return (
       <>
-        <Header />
         <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -220,7 +217,6 @@ function ReviewsPageContent({ params }: ReviewsPageContentProps) {
   if (!course) {
     return (
       <>
-        <Header />
         <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
           <Card className="w-full max-w-md mx-4">
             <CardContent className="pt-6 text-center">
@@ -244,7 +240,6 @@ function ReviewsPageContent({ params }: ReviewsPageContentProps) {
 
   return (
     <>
-      <Header />
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           {/* Header */}

@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -26,6 +27,7 @@ export function AuthModals({
   isSignUpOpen,
   setIsSignUpOpen,
 }: AuthModalsProps) {
+  const router = useRouter()
   const { login, register, loading: authLoading } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
   const [signUpStep, setSignUpStep] = useState(1)
@@ -91,6 +93,8 @@ export function AuthModals({
           profilePicture: null,
         })
         setIsSignUpOpen(false)
+        // Redirect to dashboard after successful registration
+        router.push("/dashboard")
       } else {
         setError(result.message || "Registration failed")
       }
@@ -112,6 +116,8 @@ export function AuthModals({
       if (result.success && result.user) {
         setSignInData({ email: "", password: "" })
         setIsSignInOpen(false)
+        // Redirect to dashboard after successful sign-in
+        router.push("/dashboard")
       } else {
         setError(result.message || "Login failed")
       }
@@ -129,10 +135,28 @@ export function AuthModals({
     }
   }
 
+  // Reset form states when modals close
+  const handleSignInClose = (open: boolean) => {
+    setIsSignInOpen(open)
+    if (!open) {
+      setLoading(false)
+      setError("")
+    }
+  }
+
+  const handleSignUpClose = (open: boolean) => {
+    setIsSignUpOpen(open)
+    if (!open) {
+      setLoading(false)
+      setError("")
+      setSignUpStep(1)
+    }
+  }
+
   return (
     <>
       {/* Sign In Modal */}
-      <Dialog open={isSignInOpen} onOpenChange={setIsSignInOpen}>
+      <Dialog open={isSignInOpen} onOpenChange={handleSignInClose}>
         <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-center text-gray-900 dark:text-white">
@@ -190,9 +214,9 @@ export function AuthModals({
             <Button 
               type="submit" 
               className="w-full bg-blue-600 hover:bg-blue-700"
-              disabled={loading || authLoading}
+              disabled={loading}
             >
-              {loading || authLoading ? "Signing In..." : "Sign In"}
+              {loading ? "Signing In..." : "Sign In"}
             </Button>
             <div className="text-center">
               <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -215,7 +239,7 @@ export function AuthModals({
       </Dialog>
 
       {/* Sign Up Modal */}
-      <Dialog open={isSignUpOpen} onOpenChange={setIsSignUpOpen}>
+      <Dialog open={isSignUpOpen} onOpenChange={handleSignUpClose}>
         <DialogContent className="sm:max-w-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-center text-gray-900 dark:text-white">

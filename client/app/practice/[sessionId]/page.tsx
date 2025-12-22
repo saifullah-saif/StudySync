@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import Header from "@/components/header";
 import PracticeCard from "@/components/flashcards/PracticeCard";
 import PracticeControls from "@/components/flashcards/PracticeControls";
 import { Button } from "@/components/ui/button";
@@ -282,7 +281,6 @@ export default function PracticeSessionPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-        <Header />
         <main className="flex items-center justify-center py-20">
           <Card className="w-96 shadow-xl border-0">
             <CardContent className="flex flex-col items-center justify-center py-12">
@@ -299,7 +297,6 @@ export default function PracticeSessionPage() {
   if (!session || !deck) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-        <Header />
         <main className="flex items-center justify-center py-20">
           <Card className="w-96 shadow-xl border-0">
             <CardContent className="flex flex-col items-center justify-center py-12">
@@ -325,8 +322,6 @@ export default function PracticeSessionPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <Header />
-
       {/* Practice Controls */}
       <PracticeControls
         currentCard={currentCardIndex + 1}

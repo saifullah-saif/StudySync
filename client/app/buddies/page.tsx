@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Header from "@/components/header";
 import { buddyAPI } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +32,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import { BuddyProfileModal } from "./components/buddy-profile-modal";
+import { useAuth } from "@/contexts/auth-context";
 
 interface Buddy {
   id: number;
@@ -51,6 +51,25 @@ interface Buddy {
   is_requester?: boolean;
   is_connected?: boolean;
   has_pending_request?: boolean;
+}
+
+interface Message {
+  id: number;
+  content: string;
+  sender_id: number;
+  receiver_id: number;
+  timestamp: string;
+  is_read: boolean;
+  sender: {
+    id: number;
+    name: string;
+    profile_picture_url?: string;
+  };
+  receiver: {
+    id: number;
+    name: string;
+    profile_picture_url?: string;
+  };
 }
 
 interface Invitation {
@@ -116,6 +135,7 @@ export default function BuddiesPage() {
   const [selectedBuddy, setSelectedBuddy] = useState<Buddy | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [prevBuddyType, setPrevBuddyType] = useState(buddyType);
+  const { user } = useAuth();
 
   // Load buddies data when type or search changes
   useEffect(() => {
@@ -286,81 +306,13 @@ export default function BuddiesPage() {
     }
   };
 
-  const handleChatClick = (connection: Connection) => {
-    const user = connection.connected_user;
-    const queryParams = new URLSearchParams({
-      userId: user.id.toString(),
-      userName: user.name,
-      ...(user.department && { userDepartment: user.department }),
-      ...(user.semester && { userSemester: user.semester.toString() }),
-      ...(user.profile_picture_url && {
-        userProfilePicture: user.profile_picture_url,
-      }),
-    });
-
-    router.push(`/buddies/chat?${queryParams.toString()}`);
-  };
-
-  const handleBuddyCardClick = (data: Buddy | Invitation | Connection) => {
-    let buddyData: Buddy;
-
-    // If it's already a Buddy, use it directly
-    if ('sharedCourses' in data) {
-      buddyData = data as Buddy;
-    }
-    // If it's an Invitation
-    else if ('requester' in data) {
-      const invitation = data as Invitation;
-      buddyData = {
-        id: invitation.requester.id,
-        name: invitation.requester.name,
-        email: invitation.requester.email,
-        department: invitation.requester.department || "",
-        semester: invitation.requester.semester || 0,
-        profile_picture_url: invitation.requester.profile_picture_url,
-        bio: invitation.requester.bio || "",
-        sharedCourses: [],
-        currentCourses: invitation.requester.currentCourses || [],
-        previousCourses: invitation.requester.previousCourses || [],
-        type: invitation.request_type === "mentor" ? "mentor" : "peer",
-        connection_status: "pending",
-        connection_type: invitation.request_type,
-        is_requester: false,
-        is_connected: false,
-        has_pending_request: true,
-      };
-    }
-    // If it's a Connection
-    else {
-      const connection = data as Connection;
-      buddyData = {
-        id: connection.connected_user.id,
-        name: connection.connected_user.name,
-        email: connection.connected_user.email,
-        department: connection.connected_user.department || "",
-        semester: connection.connected_user.semester || 0,
-        profile_picture_url: connection.connected_user.profile_picture_url,
-        bio: connection.connected_user.bio || "",
-        sharedCourses: [],
-        currentCourses: connection.connected_user.currentCourses || [],
-        previousCourses: connection.connected_user.previousCourses || [],
-        type: connection.request_type === "mentor" ? "mentor" : "peer",
-        connection_status: "accepted",
-        connection_type: connection.request_type,
-        is_requester: connection.user_role === "requester",
-        is_connected: true,
-        has_pending_request: false,
-      };
-    }
-
-    setSelectedBuddy(buddyData);
+  const handleBuddyCardClick = (buddy: Buddy) => {
+    setSelectedBuddy(buddy);
     setModalOpen(true);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      <Header />
-
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="mb-12 text-center">
           <h1 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">
@@ -372,61 +324,57 @@ export default function BuddiesPage() {
         </div>
 
         <Tabs defaultValue="discover" className="space-y-8">
-          <TabsList className="grid w-full grid-cols-3 lg:w-[600px] mx-auto bg-white shadow-lg border-0">
+          <TabsList className="inline-flex h-10 items-center justify-center rounded-lg bg-white/30 backdrop-blur-md p-1 text-slate-600 border border-white/40 shadow-sm">
             <TabsTrigger
               value="discover"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-6 py-1.5 text-sm font-medium transition-all duration-200 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm hover:bg-white/60"
             >
               Discover
             </TabsTrigger>
             <TabsTrigger
               value="invitations"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-6 py-1.5 text-sm font-medium transition-all duration-200 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm hover:bg-white/60"
             >
               Invitations
             </TabsTrigger>
             <TabsTrigger
               value="connections"
-              className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-600 data-[state=active]:to-purple-600 data-[state=active]:text-white"
+              className="inline-flex items-center justify-center whitespace-nowrap rounded-md px-6 py-1.5 text-sm font-medium transition-all duration-200 data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm hover:bg-white/60"
             >
               Connections
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="discover" className="space-y-6">
-            {/* Search */}
-            <Card className="bg-white border-0 shadow-lg">
-              <CardContent className="pt-6">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                  <Input
-                    placeholder="Search by name or course starting with...."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 pr-10"
-                  />
-                  {searching && (
-                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                    </div>
-                  )}
+            {/* Transparent Search Bar */}
+            <div className="relative group">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-slate-400 w-5 h-5 group-hover:text-blue-500 transition-colors duration-300" />
+              <Input
+                placeholder="Search by name or course starting with...."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-12 pr-12 h-14 bg-white/40 backdrop-blur-xl border border-white/50 rounded-2xl shadow-lg hover:shadow-[0_0_30px_rgba(59,130,246,0.3)] focus:shadow-[0_0_40px_rgba(59,130,246,0.5)] transition-all duration-500 placeholder:text-slate-400 text-slate-900 font-medium"
+              />
+              {searching && (
+                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
                 </div>
-              </CardContent>
-            </Card>
+              )}
+            </div>
 
             {/* People You May Know */}
             <div>
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-slate-900">
+                <h2 className="text-2xl font-bold text-slate-900 drop-shadow-lg">
                   People You May Know
                 </h2>
                 <Select value={buddyType} onValueChange={setBuddyType}>
-                  <SelectTrigger className="w-40 bg-white shadow-md border-0">
+                  <SelectTrigger className="w-40 bg-white/40 backdrop-blur-xl border border-white/50 shadow-lg hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all duration-300">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className="bg-white border border-gray-200 shadow-lg">
-                    <SelectItem value="peers">Peers</SelectItem>
-                    <SelectItem value="mentors">Mentors</SelectItem>
+                  <SelectContent className="bg-white/95 backdrop-blur-xl border border-white/50 shadow-2xl">
+                    <SelectItem value="peers" className="hover:bg-blue-50/80 transition-colors">Peers</SelectItem>
+                    <SelectItem value="mentors" className="hover:bg-blue-50/80 transition-colors">Mentors</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -473,22 +421,22 @@ export default function BuddiesPage() {
                   )}
                 </div>
               ) : (
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid md:grid-cols-2 gap-8">
                   {filteredBuddies.map((buddy) => (
                     <Card
                       key={buddy.id}
-                      className="bg-white/70 backdrop-blur-sm  border-0 shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-2cursor-pointer"
+                      className="group bg-white/40 backdrop-blur-xl border border-white/50 shadow-xl hover:shadow-[0_0_40px_rgba(59,130,246,0.4)] transition-all duration-500 hover:-translate-y-3 hover:scale-[1.02] cursor-pointer relative overflow-hidden before:absolute before:inset-0 before:bg-gradient-to-br before:from-blue-500/10 before:to-purple-500/10 before:opacity-0 hover:before:opacity-100 before:transition-opacity before:duration-500"
                       onClick={() => handleBuddyCardClick(buddy)}
                     >
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center space-x-3">
-                          <Avatar>
+                      <CardHeader className="pb-3 relative z-10">
+                        <div className="flex items-center space-x-4">
+                          <Avatar className="h-16 w-16">
                             <AvatarImage
                               src={
                                 buddy.profile_picture_url || "/placeholder.svg"
                               }
                             />
-                            <AvatarFallback>
+                            <AvatarFallback className="text-lg">
                               {buddy.name
                                 .split(" ")
                                 .map((n) => n[0])
@@ -505,7 +453,7 @@ export default function BuddiesPage() {
                           </div>
                         </div>
                       </CardHeader>
-                      <CardContent className="space-y-4">
+                      <CardContent className="space-y-4 relative z-10">
                         <div>
                           <p className="text-sm font-semibold text-slate-700 mb-2">
                             {buddyType === "mentors"
@@ -603,20 +551,21 @@ export default function BuddiesPage() {
                   {invitations.map((invitation) => (
                     <Card
                       key={invitation.id}
-                      className="bg-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer"
+                      className="group bg-white/40 backdrop-blur-xl border border-white/50 shadow-xl hover:shadow-[0_0_40px_rgba(59,130,246,0.4)] transition-all duration-500 hover:scale-[1.02] relative overflow-hidden before:absolute before:inset-0 before:bg-gradient-to-r before:from-blue-500/10 before:to-purple-500/10 before:opacity-0 hover:before:opacity-100 before:transition-opacity before:duration-500"
+                      
                       onClick={() => handleBuddyCardClick(invitation)}
                     >
-                      <CardContent className="pt-6">
+                      <CardContent className="pt-6 relative z-10">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-4">
-                            <Avatar>
+                            <Avatar className="h-14 w-14">
                               <AvatarImage
                                 src={
                                   invitation.requester.profile_picture_url ||
                                   "/placeholder.svg"
                                 }
                               />
-                              <AvatarFallback>
+                              <AvatarFallback className="text-base">
                                 {invitation.requester.name
                                   .split(" ")
                                   .map((n: string) => n[0])
@@ -722,20 +671,20 @@ export default function BuddiesPage() {
                   {connections.map((connection) => (
                     <Card
                       key={connection.id}
-                      className="bg-white border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer"
+                      className="group bg-white/40 backdrop-blur-xl border border-white/50 shadow-xl hover:shadow-[0_0_40px_rgba(59,130,246,0.4)] transition-all duration-500 hover:-translate-y-2 hover:scale-[1.01] cursor-pointer relative overflow-hidden before:absolute before:inset-0 before:bg-gradient-to-r before:from-blue-500/10 before:to-purple-500/10 before:opacity-0 hover:before:opacity-100 before:transition-opacity before:duration-500"                      
                       onClick={() => handleBuddyCardClick(connection)}
                     >
-                      <CardContent className="pt-6">
+                      <CardContent className="pt-6 relative z-10">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-4">
-                            <Avatar>
+                            <Avatar className="h-14 w-14">
                               <AvatarImage
                                 src={
                                   connection.connected_user
                                     .profile_picture_url || "/placeholder.svg"
                                 }
                               />
-                              <AvatarFallback>
+                              <AvatarFallback className="text-base">
                                 {connection.connected_user.name
                                   .split(" ")
                                   .map((n) => n[0])
@@ -772,16 +721,10 @@ export default function BuddiesPage() {
                               </div>
                             </div>
                           </div>
-                          <div className="text-right" onClick={(e) => e.stopPropagation()}>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleChatClick(connection)}
-                              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 border-0 shadow-md hover:shadow-lg transition-all duration-300"
-                            >
-                              <MessageCircle className="w-4 h-4 mr-1" />
-                              Chat
-                            </Button>
+                          <div className="text-right">
+                            <p className="text-sm text-slate-500">
+                              Use the floating chat button to message
+                            </p>
                           </div>
                         </div>
                       </CardContent>

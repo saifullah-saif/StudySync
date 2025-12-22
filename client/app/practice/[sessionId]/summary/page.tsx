@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import Header from "@/components/header";
 import PracticeSummary from "@/components/flashcards/PracticeSummary";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -161,7 +160,6 @@ export default function PracticeSummaryPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-        <Header />
         <main className="flex items-center justify-center py-20">
           <Card className="w-96 border-none shadow-2xl">
             <CardContent className="flex flex-col items-center justify-center py-12">
@@ -181,7 +179,6 @@ export default function PracticeSummaryPage() {
   if (!session || !deck) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-orange-50">
-        <Header />
         <main className="flex items-center justify-center py-20">
           <Card className="w-96 border-none shadow-2xl">
             <CardContent className="flex flex-col items-center justify-center py-12">
@@ -218,8 +215,6 @@ export default function PracticeSummaryPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50">
-      <Header />
-
       <main className="py-8">
         <PracticeSummary
           sessionId={session.id}
