@@ -2,8 +2,7 @@
 
 import type React from "react";
 import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Header from "@/components/header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,7 +31,6 @@ import { documentAPI, practiceAPI } from "@/lib/api";
 import { useAuth } from "@/contexts/auth-context";
 import FileUpload from "./components/file-upload";
 import DeckList from "@/components/flashcards/DeckList";
-import ManualFlashcardCreator from "@/components/ManualFlashcardCreator";
 import StreakHistory from "@/components/StreakHistory";
 
 // New minimalist dashboard components
@@ -346,7 +344,6 @@ function PodcastsTab({ user, router }: { user: any; router: any }) {
 
 export default function AssistantPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { user } = useAuth();
   const [selectedTab, setSelectedTab] = useState("document");
   const [activeMainTab, setActiveMainTab] = useState("dashboard");
@@ -477,14 +474,6 @@ export default function AssistantPage() {
       loadRecentDecks();
     }
   }, [user]);
-
-  // Handle URL parameters for tab switching
-  useEffect(() => {
-    const tab = searchParams?.get("tab");
-    if (tab && ["dashboard", "flashcards", "files", "podcasts"].includes(tab)) {
-      setActiveMainTab(tab);
-    }
-  }, [searchParams]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -687,11 +676,6 @@ export default function AssistantPage() {
                 </div>
               </div>
             </DashboardShell>
-          </TabsContent>
-
-          {/* Other tabs remain unchanged for now */}
-          <TabsContent value="flashcards" className="p-6">
-            <ManualFlashcardCreator />
           </TabsContent>
 
           <TabsContent value="files" className="p-6">
