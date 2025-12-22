@@ -99,7 +99,6 @@ const documentRoutes = require("./routes/documents");
 const fileRoutes = require("./routes/files");
 const practiceRoutes = require("./routes/practice");
 const generationRoutes = require("./routes/generation");
-const langchainRoutes = require("./routes/langchain");
 const flashcardRoutes = require("./routes/flashcards");
 const statsRoutes = require("./routes/stats");
 const viewNotesRoutes = require("./routes/viewNotes");
@@ -120,13 +119,12 @@ app.use("/api/documents", documentRoutes);
 app.use("/api/files", fileRoutes);
 app.use("/api/practice", practiceRoutes);
 app.use("/api/generation", generationRoutes);
-app.use("/api/langchain", langchainRoutes);
 app.use("/api/flashcards", flashcardRoutes);
 app.use("/api/stats", statsRoutes);
 app.use("/api/summary", summaryRoutes);
 app.use("/api/notes", notesRoutes);
 app.use("/api/view-notes", viewNotesRoutes);
-app.use("/api/podcasts", podcastRoutes);
+app.use("/api/server/podcasts", podcastRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({

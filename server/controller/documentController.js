@@ -33,11 +33,13 @@ try {
 }
 
 // Determine which AI provider to use (priority: Groq > HuggingFace)
-const AI_PROVIDER = hasGroq ? 'groq' : hasHuggingFace ? 'huggingface' : 'none';
+const AI_PROVIDER = hasGroq ? "groq" : hasHuggingFace ? "huggingface" : "none";
 console.log(`🤖 Primary AI provider: ${AI_PROVIDER.toUpperCase()}`);
 
 if (!hasGroq && !hasHuggingFace) {
-  console.error("❌ No AI providers configured! Please add GROQ_API_KEY or HUGGINGFACE_API_KEY to .env");
+  console.error(
+    "❌ No AI providers configured! Please add GROQ_API_KEY or HUGGINGFACE_API_KEY to .env"
+  );
 }
 
 /**
@@ -51,7 +53,6 @@ function getDifficultyNumber(difficultyLevel) {
   };
   return difficultyMap[difficultyLevel] || 3;
 }
-
 
 // Configure multer using centralized upload service
 const upload = uploadService.createMulterConfig({
@@ -206,23 +207,43 @@ const pasteDocument = async (req, res) => {
  */
 const generateFlashcardsFromDocument = async (req, res) => {
   try {
-    const { documentId, text, deckTitle, maxCards, difficultyLevel } = req.body;
-    const userId = req.user.id;
+    // Log the entire request body for debugging
+    console.log("📥 FULL REQUEST BODY:", JSON.stringify(req.body, null, 2));
+    console.log("👤 User from req.user:", req.user);
+
+    const { documentId, text, deckTitle, maxCards, difficultyLevel, qaPairs } =
+      req.body;
+    const userId = req.user?.id;
 
     console.log("📥 Received flashcard generation request:", {
       hasText: !!text,
       textLength: text?.length,
+      hasQAPairs: !!qaPairs,
+      qaPairsLength: qaPairs?.length,
       documentId,
       deckTitle,
       maxCards,
       difficultyLevel,
       userId,
+      hasUser: !!req.user,
     });
 
-    if (!documentId && !text) {
+    // Check if user is authenticated
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "User authentication required",
+        details: "Please log in to generate flashcards",
+      });
+    }
+
+    // Accept either text OR qaPairs
+    if (!documentId && !text && !qaPairs?.length) {
       return res.status(400).json({
         success: false,
-        message: "Either documentId or text is required",
+        message: "Either documentId, text, or qaPairs is required",
+        details:
+          "Please provide extracted text or Q&A pairs for flashcard generation",
       });
     }
 
@@ -268,14 +289,22 @@ const generateFlashcardsFromDocument = async (req, res) => {
     }
 
     // Create generation job
-    const job = await prisma.generation_jobs.create({
-      data: {
-        document_id: documentId || null,
-        user_id: userId,
-        status: "queued",
-        created_at: new Date(),
-      },
-    });
+    console.log("📝 Creating generation job for user:", userId);
+    let job;
+    try {
+      job = await prisma.generation_jobs.create({
+        data: {
+          document_id: documentId || null,
+          user_id: userId,
+          status: "queued",
+          created_at: new Date(),
+        },
+      });
+      console.log("✅ Generation job created:", job.id);
+    } catch (jobError) {
+      console.error("❌ Failed to create generation job:", jobError);
+      throw new Error(`Database error: ${jobError.message}`);
+    }
 
     // Update job status to processing
     await prisma.generation_jobs.update({
@@ -288,24 +317,38 @@ const generateFlashcardsFromDocument = async (req, res) => {
 
     try {
       // Generate flashcards
+      console.log("🎯 Starting flashcard generation...");
+      console.log("📊 Generation parameters:", {
+        textLength: sourceText.length,
+        maxCards,
+        difficultyLevel,
+        hasGroq,
+        hasHuggingFace,
+      });
+
       let allFlashcards = [];
-      const targetDifficulty = maxCards && difficultyLevel ? getDifficultyNumber(difficultyLevel) : 3;
+      const targetDifficulty =
+        maxCards && difficultyLevel ? getDifficultyNumber(difficultyLevel) : 3;
       const cardCount = parseInt(maxCards) || 10;
       let lastError = null;
 
-      // Try FREE providers in order: Groq > HuggingFace
+      // Try FREE providers in order: Groq > HuggingFace > Rule-based (fallback)
       // Automatic fallback if primary provider fails
 
       // Try Groq first (primary FREE provider)
       if (hasGroq && maxCards && difficultyLevel) {
         try {
-          console.log(`🚀 Generating ${cardCount} ${difficultyLevel} flashcards with Groq (FREE)...`);
+          console.log(
+            `🚀 Generating ${cardCount} ${difficultyLevel} flashcards with Groq (FREE)...`
+          );
           allFlashcards = await groqClient.generateFlashcardsWithGroq(
             sourceText,
             cardCount,
             targetDifficulty
           );
-          console.log(`✅ Successfully generated ${allFlashcards.length} flashcards with Groq`);
+          console.log(
+            `✅ Successfully generated ${allFlashcards.length} flashcards with Groq`
+          );
         } catch (error) {
           console.error(`❌ Groq failed: ${error.message}`);
           lastError = error;
@@ -314,26 +357,69 @@ const generateFlashcardsFromDocument = async (req, res) => {
       }
 
       // Try Hugging Face as backup
-      if (allFlashcards.length === 0 && hasHuggingFace && maxCards && difficultyLevel) {
+      if (
+        allFlashcards.length === 0 &&
+        hasHuggingFace &&
+        maxCards &&
+        difficultyLevel
+      ) {
         try {
-          console.log(`🤗 Generating ${cardCount} ${difficultyLevel} flashcards with Hugging Face (FREE backup)...`);
-          allFlashcards = await huggingfaceClient.generateFlashcardsWithHuggingFace(
-            sourceText,
-            cardCount,
-            targetDifficulty
+          console.log(
+            `🤗 Generating ${cardCount} ${difficultyLevel} flashcards with Hugging Face (FREE backup)...`
           );
-          console.log(`✅ Successfully generated ${allFlashcards.length} flashcards with Hugging Face`);
+          allFlashcards =
+            await huggingfaceClient.generateFlashcardsWithHuggingFace(
+              sourceText,
+              cardCount,
+              targetDifficulty
+            );
+          console.log(
+            `✅ Successfully generated ${allFlashcards.length} flashcards with Hugging Face`
+          );
         } catch (error) {
           console.error(`❌ Hugging Face failed: ${error.message}`);
           lastError = error;
+          console.log(
+            "🔄 Falling back to rule-based generation (last resort)..."
+          );
         }
       }
 
-      // If both FREE providers failed, throw error
+      // LAST RESORT: Use rule-based generation if all AI providers failed
+      if (allFlashcards.length === 0) {
+        try {
+          console.log("🎯 Using rule-based Q&A generation as fallback...");
+          const simpleQAService = require("../services/simpleQAService");
+          const qaPairs = simpleQAService.generateQAPairs(
+            sourceText,
+            cardCount
+          );
+
+          if (qaPairs && qaPairs.length > 0) {
+            // Convert Q&A pairs to flashcard format
+            allFlashcards = qaPairs.map((qa) => ({
+              question: qa.question,
+              answer: qa.answer,
+              difficulty: targetDifficulty,
+              type: "basic",
+            }));
+            console.log(
+              `✅ Generated ${allFlashcards.length} flashcards using rule-based extraction`
+            );
+          }
+        } catch (ruleBasedError) {
+          console.error(
+            `❌ Rule-based generation also failed: ${ruleBasedError.message}`
+          );
+          lastError = ruleBasedError;
+        }
+      }
+
+      // If all methods failed, throw error
       if (allFlashcards.length === 0) {
         const errorMessage = lastError
-          ? `All AI providers failed. Last error: ${lastError.message}`
-          : "No AI providers are configured. Please add GROQ_API_KEY or HUGGINGFACE_API_KEY to .env file";
+          ? `All flashcard generation methods failed. Last error: ${lastError.message}`
+          : "No flashcard generation methods available";
 
         console.error(`❌ ${errorMessage}`);
         throw new Error(errorMessage);
@@ -345,79 +431,102 @@ const generateFlashcardsFromDocument = async (req, res) => {
         );
       }
 
-      // Start database transaction
-      const result = await prisma.$transaction(async (tx) => {
-        // Create flashcard deck
-        const deck = await tx.flashcard_decks.create({
-          data: {
-            user_id: userId,
-            document_id: documentId || null,
-            title:
-              deckTitle || `Flashcards - ${document?.title || "Custom Text"}`,
-            description: `AI-generated flashcards from ${
-              document ? "uploaded document" : "pasted text"
-            }`,
-            creation_method: "ai_generated",
-            is_public: false,
-          },
-        });
+      console.log(
+        `💾 Saving ${allFlashcards.length} flashcards to database...`
+      );
 
-        // Create flashcards
-        for (const cardData of allFlashcards) {
-          const flashcard = await tx.flashcards.create({
+      // Start database transaction with increased timeout
+      const result = await prisma.$transaction(
+        async (tx) => {
+          console.log("📝 Creating flashcard deck...");
+          // Create flashcard deck
+          const deck = await tx.flashcard_decks.create({
             data: {
-              deck_id: deck.id,
-              question: cardData.question,
-              answer: cardData.answer,
-              difficulty_level: cardData.difficulty || 2,
-              card_type: cardData.type || "basic",
-              auto_generated: true,
-              confidence_score: 0.85, // Default confidence for AI-generated cards
+              user_id: userId,
+              document_id: documentId || null,
+              title:
+                deckTitle || `Flashcards - ${document?.title || "Custom Text"}`,
+              description: `AI-generated flashcards from ${
+                document ? "uploaded document" : "pasted text"
+              }`,
+              creation_method: "ai_generated",
+              is_public: false,
             },
           });
+          console.log(`✅ Deck created with ID: ${deck.id}`);
 
-          // Create MCQ options if applicable
-          if (
-            cardData.type === "mcq" &&
-            cardData.options &&
-            cardData.options.length === 4
-          ) {
-            for (let i = 0; i < cardData.options.length; i++) {
-              await tx.flashcard_options.create({
-                data: {
-                  flashcard_id: flashcard.id,
-                  option_text: cardData.options[i],
-                  is_correct: i === (cardData.correct_index || 0),
-                  option_order: i,
-                },
-              });
+          console.log(
+            `📝 Creating ${allFlashcards.length} flashcard records...`
+          );
+
+          // Create flashcards
+          for (const cardData of allFlashcards) {
+            const flashcard = await tx.flashcards.create({
+              data: {
+                deck_id: deck.id,
+                question: cardData.question,
+                answer: cardData.answer,
+                difficulty_level: cardData.difficulty || 2,
+                card_type: cardData.type || "basic",
+                auto_generated: true,
+                confidence_score: 0.85, // Default confidence for AI-generated cards
+              },
+            });
+
+            // Create MCQ options if applicable
+            if (
+              cardData.type === "mcq" &&
+              cardData.options &&
+              cardData.options.length === 4
+            ) {
+              for (let i = 0; i < cardData.options.length; i++) {
+                await tx.flashcard_options.create({
+                  data: {
+                    flashcard_id: flashcard.id,
+                    option_text: cardData.options[i],
+                    is_correct: i === (cardData.correct_index || 0),
+                    option_order: i,
+                  },
+                });
+              }
             }
           }
-        }
 
-        // Update generation job
-        await tx.generation_jobs.update({
-          where: { id: job.id },
-          data: {
-            status: "completed",
-            cards_generated: allFlashcards.length,
-            completed_at: new Date(),
-          },
-        });
+          console.log("✅ All flashcards saved successfully");
 
-        // Mark document as processed if applicable
-        if (document) {
-          await tx.notes.update({
-            where: { id: document.id },
+          // Update generation job
+          await tx.generation_jobs.update({
+            where: { id: job.id },
             data: {
-              is_processed_by_ai: true,
-              last_modified: new Date(),
+              status: "completed",
+              cards_generated: allFlashcards.length,
+              completed_at: new Date(),
             },
           });
-        }
 
-        return { deckId: deck.id, cardsCreated: allFlashcards.length };
-      });
+          // Mark document as processed if applicable
+          if (document) {
+            await tx.notes.update({
+              where: { id: document.id },
+              data: {
+                is_processed_by_ai: true,
+                last_modified: new Date(),
+              },
+            });
+          }
+
+          console.log("✅ Transaction completed successfully");
+          return { deckId: deck.id, cardsCreated: allFlashcards.length };
+        },
+        {
+          maxWait: 10000, // 10 seconds max wait for transaction to start
+          timeout: 30000, // 30 seconds timeout for transaction execution
+        }
+      );
+
+      console.log(
+        `🎉 Successfully created deck ${result.deckId} with ${result.cardsCreated} flashcards`
+      );
 
       res.json({
         success: true,
@@ -430,23 +539,45 @@ const generateFlashcardsFromDocument = async (req, res) => {
         },
       });
     } catch (error) {
-      // Update job as failed
-      await prisma.generation_jobs.update({
-        where: { id: job.id },
-        data: {
-          status: "failed",
-          error_message: error.message,
-          completed_at: new Date(),
-        },
-      });
+      // Update job as failed (only if job was created)
+      if (job?.id) {
+        try {
+          await prisma.generation_jobs.update({
+            where: { id: job.id },
+            data: {
+              status: "failed",
+              error_message: error.message,
+              completed_at: new Date(),
+            },
+          });
+        } catch (updateError) {
+          console.error("❌ Failed to update job status:", updateError);
+        }
+      }
 
       throw error;
     }
   } catch (error) {
-    console.error("Generate flashcards error:", error);
-    res.status(500).json({
+    console.error("❌ Generate flashcards error:", error);
+    console.error("❌ Error stack:", error.stack);
+    console.error("❌ Error details:", {
+      message: error.message,
+      code: error.code,
+      meta: error.meta,
+    });
+
+    // Return meaningful error messages, not generic 500s
+    const statusCode = error.statusCode || 500;
+    const errorMessage = error.message || "Failed to generate flashcards";
+
+    res.status(statusCode).json({
       success: false,
-      message: error.message || "Failed to generate flashcards",
+      message: errorMessage,
+      error: process.env.NODE_ENV === "development" ? error.stack : undefined,
+      details: {
+        phase: error.phase || "unknown",
+        provider: error.provider || "unknown",
+      },
     });
   }
 };
@@ -505,7 +636,10 @@ async function extractTextFromDocument(document) {
       process.env.SUPABASE_BUCKET_NAME || "study-sync-documents";
 
     // Download file using upload service
-    const downloadResult = await uploadService.downloadFile(bucketName, document.file_path);
+    const downloadResult = await uploadService.downloadFile(
+      bucketName,
+      document.file_path
+    );
 
     if (!downloadResult.success) {
       throw new Error(`Failed to download file: ${downloadResult.error}`);
@@ -518,6 +652,7 @@ async function extractTextFromDocument(document) {
     // Extract text
     const extractedText = await extractTextFromFile(
       buffer,
+      document.file_type,
       document.file_name,
       getMimeType(document.file_type)
     );
@@ -573,10 +708,90 @@ function getMimeType(fileType) {
   }
 }
 
+/**
+ * Get extracted text from a document
+ * Replaces langchain text extraction functionality
+ */
+const getExtractedText = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id;
+
+    console.log(`📄 Getting extracted text for document ${id}`);
+
+    // Find document with chunks
+    const document = await prisma.notes.findFirst({
+      where: {
+        id: parseInt(id),
+        user_id: userId,
+      },
+      include: {
+        document_chunks: {
+          orderBy: {
+            chunk_order: "asc",
+          },
+        },
+      },
+    });
+
+    if (!document) {
+      return res.status(404).json({
+        success: false,
+        message: "Document not found or access denied",
+      });
+    }
+
+    let extractedText = "";
+    let wordCount = 0;
+    let pageCount = 1;
+
+    // Check if text has already been extracted
+    if (document.document_chunks && document.document_chunks.length > 0) {
+      console.log(
+        `✅ Found ${document.document_chunks.length} existing chunks`
+      );
+      extractedText = document.document_chunks
+        .map((chunk) => chunk.chunk_text)
+        .join("\n\n");
+      wordCount = extractedText.split(/\s+/).filter((w) => w.length > 0).length;
+    } else {
+      // Extract text from file
+      console.log("🔄 Extracting text from file...");
+      extractedText = await extractTextFromDocument(document);
+      wordCount = extractedText.split(/\s+/).filter((w) => w.length > 0).length;
+
+      // Estimate page count (rough estimate: 250 words per page)
+      pageCount = Math.ceil(wordCount / 250);
+    }
+
+    // Return extracted text with metadata
+    res.json({
+      success: true,
+      message: "Text extracted successfully",
+      data: {
+        extractedText,
+        wordCount,
+        pageCount,
+        preview:
+          extractedText.substring(0, 1000) +
+          (extractedText.length > 1000 ? "..." : ""),
+        qsAns: [], // Empty array for compatibility with langchain response format
+      },
+    });
+  } catch (error) {
+    console.error("❌ Get extracted text error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to extract text from document",
+    });
+  }
+};
+
 module.exports = {
   upload,
   uploadDocument,
   pasteDocument,
   generateFlashcardsFromDocument,
   getDeck,
+  getExtractedText,
 };

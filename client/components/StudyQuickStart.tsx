@@ -117,7 +117,7 @@ export function StudyQuickStart() {
               <p className={`text-sm ${THEME.subtext} mb-3`}>
                 No flashcard decks found
               </p>
-              <Link href="/assistant?tab=flashcards">
+              <Link href="/assistant/create-flashcards">
                 <Button variant="outline" size="sm">
                   <Plus className="h-4 w-4 mr-2" />
                   Create First Deck
@@ -146,7 +146,7 @@ export function StudyQuickStart() {
               Browse All Decks
             </Button>
           </Link>
-          <Link href="/assistant?tab=flashcards" className="flex-1">
+          <Link href="/assistant/create-flashcards" className="flex-1">
             <Button variant="outline" className="w-full" size="sm">
               <Plus className="h-4 w-4 mr-2" />
               Create New

@@ -168,7 +168,7 @@ export default function FlashcardsPage() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuItem
-                onClick={() => router.push("/assistant?tab=flashcards")}
+                onClick={() => router.push("/assistant/create-flashcards")}
                 className="cursor-pointer"
               >
                 <Edit className="w-4 h-4 mr-2" />

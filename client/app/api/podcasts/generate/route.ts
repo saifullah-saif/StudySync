@@ -13,10 +13,7 @@ export async function POST(request: NextRequest) {
     console.log("🎙️ POST /api/podcasts/generate - Starting...");
 
     const body = await request.json();
-    const { fileId, text, title, lang, userId } = body;
-
-    // Extract cookies from request to forward to backend
-    const cookieHeader = request.headers.get("cookie");
+    const { fileId, text, title, lang } = body;
 
     // Validate input
     if (!text && !fileId) {
@@ -67,75 +64,60 @@ export async function POST(request: NextRequest) {
       .digest("hex");
     const episodeId = `episode_${contentHash}`;
 
-    // Estimate reading time (average 150 words per minute)
-    const wordCount = podcastText.split(/\s+/).length;
-    const estimatedDuration = Math.ceil((wordCount / 150) * 60); // seconds
+    // Chunk the text
+    const chunks = chunkText(podcastText, { maxChars: 1800 });
+    console.log(`📄 Created ${chunks.length} text chunks`);
 
-    console.log(
-      `📊 Podcast metadata: ${wordCount} words, ~${estimatedDuration}s duration`
+    // Calculate total estimated duration
+    const totalDuration = chunks.reduce(
+      (sum: number, chunk: any) => sum + chunk.estimatedDuration,
+      0
     );
 
-    // Save podcast to database via backend - THIS IS MANDATORY
-    console.log(`💾 Saving podcast to database (REQUIRED)...`);
+    // Create metadata
+    const metadata = {
+      episodeId,
+      title: podcastTitle,
+      createdAt: new Date().toISOString(),
+      totalDurationSec: totalDuration,
+      chunks: chunks.length,
+      chapters: chunks.map((chunk: any, index: number) => ({
+        index,
+        title: chunk.chapterTitle,
+        startTime: chunks
+          .slice(0, index)
+          .reduce((sum: number, c: any) => sum + c.estimatedDuration, 0),
+        duration: chunk.estimatedDuration,
+        text: chunk.text.substring(0, 200) + "...",
+      })),
+      lang: lang || "en",
+      textLength: podcastText.length,
+    };
 
-    const backendUrl = process.env.BACKEND_URL || "http://localhost:5001";
-
-    let savedPodcastId: number | null = null;
-
-    const saveResponse = await fetch(`${backendUrl}/api/podcasts`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(cookieHeader && { Cookie: cookieHeader }), // Forward authentication cookies
-      },
-      credentials: "include",
-      body: JSON.stringify({
-        userId, // Legacy field - backend will use authenticated user instead
-        episodeId,
-        title: podcastTitle,
-        fullText: podcastText,
-        duration: estimatedDuration,
-        wordCount,
-        sourceFileId: fileId || null,
-        sourceType: fileId ? "document" : "text",
-      }),
+    // Save metadata (in a real implementation, this would be saved to disk/database)
+    console.log("📊 Podcast metadata prepared:", {
+      episodeId,
+      title: podcastTitle,
+      chunks: chunks.length,
+      duration: totalDuration,
     });
 
-    if (!saveResponse.ok) {
-      const errorText = await saveResponse.text();
-      console.error(
-        `❌ CRITICAL: Failed to save podcast to database: ${saveResponse.status} - ${errorText}`
-      );
+    // For demo purposes, we'll return the metadata without actual TTS generation
+    console.log("✅ Podcast processing completed (demo mode)");
 
-      // Return error - podcast generation fails if persistence fails
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Failed to persist podcast: ${saveResponse.status} - ${errorText}`,
-        },
-        { status: 500 }
-      );
-    }
-
-    const saveData = await saveResponse.json();
-    savedPodcastId = saveData.id;
-
-    console.log(
-      `✅ ✅ ✅ Podcast persisted to database with ID: ${savedPodcastId}, episodeId: ${episodeId}`
-    );
-
-    // Return success response with full text (no chapters)
+    // Return success response
     return NextResponse.json({
       success: true,
-      id: savedPodcastId, // Database ID for reference
       episodeId,
       audioUrl: `/api/podcasts/download/${episodeId}`,
-      duration: estimatedDuration,
+      metadataUrl: `/api/podcasts/metadata/${episodeId}`,
+      chapters: metadata.chapters,
+      duration: totalDuration,
       title: podcastTitle,
       demoMode: true,
-      fullText: podcastText, // Send full text instead of chunks
-      wordCount,
-      message: "Podcast generated and saved successfully.",
+      textChunks: chunks.map((chunk) => chunk.text), // Include actual text for TTS
+      message:
+        "Podcast structure generated. Using live TTS for audio playback.",
     });
   } catch (error) {
     console.error("❌ Podcast generation error:", error);

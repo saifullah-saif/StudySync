@@ -1,448 +1,326 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
+import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/auth-context";
+import { podcastAPI, Podcast } from "@/lib/podcasts";
+import AudioPodcastPlayer from "@/components/AudioPodcastPlayer";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Play,
-  Pause,
-  Clock,
-  Search,
-  Sparkles,
-  FileText,
-  TrendingUp,
-  History,
-  ChevronRight,
-  Volume2,
-  SkipBack,
-  SkipForward,
-  X,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import SimplePodcastPlayer from "@/components/SimplePodcastPlayer";
-import { usePodcast } from "@/contexts/podcast-context";
-
-interface Podcast {
-  id: string;
-  title: string;
-  description: string;
-  duration: number;
-  createdAt: string;
-  sourceType: "note" | "document" | "ai-generated";
-  coverGradient: string;
-  fullText?: string;
-  episodeId?: string;
-}
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Loader2, Music, Headphones } from "lucide-react";
+import { toast } from "sonner";
 
 export default function PodcastsPage() {
+  const router = useRouter();
+  const { user } = useAuth();
+
   const [podcasts, setPodcasts] = useState<Podcast[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const [selectedPodcast, setSelectedPodcast] = useState<Podcast | null>(null);
-  const [miniPlayerExpanded, setMiniPlayerExpanded] = useState(false);
-  const { play } = usePodcast();
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Fetch real podcasts from backend API
   useEffect(() => {
-    let mounted = true;
-
-    const fetchPodcasts = async () => {
-      try {
-        setLoading(true);
-        const res = await fetch("/api/podcasts", {
-          method: "GET",
-          credentials: "include", // Include cookies in request
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-
-        // Handle 404 or other errors gracefully
-        if (!res.ok) {
-          console.warn(`Podcasts API error: ${res.status} ${res.statusText}`);
-          if (res.status === 401) {
-            console.error("Authentication failed - user not logged in");
-          }
-          if (mounted) setPodcasts([]);
-          return;
-        }
-
-        const json = await res.json();
-
-        if (!mounted) return;
-
-        if (json?.success && Array.isArray(json.episodes)) {
-          // Map to our local Podcast shape if needed
-          const eps = json.episodes.map((e: any) => ({
-            id: e.id || e.episodeId || e._id || String(Math.random()),
-            title: e.title || e.name || "Untitled Podcast",
-            description: e.description || e.source || "",
-            duration: e.duration || e.estimatedDuration || 0,
-            createdAt: e.createdAt || e.created_at || new Date().toISOString(),
-            sourceType: e.sourceType || "ai-generated",
-            coverGradient: e.coverGradient || "from-slate-400 to-slate-500",
-            fullText: e.fullText || e.text || "",
-            episodeId: e.episodeId || e.id || undefined,
-          }));
-
-          setPodcasts(eps);
-        } else {
-          // fallback to empty list
-          setPodcasts([]);
-        }
-      } catch (err) {
-        console.warn("Failed to fetch podcasts:", err);
-        setPodcasts([]);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
+    if (!user) {
+      router.push(
+        "/auth?redirect=" + encodeURIComponent(window.location.pathname)
+      );
+      return;
+    }
 
     fetchPodcasts();
+  }, [user, router]);
 
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const fetchPodcasts = async () => {
+    if (!user) return;
 
-  const formatDuration = (seconds: number) => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const result = await podcastAPI.getUserPodcasts(String(user.id));
+
+      if (result.success && result.podcasts) {
+        // Filter only ready podcasts for the table view
+        setPodcasts(result.podcasts.filter((p) => p.status === "ready"));
+      } else {
+        setError(result.error || "Failed to load podcasts");
+        toast.error("Failed to load podcasts");
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      setError(errorMessage);
+      toast.error("Failed to load podcasts");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  };
+
+  const formatDuration = (seconds?: number) => {
+    if (!seconds) return "—";
     const mins = Math.floor(seconds / 60);
-    return `${mins} min`;
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const getSourceIcon = (type: Podcast["sourceType"]) => {
-    switch (type) {
-      case "ai-generated":
-        return <Sparkles className="h-3.5 w-3.5" />;
-      case "document":
-        return <FileText className="h-3.5 w-3.5" />;
-      case "note":
-        return <FileText className="h-3.5 w-3.5" />;
-    }
+  const handleRowClick = (podcast: Podcast) => {
+    setSelectedPodcast(podcast);
+    setIsModalOpen(true);
   };
 
-  const getSourceLabel = (type: Podcast["sourceType"]) => {
-    switch (type) {
-      case "ai-generated":
-        return "AI Generated";
-      case "document":
-        return "From Document";
-      case "note":
-        return "From Notes";
-    }
-  };
-
-  const filteredPodcasts = podcasts.filter((podcast) =>
-    podcast.title.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const recentPodcasts = filteredPodcasts.slice(0, 4);
-  const aiGeneratedPodcasts = filteredPodcasts.filter(
-    (p) => p.sourceType === "ai-generated"
-  );
-  const documentPodcasts = filteredPodcasts.filter(
-    (p) => p.sourceType === "document" || p.sourceType === "note"
-  );
-
-  const PodcastCard = ({ podcast }: { podcast: Podcast }) => (
-    <Card
-      className={cn(
-        "group relative overflow-hidden bg-gradient-to-br",
-        "border-0 shadow-md hover:shadow-lg transition-all duration-300",
-        "hover:scale-[1.02] cursor-pointer rounded-xl",
-        "w-[200px] h-[260px]",
-        podcast.coverGradient
-      )}
-      onClick={() => {
-        setSelectedPodcast(podcast);
-        setMiniPlayerExpanded(false);
-      }}
-    >
-      <div className="absolute inset-0 bg-slate-900/20 group-hover:bg-slate-900/10 transition-all" />
-
-      {/* Play button overlay */}
-      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-        <Button
-          size="lg"
-          onClick={(e) => {
-            e.stopPropagation();
-            play({
-              id: podcast.id,
-              title: podcast.title,
-              description: podcast.description,
-              duration: podcast.duration,
-              createdAt: podcast.createdAt,
-              sourceType: podcast.sourceType,
-              fullText: podcast.fullText,
-              episodeId: podcast.episodeId,
-              coverGradient: podcast.coverGradient,
-            });
-          }}
-          className="h-16 w-16 rounded-full bg-white text-black hover:bg-white/90 hover:scale-110 transition-transform shadow-2xl"
-        >
-          <Play className="h-7 w-7 ml-0.5" fill="currentColor" />
-        </Button>
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-900">
+        <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
       </div>
-
-      {/* Content */}
-      <div className="relative h-full p-6 flex flex-col justify-end">
-        <Badge
-          variant="secondary"
-          className="absolute top-4 right-4 bg-slate-900/60 text-white border-0 backdrop-blur-sm"
-        >
-          <Clock className="h-3 w-3 mr-1" />
-          {formatDuration(podcast.duration)}
-        </Badge>
-
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Badge
-              variant="outline"
-              className="bg-white/20 text-white border-white/30 backdrop-blur-sm"
-            >
-              {getSourceIcon(podcast.sourceType)}
-              <span className="ml-1 text-xs">
-                {getSourceLabel(podcast.sourceType)}
-              </span>
-            </Badge>
-          </div>
-
-          <h3 className="text-white font-bold text-lg line-clamp-2 leading-tight">
-            {podcast.title}
-          </h3>
-
-          <p className="text-white/80 text-sm line-clamp-2">
-            {podcast.description}
-          </p>
-        </div>
-      </div>
-    </Card>
-  );
-
-  const PodcastRow = ({
-    title,
-    podcasts,
-    icon: Icon,
-  }: {
-    title: string;
-    podcasts: Podcast[];
-    icon: any;
-  }) => (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Icon className="h-5 w-5 text-emerald-500" />
-          <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-        </div>
-        {podcasts.length > 4 && (
-          <Button
-            variant="ghost"
-            className="text-slate-600 hover:text-slate-900"
-          >
-            See all
-            <ChevronRight className="h-4 w-4 ml-1" />
-          </Button>
-        )}
-      </div>
-
-      {podcasts.length === 0 ? (
-        <div className="flex items-center justify-center h-[260px] bg-slate-100 rounded-xl border border-slate-200">
-          <div className="text-center space-y-3 p-8">
-            <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-slate-200">
-              <Icon className="h-7 w-7 text-slate-600" />
-            </div>
-            <p className="text-sm text-slate-600 font-medium">
-              No podcasts yet
-            </p>
-            <p className="text-xs text-slate-500">
-              Generate from your notes and documents
-            </p>
-          </div>
-        </div>
-      ) : (
-        <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide">
-          {podcasts.map((podcast) => (
-            <PodcastCard key={podcast.id} podcast={podcast} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
-  const SkeletonCard = () => (
-    <div className="w-[200px] h-[260px]">
-      <Skeleton className="w-full h-full rounded-xl bg-slate-200" />
-    </div>
-  );
+    );
+  }
 
   return (
-    <div className="bg-slate-50 text-slate-900">
-      <div className="max-w-7xl mx-auto px-6 py-12 space-y-10">
-        {/* Hero Section */}
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <h1 className="text-4xl font-bold text-slate-900">Your Podcasts</h1>
-            <p className="text-lg text-slate-600 max-w-2xl">
-              AI-generated podcasts created from your study materials
-            </p>
+    <>
+      <div
+        className="min-h-screen text-slate-200"
+        style={{ background: '#0F172A' }}
+      >
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          {/* Header with subtle gradient */}
+          <div
+            className="mb-8 pb-6 rounded-t-2xl"
+            style={{
+              background: 'linear-gradient(to bottom, rgba(139,92,246,0.12), transparent)'
+            }}
+          >
+            <div className="flex items-center gap-4">
+              <div
+                className="w-16 h-16 rounded-lg flex items-center justify-center shadow-xl"
+                style={{
+                  background: 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)'
+                }}
+              >
+                <Headphones className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-5xl font-bold text-slate-100">Podcasts</h1>
+                <p className="text-slate-400 mt-1">
+                  {podcasts.length} {podcasts.length === 1 ? "episode" : "episodes"}
+                </p>
+              </div>
+            </div>
           </div>
 
-          {/* Search */}
-          <div className="relative max-w-xl">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-400" />
-            <Input
-              placeholder="Search your podcasts..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-12 h-14 bg-slate-100 border-slate-200 text-slate-900 placeholder:text-slate-500 focus:border-emerald-500 rounded-full text-base"
-            />
-          </div>
-        </div>
+          {/* Loading State */}
+          {loading && (
+            <div className="space-y-3">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div
+                  key={i}
+                  className="h-16 rounded"
+                  style={{ background: '#1E293B', opacity: 0.5 }}
+                />
+              ))}
+            </div>
+          )}
 
-        {/* Podcast Sections */}
-        {loading ? (
-          <div className="space-y-12">
-            <div className="space-y-4">
-              <Skeleton className="h-8 w-64 bg-slate-200" />
-              <div className="flex gap-6 overflow-x-auto">
-                {[1, 2, 3, 4].map((i) => (
-                  <SkeletonCard key={i} />
+          {/* Error State */}
+          {error && !loading && (
+            <div
+              className="rounded-lg p-6 text-center"
+              style={{
+                background: 'rgba(239,68,68,0.1)',
+                border: '1px solid rgba(239,68,68,0.3)'
+              }}
+            >
+              <p className="text-red-400">{error}</p>
+              <Button
+                onClick={fetchPodcasts}
+                variant="outline"
+                className="mt-4 border-red-500 text-red-400 hover:bg-red-500/10"
+                size="sm"
+              >
+                Try Again
+              </Button>
+            </div>
+          )}
+
+          {/* Empty State */}
+          {!loading && !error && podcasts.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <div
+                className="w-24 h-24 rounded-full flex items-center justify-center mb-6"
+                style={{ background: '#1E293B' }}
+              >
+                <Music className="w-12 h-12 text-slate-600" />
+              </div>
+              <h3 className="text-2xl font-semibold mb-2 text-slate-100">
+                No podcasts yet
+              </h3>
+              <p className="text-slate-400 mb-6 max-w-md">
+                Generate your first podcast from a document to get started
+              </p>
+              <Button
+                onClick={() => router.push("/assistant/files")}
+                className="bg-violet-600 hover:bg-violet-700 text-white"
+              >
+                Go to Files
+              </Button>
+            </div>
+          )}
+
+          {/* Table View */}
+          {!loading && !error && podcasts.length > 0 && (
+            <div
+              className="rounded-xl overflow-hidden"
+              style={{
+                background: '#111827',
+                border: '1px solid rgba(255,255,255,0.06)',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.3)'
+              }}
+            >
+              {/* Table Header */}
+              <div
+                className="grid grid-cols-12 gap-4 px-6 py-3 border-b text-sm font-medium uppercase tracking-wider sticky top-0 backdrop-blur-sm"
+                style={{
+                  borderColor: 'rgba(255,255,255,0.06)',
+                  background: 'rgba(17,24,39,0.8)',
+                  color: '#9CA3AF'
+                }}
+              >
+                <div className="col-span-1">#</div>
+                <div className="col-span-7">Podcast Title</div>
+                <div className="col-span-2">Date Added</div>
+                <div className="col-span-2">Duration</div>
+              </div>
+
+              {/* Table Rows */}
+              <div>
+                {podcasts.map((podcast, index) => (
+                  <div
+                    key={podcast.id}
+                    onClick={() => handleRowClick(podcast)}
+                    className="grid grid-cols-12 gap-4 px-6 py-4 border-b transition-all cursor-pointer group"
+                    style={{
+                      borderColor: 'rgba(255,255,255,0.04)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(139,92,246,0.08)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent';
+                    }}
+                  >
+                    {/* Index */}
+                    <div className="col-span-1 flex items-center text-sm" style={{ color: '#9CA3AF' }}>
+                      {index + 1}
+                    </div>
+
+                    {/* Title */}
+                    <div className="col-span-7 flex items-center gap-3">
+                      <div
+                        className="w-10 h-10 rounded flex items-center justify-center flex-shrink-0"
+                        style={{
+                          background: 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)'
+                        }}
+                      >
+                        <Music className="w-5 h-5 text-white" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div
+                          className="font-semibold truncate transition-colors group-hover:text-violet-400"
+                          style={{ color: '#E5E7EB' }}
+                        >
+                          {podcast.title}
+                        </div>
+                        <div className="text-sm truncate" style={{ color: '#6B7280' }}>
+                          Study podcast
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Date */}
+                    <div className="col-span-2 flex items-center text-sm" style={{ color: '#9CA3AF' }}>
+                      {formatDate(podcast.created_at)}
+                    </div>
+
+                    {/* Duration */}
+                    <div className="col-span-2 flex items-center text-sm" style={{ color: '#9CA3AF' }}>
+                      {formatDuration(podcast.duration)}
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
-          </div>
-        ) : (
-          <div className="space-y-12">
-            <PodcastRow
-              title="Recently Generated"
-              podcasts={recentPodcasts}
-              icon={History}
-            />
-
-            <PodcastRow
-              title="AI-Generated Podcasts"
-              podcasts={aiGeneratedPodcasts}
-              icon={Sparkles}
-            />
-
-            <PodcastRow
-              title="From Your Documents"
-              podcasts={documentPodcasts}
-              icon={FileText}
-            />
-          </div>
-        )}
-
-        {/* Empty State */}
-        {!loading && podcasts.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-24 space-y-6">
-            <div className="relative">
-              <div className="absolute inset-0 bg-emerald-500/20 blur-3xl rounded-full" />
-              <div className="relative w-24 h-24 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
-                <Sparkles className="h-12 w-12 text-white" />
-              </div>
-            </div>
-            <div className="text-center space-y-3">
-              <h3 className="text-2xl font-bold text-slate-900">
-                No podcasts yet
-              </h3>
-              <p className="text-slate-600 max-w-md">
-                Generate a podcast from your files
-              </p>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* Full Player Modal */}
-      {selectedPodcast && (
-        <div className="fixed inset-0 bg-white/95 backdrop-blur-sm z-50 flex items-center justify-center p-8">
-          <div className="relative w-full max-w-5xl">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute -top-12 right-0 text-slate-900 hover:bg-slate-100"
-              onClick={() => setSelectedPodcast(null)}
-            >
-              <X className="h-6 w-6" />
-            </Button>
+      {/* Podcast Modal */}
+      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+        <DialogContent
+          className="max-w-lg text-slate-100 p-0 overflow-hidden"
+          style={{
+            background: '#111827',
+            borderColor: 'rgba(255,255,255,0.1)',
+            maxHeight: '90vh'
+          }}
+        >
+          {selectedPodcast && (
+            <div className="flex flex-col" style={{ maxHeight: '90vh' }}>
+              {/* Header - Compact */}
+              <div className="px-6 py-4 border-b" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-semibold pr-8" style={{ color: '#E5E7EB' }}>
+                    {selectedPodcast.title}
+                  </DialogTitle>
+                  <p className="text-xs mt-1" style={{ color: '#9CA3AF' }}>
+                    {formatDate(selectedPodcast.created_at)} • {formatDuration(selectedPodcast.duration)}
+                  </p>
+                </DialogHeader>
+              </div>
 
-            <div className="bg-gradient-to-br from-slate-50 to-white rounded-3xl border border-slate-200 overflow-hidden">
-              <div className="p-12 space-y-8">
-                {/* Cover and Info */}
-                <div className="flex gap-8 items-start">
+              {/* Scrollable Content */}
+              <div className="overflow-y-auto px-6 py-6 space-y-4">
+                {/* Artwork - Constrained */}
+                <div className="flex justify-center">
                   <div
-                    className={cn(
-                      "w-64 h-64 rounded-2xl bg-gradient-to-br flex-shrink-0 shadow-2xl",
-                      selectedPodcast.coverGradient
-                    )}
-                  />
-
-                  <div className="flex-1 space-y-6">
-                    <div className="space-y-3">
-                      <Badge
-                        variant="outline"
-                        className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30"
-                      >
-                        {getSourceIcon(selectedPodcast.sourceType)}
-                        <span className="ml-1.5">
-                          {getSourceLabel(selectedPodcast.sourceType)}
-                        </span>
-                      </Badge>
-
-                      <h2 className="text-4xl font-bold text-slate-900">
-                        {selectedPodcast.title}
-                      </h2>
-
-                      <p className="text-lg text-slate-600">
-                        {selectedPodcast.description}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-6 text-sm text-slate-600">
-                      <div className="flex items-center gap-2">
-                        <Clock className="h-4 w-4" />
-                        {formatDuration(selectedPodcast.duration)}
-                      </div>
-                      <div>
-                        Created{" "}
-                        {new Date(
-                          selectedPodcast.createdAt
-                        ).toLocaleDateString()}
-                      </div>
-                    </div>
+                    className="w-64 h-64 rounded-lg flex items-center justify-center shadow-xl"
+                    style={{
+                      background: 'linear-gradient(135deg, #8B5CF6 0%, #EC4899 50%, #8B5CF6 100%)'
+                    }}
+                  >
+                    <Headphones className="w-24 h-24 text-white/80" />
                   </div>
                 </div>
 
-                {/* Player */}
-                <SimplePodcastPlayer
-                  fullText={
-                    selectedPodcast.fullText ||
-                    "Sample podcast text for demonstration purposes..."
-                  }
-                  title={selectedPodcast.title}
-                  episodeId={selectedPodcast.episodeId}
-                  estimatedDuration={selectedPodcast.duration}
-                  className="mt-8"
-                />
+                {/* Audio Player - Simplified */}
+                {selectedPodcast.audio_url && (
+                  <div className="pt-2">
+                    <AudioPodcastPlayer
+                      audioUrl={selectedPodcast.audio_url}
+                      title={selectedPodcast.title}
+                      podcastId={selectedPodcast.id}
+                      showHeader={false}
+                    />
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      <style jsx global>{`
-        .scrollbar-hide::-webkit-scrollbar {
-          display: none;
-        }
-        .scrollbar-hide {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-      `}</style>
-    </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

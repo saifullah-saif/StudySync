@@ -6,6 +6,7 @@ const {
   pasteDocument,
   generateFlashcardsFromDocument,
   getDeck,
+  getExtractedText,
 } = require("../controller/documentController");
 
 const router = express.Router();
@@ -24,5 +25,8 @@ router.post("/generate-flashcards", generateFlashcardsFromDocument);
 
 // Get deck details
 router.get("/decks/:id", getDeck);
+
+// Get extracted text from document (replaces langchain extraction)
+router.get("/extract/:id", getExtractedText);
 
 module.exports = router;
