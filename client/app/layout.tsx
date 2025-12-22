@@ -5,6 +5,7 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/auth-context";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "sonner";
+import { FloatingChat } from "@/components/floating-chat";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -25,6 +26,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <AuthProvider>
           {children}
+          <FloatingChat />
           <Toaster />
           <Sonner />
         </AuthProvider>

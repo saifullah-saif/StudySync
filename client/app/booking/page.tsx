@@ -759,6 +759,7 @@ function BookingPageContent() {
                               ? handleSeatSelection
                               : undefined
                           }
+                          interactive={(selectedRoom.capacity || 0) >= 10}
                           startTime={
                             selectedDate && selectedStartTime
                               ? `${selectedDate}T${selectedStartTime}:00`
