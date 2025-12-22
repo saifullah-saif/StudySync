@@ -205,6 +205,83 @@ const reviewController = {
         error: error.message
       });
     }
+  },
+
+  // Update a review
+  updateReview: async (req, res) => {
+    try {
+      const { reviewId } = req.params;
+      const userId = req.user.id;
+      const {
+        difficulty_rating,
+        workload_rating,
+        review_text,
+        semester_taken,
+        year_taken,
+        is_anonymous
+      } = req.body;
+
+      if (!reviewId) {
+        return res.status(400).json({
+          success: false,
+          message: 'Review ID is required'
+        });
+      }
+
+      // Validation
+      if (!difficulty_rating || !semester_taken || !year_taken) {
+        return res.status(400).json({
+          success: false,
+          message: 'Missing required fields: difficulty_rating, semester_taken, year_taken'
+        });
+      }
+
+      if (difficulty_rating < 1 || difficulty_rating > 5) {
+        return res.status(400).json({
+          success: false,
+          message: 'Difficulty rating must be between 1 and 5'
+        });
+      }
+
+      if (workload_rating && (workload_rating < 1 || workload_rating > 5)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Workload rating must be between 1 and 5'
+        });
+      }
+
+      const reviewData = {
+        difficulty_rating: parseInt(difficulty_rating),
+        workload_rating: workload_rating ? parseInt(workload_rating) : null,
+        review_text: review_text || null,
+        semester_taken,
+        year_taken: parseInt(year_taken),
+        is_anonymous: Boolean(is_anonymous)
+      };
+
+      const updatedReview = await reviewServices.updateReview(reviewId, userId, reviewData);
+
+      res.status(200).json({
+        success: true,
+        message: 'Review updated successfully',
+        data: updatedReview
+      });
+    } catch (error) {
+      console.error('Error in updateReview controller:', error);
+      
+      if (error.message === 'Review not found or unauthorized') {
+        return res.status(404).json({
+          success: false,
+          message: error.message
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        message: 'Failed to update review',
+        error: error.message
+      });
+    }
   }
 };
 

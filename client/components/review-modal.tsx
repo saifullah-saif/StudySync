@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Star } from "lucide-react";
+import { Star, Trash2 } from "lucide-react";
 
 interface ReviewModalProps {
   isOpen: boolean;
@@ -31,6 +31,15 @@ interface ReviewModalProps {
     course_code: string;
     course_name: string;
   };
+  existingReview?: {
+    id: number;
+    difficulty_rating: number;
+    workload_rating: number | null;
+    review_text: string | null;
+    semester_taken: string;
+    year_taken: number;
+    is_anonymous: boolean;
+  } | null;
   onReviewSubmitted: () => void;
 }
 
@@ -42,6 +51,7 @@ export default function ReviewModal({
   isOpen,
   onClose,
   course,
+  existingReview = null,
   onReviewSubmitted,
 }: ReviewModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -53,6 +63,30 @@ export default function ReviewModal({
     year_taken: "",
     is_anonymous: false,
   });
+
+  // Populate form with existing review data when modal opens
+  useEffect(() => {
+    if (existingReview) {
+      setFormData({
+        difficulty_rating: existingReview.difficulty_rating,
+        workload_rating: existingReview.workload_rating || 0,
+        review_text: existingReview.review_text || "",
+        semester_taken: existingReview.semester_taken,
+        year_taken: existingReview.year_taken.toString(),
+        is_anonymous: existingReview.is_anonymous,
+      });
+    } else {
+      // Reset form when creating new review
+      setFormData({
+        difficulty_rating: 0,
+        workload_rating: 0,
+        review_text: "",
+        semester_taken: "",
+        year_taken: "",
+        is_anonymous: false,
+      });
+    }
+  }, [existingReview, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,15 +105,25 @@ export default function ReviewModal({
     try {
       const { reviewAPI } = await import("@/lib/api");
 
-      await reviewAPI.createReview({
-        course_id: course.id,
+      const reviewData = {
         difficulty_rating: formData.difficulty_rating,
         workload_rating: formData.workload_rating || null,
         review_text: formData.review_text || null,
         semester_taken: formData.semester_taken,
         year_taken: parseInt(formData.year_taken),
         is_anonymous: formData.is_anonymous,
-      });
+      };
+
+      if (existingReview) {
+        // Update existing review
+        await reviewAPI.updateReview(existingReview.id, reviewData);
+      } else {
+        // Create new review
+        await reviewAPI.createReview({
+          course_id: course.id,
+          ...reviewData,
+        });
+      }
 
       // Reset form
       setFormData({
@@ -96,6 +140,29 @@ export default function ReviewModal({
     } catch (error: any) {
       console.error("Error submitting review:", error);
       alert(error.response?.data?.message || "Failed to submit review");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!existingReview) return;
+    
+    if (!confirm("Are you sure you want to delete this review? This action cannot be undone.")) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const { reviewAPI } = await import("@/lib/api");
+      await reviewAPI.deleteReview(existingReview.id);
+
+      onReviewSubmitted();
+      onClose();
+    } catch (error: any) {
+      console.error("Error deleting review:", error);
+      alert(error.response?.data?.message || "Failed to delete review");
     } finally {
       setIsSubmitting(false);
     }
@@ -138,9 +205,9 @@ export default function ReviewModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px] bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
         <DialogHeader>
-          <DialogTitle>Add Review</DialogTitle>
+          <DialogTitle>{existingReview ? "Edit Review" : "Add Review"}</DialogTitle>
           <DialogDescription>
-            Share your experience with {course.course_code} -{" "}
+            {existingReview ? "Update your experience with" : "Share your experience with"} {course.course_code} -{" "}
             {course.course_name}
           </DialogDescription>
         </DialogHeader>
@@ -258,7 +325,19 @@ export default function ReviewModal({
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2">
+            {existingReview && (
+              <Button
+                type="button"
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={isSubmitting}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Review
+              </Button>
+            )}
             <Button
               type="button"
               variant="outline"
@@ -268,7 +347,7 @@ export default function ReviewModal({
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Submitting..." : "Submit Review"}
+              {isSubmitting ? (existingReview ? "Updating..." : "Submitting...") : (existingReview ? "Update Review" : "Submit Review")}
             </Button>
           </DialogFooter>
         </form>

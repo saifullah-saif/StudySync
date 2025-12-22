@@ -291,6 +291,12 @@ export const reviewAPI = {
     return response.data;
   },
 
+  // Update an existing review
+  updateReview: async (reviewId, reviewData) => {
+    const response = await api.put(`/reviews/${reviewId}`, reviewData);
+    return response.data;
+  },
+
   // Get all reviews for a specific course
   getCourseReviews: async (courseId) => {
     const response = await api.get(`/reviews/course/${courseId}`);
@@ -992,6 +998,12 @@ export const courseAPI = {
   getCourseById: async (courseId) => {
     const response = await api.get(`/courses/${courseId}`);
     return response.data;
+  },
+
+  // Get user's completed courses
+  getMyCompletedCourses: async () => {
+    const response = await api.get("/courses/my-courses");
+    return response;
   },
 };
 

@@ -15,6 +15,9 @@ router.get('/user/course/:courseId', verifyTokenFromCookie, reviewController.get
 // Update review votes (requires auth)
 router.patch('/:reviewId/vote', verifyTokenFromCookie, reviewController.updateReviewVotes);
 
+// Update a review (requires auth)
+router.put('/:reviewId', verifyTokenFromCookie, reviewController.updateReview);
+
 // Delete a review (requires auth)
 router.delete('/:reviewId', verifyTokenFromCookie, reviewController.deleteReview);
 
