@@ -1,16 +1,14 @@
 import axios from "axios";
 
-
 const getApiUrl = () => {
-  
   if (process.env.NODE_ENV === "production") {
     return (
+      process.env.NEXT_PUBLIC_PRODUCTION_API_URL ||
       process.env.NEXT_PUBLIC_API_URL ||
-      "https://study-sync-server-sigma.vercel.app/api"
+      "https://studysync-server-ouba.onrender.com/api"
     );
   }
 
-  
   return process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 };
 
@@ -446,16 +444,24 @@ export const fileAPI = {
 export const langchainAPI = {
   // DEPRECATED: Use documentAPI.extractText(documentId) instead
   processFileFromUrl: async (fileUrl, fileName) => {
-    console.warn("⚠️ langchainAPI.processFileFromUrl is deprecated. Use documentAPI.extractText() instead");
+    console.warn(
+      "⚠️ langchainAPI.processFileFromUrl is deprecated. Use documentAPI.extractText() instead"
+    );
     // For backward compatibility during migration, extract documentId from fileUrl
     // This is a temporary shim that will be removed
-    throw new Error("langchainAPI is deprecated. Please use documentAPI.extractText(documentId) instead");
+    throw new Error(
+      "langchainAPI is deprecated. Please use documentAPI.extractText(documentId) instead"
+    );
   },
 
   // DEPRECATED: Use documentAPI.extractText(documentId) instead
   extractTextFromDocument: async (documentId) => {
-    console.warn("⚠️ langchainAPI.extractTextFromDocument is deprecated. Use documentAPI.extractText() instead");
-    throw new Error("langchainAPI is deprecated. Please use documentAPI.extractText(documentId) instead");
+    console.warn(
+      "⚠️ langchainAPI.extractTextFromDocument is deprecated. Use documentAPI.extractText() instead"
+    );
+    throw new Error(
+      "langchainAPI is deprecated. Please use documentAPI.extractText(documentId) instead"
+    );
   },
 };
 

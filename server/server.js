@@ -13,10 +13,10 @@ const getAllowedOrigins = () => {
     "http://localhost:3000",
     "http://localhost:3001",
     "https://study-sync-client.vercel.app",
-    "https://study-sync-server-sigma.vercel.app",
+    "https://studysync-server-ouba.onrender.com",
     "https://study-sync-client.vercel.app/",
-    "https://study-sync-server-sigma.vercel.app/",
-    "https://study-sync-server-sigma.vercel.app/api",
+    "https://studysync-server-ouba.onrender.com/",
+    "https://studysync-server-ouba.onrender.com/api",
   ];
 
   // Add environment-specific origins if they exist and are different
