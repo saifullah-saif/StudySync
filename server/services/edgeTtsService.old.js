@@ -1,27 +1,21 @@
 /**
  * Edge-TTS Service for Free Text-to-Speech Conversion
- * Uses edge-tts-universal npm package (JavaScript/CommonJS) - completely free, high quality
+ * Uses Microsoft Edge's TTS engine - completely free, high quality
  *
  * CRITICAL RULES:
  * - One generation = one TTS call
  * - No retries without user action
  * - No regeneration for same content
  * - Audio duration must come from actual file metadata
- *
- * Migration: Replaced Python edge-tts CLI with edge-tts-universal npm package
  */
 
-const { EdgeTTS } = require("edge-tts-universal");
+const { exec } = require("child_process");
+const { promisify } = require("util");
+const execAsync = promisify(exec);
 const fs = require("fs").promises;
 const path = require("path");
 const crypto = require("crypto");
 const ffmpeg = require("fluent-ffmpeg");
-const ffmpegStatic = require("ffmpeg-static");
-const ffprobeStatic = require("ffprobe-static");
-
-// Configure ffmpeg to use the bundled binaries
-ffmpeg.setFfmpegPath(ffmpegStatic);
-ffmpeg.setFfprobePath(ffprobeStatic.path);
 
 // Available voices (high quality, natural sounding)
 const VOICES = {
@@ -48,12 +42,11 @@ class EdgeTtsService {
   }
 
   /**
-   * Check if edge-tts-universal is installed
-   * Since it's an npm package, we just verify it's importable
+   * Check if edge-tts is installed
    */
   async checkInstallation() {
     try {
-      // If we can import it, it's installed
+      await execAsync("edge-tts --version");
       return true;
     } catch (error) {
       return false;
@@ -72,9 +65,17 @@ class EdgeTtsService {
       outputPath = null,
     } = options;
 
-    console.log("🎙️  Generating audio with Edge-TTS Universal...");
+    console.log("🎙️  Generating audio with Edge-TTS...");
     console.log(`  Text length: ${text.length} characters`);
     console.log(`  Voice: ${voice}`);
+
+    // Check installation
+    const isInstalled = await this.checkInstallation();
+    if (!isInstalled) {
+      throw new Error(
+        "edge-tts is not installed. Install with: pip install edge-tts"
+      );
+    }
 
     // Generate unique filename
     const textHash = crypto.createHash("md5").update(text).digest("hex");
@@ -91,19 +92,19 @@ class EdgeTtsService {
     }
 
     try {
-      console.log("🔄 Running edge-tts-universal...");
+      // Generate audio using edge-tts CLI
+      const command = `edge-tts --text "${this.escapeText(
+        text
+      )}" --voice "${voice}" --rate="${rate}" --write-media "${filename}"`;
 
-      // Create EdgeTTS instance with text and voice
-      const tts = new EdgeTTS(text, voice);
+      console.log("🔄 Running edge-tts...");
+      const { stdout, stderr } = await execAsync(command, {
+        maxBuffer: 10 * 1024 * 1024, // 10MB buffer
+      });
 
-      // Synthesize audio
-      const result = await tts.synthesize();
-
-      // Convert Blob to Buffer
-      const audioBuffer = Buffer.from(await result.audio.arrayBuffer());
-
-      // Write to file
-      await fs.writeFile(filename, audioBuffer);
+      if (stderr && !stderr.includes("INFO")) {
+        console.warn("⚠️  edge-tts stderr:", stderr);
+      }
 
       // Verify file was created
       await fs.access(filename);
@@ -129,7 +130,7 @@ class EdgeTtsService {
       } catch {}
 
       throw new Error(
-        `TTS generation failed: ${error.message}. Ensure edge-tts-universal is installed: npm install edge-tts-universal`
+        `TTS generation failed: ${error.message}. Ensure edge-tts is installed: pip install edge-tts`
       );
     }
   }
@@ -142,7 +143,9 @@ class EdgeTtsService {
     return new Promise((resolve, reject) => {
       ffmpeg.ffprobe(filePath, (err, metadata) => {
         if (err) {
-          reject(new Error(`Failed to get audio duration: ${err.message}`));
+          reject(
+            new Error(`Failed to get audio duration: ${err.message}`)
+          );
           return;
         }
 
@@ -155,6 +158,26 @@ class EdgeTtsService {
         resolve(duration);
       });
     });
+  }
+
+  /**
+   * Escape text for shell command
+   */
+  escapeText(text) {
+    return text.replace(/"/g, '\\"').replace(/'/g, "\\'").replace(/\n/g, " ");
+  }
+
+  /**
+   * List available voices
+   */
+  async listVoices() {
+    try {
+      const { stdout } = await execAsync("edge-tts --list-voices");
+      return stdout;
+    } catch (error) {
+      console.error("Failed to list voices:", error);
+      return null;
+    }
   }
 
   /**
@@ -172,45 +195,20 @@ class EdgeTtsService {
       const files = await fs.readdir(this.tempDir);
       const now = Date.now();
       const maxAge = maxAgeHours * 60 * 60 * 1000;
-      let cleanedCount = 0;
 
       for (const file of files) {
         const filePath = path.join(this.tempDir, file);
-        try {
-          const stats = await fs.stat(filePath);
-          const age = now - stats.mtimeMs;
+        const stats = await fs.stat(filePath);
 
-          if (age > maxAge) {
-            await fs.unlink(filePath);
-            cleanedCount++;
-          }
-        } catch (error) {
-          console.error(`Failed to clean up ${file}:`, error);
+        if (now - stats.mtimeMs > maxAge) {
+          await fs.unlink(filePath);
+          console.log(`🗑️  Deleted old file: ${file}`);
         }
       }
-
-      if (cleanedCount > 0) {
-        console.log(`🧹 Cleaned up ${cleanedCount} old audio files`);
-      }
-
-      return cleanedCount;
     } catch (error) {
       console.error("Cleanup failed:", error);
-      return 0;
     }
-  }
-
-  /**
-   * List available voices (using the built-in voice manager)
-   */
-  getAvailableVoices() {
-    return { ...VOICES };
   }
 }
 
-// Export singleton instance
-const edgeTtsService = new EdgeTtsService();
-module.exports = edgeTtsService;
-
-// Also export the class for testing
-module.exports.EdgeTtsService = EdgeTtsService;
+module.exports = new EdgeTtsService();
