@@ -1813,7 +1813,7 @@ export default function FilesPage() {
             open={showFlashcardOptionsDialog}
             onOpenChange={setShowFlashcardOptionsDialog}
           >
-            <DialogContent className="max-w-md">
+            <DialogContent className="max-w-md bg-white">
               <DialogHeader>
                 <DialogTitle className="flex items-center space-x-2">
                   <Zap className="h-5 w-5 text-blue-500" />
@@ -1837,10 +1837,10 @@ export default function FilesPage() {
                       })
                     }
                   >
-                    <SelectTrigger className="mt-1">
+                    <SelectTrigger className="mt-1 bg-white">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-white">
                       <SelectItem value="5">5 flashcards</SelectItem>
                       <SelectItem value="10">10 flashcards</SelectItem>
                       <SelectItem value="15">15 flashcards</SelectItem>
@@ -1866,10 +1866,10 @@ export default function FilesPage() {
                       })
                     }
                   >
-                    <SelectTrigger className="mt-1">
+                    <SelectTrigger className="mt-1 bg-white">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-white">
                       <SelectItem value="easy">
                         Easy - Simple recall questions
                       </SelectItem>
