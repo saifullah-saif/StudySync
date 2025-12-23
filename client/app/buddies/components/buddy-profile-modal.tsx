@@ -34,6 +34,7 @@ export function BuddyProfileModal({ buddy, open, onOpenChange }: BuddyProfileMod
   if (!buddy) return null
 
   const getInitials = (name: string) => {
+    if (!name) return "?"
     return name
       .split(" ")
       .map((n) => n[0])

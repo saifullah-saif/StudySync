@@ -672,7 +672,20 @@ export default function BuddiesPage() {
                     <Card
                       key={connection.id}
                       className="group bg-white/40 backdrop-blur-xl border border-white/50 shadow-xl hover:shadow-[0_0_40px_rgba(59,130,246,0.4)] transition-all duration-500 hover:-translate-y-2 hover:scale-[1.01] cursor-pointer relative overflow-hidden before:absolute before:inset-0 before:bg-gradient-to-r before:from-blue-500/10 before:to-purple-500/10 before:opacity-0 hover:before:opacity-100 before:transition-opacity before:duration-500"                      
-                      onClick={() => handleBuddyCardClick(connection)}
+                      onClick={() => handleBuddyCardClick({
+                        id: connection.connected_user.id,
+                        name: connection.connected_user.name,
+                        email: connection.connected_user.email,
+                        department: connection.connected_user.department || '',
+                        semester: connection.connected_user.semester || 0,
+                        profile_picture_url: connection.connected_user.profile_picture_url,
+                        bio: connection.connected_user.bio,
+                        sharedCourses: [],
+                        currentCourses: connection.connected_user.currentCourses || [],
+                        previousCourses: connection.connected_user.previousCourses || [],
+                        type: connection.request_type === 'peer' ? 'peer' : 'mentor',
+                        is_connected: true,
+                      })}
                     >
                       <CardContent className="pt-6 relative z-10">
                         <div className="flex items-center justify-between">

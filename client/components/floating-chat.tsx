@@ -84,20 +84,20 @@ export function FloatingChat() {
     const channel = pusherManager.connect(user.id);
 
     const handleNewMessage = (data: any) => {
-      if (
-        data.sender_id === activeChatConnection.connected_user.id ||
-        data.receiver_id === activeChatConnection.connected_user.id
-      ) {
+      // Only handle incoming messages from the chat partner, not echoes of our own messages
+      if (data.sender_id === activeChatConnection.connected_user.id) {
         setMessages((prev) => {
-          const exists = prev.some((msg) => msg.id === data.id || msg.id === data.message?.id);
-          if (exists) return prev;
-          const newMsg = data.message || data;
-          return [...prev, newMsg];
+          const message = data.message || data;
+          // Check if message already exists to prevent duplicates
+          const exists = prev.find(msg => msg.id === message.id);
+          if (!exists) {
+            return [...prev, message];
+          }
+          return prev;
         });
         scrollToBottom();
-        if (data.sender_id === activeChatConnection.connected_user.id) {
-          markAsRead(data.id || data.message?.id);
-        }
+        // Mark message as read since user is actively viewing chat
+        markAsRead(data.id || data.message?.id);
       }
     };
 
@@ -203,8 +203,12 @@ export function FloatingChat() {
       );
       if (response.success) {
         setMessages((prev) =>
-          prev.map((msg) => (msg.id === tempId ? response.message : msg))
+          prev.map((msg) => (msg.id === tempId ? response.data.message : msg))
         );
+      } else {
+        // Remove optimistic message on failure
+        setMessages((prev) => prev.filter((msg) => msg.id !== tempId));
+        setNewMessage(messageText);
       }
     } catch (error) {
       console.error("Failed to send message:", error);
@@ -435,11 +439,13 @@ export function FloatingChat() {
                   </div>
                 ) : (
                   <>
-                    {messages.filter(msg => msg && msg.id).map((message) => {
+                    {messages.map((message, index) => {
                       const isOwnMessage = message.sender_id === user?.id;
+                      // Use a combination of id and index to ensure unique keys
+                      const messageKey = `${message.id}-${index}`;
                       return (
                         <div
-                          key={message.id}
+                          key={messageKey}
                           className={`flex ${
                             isOwnMessage ? "justify-end" : "justify-start"
                           }`}
