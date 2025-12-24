@@ -350,7 +350,7 @@ export default function ViewNotePage() {
                       {formatFileSize(note.file_size_bytes)}
                     </Badge>
                   </div>
-                  <h1 className="text-4xl font-bold text-slate-900">
+                  <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900">
                     {note.title}
                   </h1>
                   {note.description && (
@@ -359,7 +359,7 @@ export default function ViewNotePage() {
                 </div>
 
                 {/* Author Info */}
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                   <div className="flex items-center space-x-4">
                     <Avatar className="h-12 w-12 ring-2 ring-blue-100">
                       <AvatarImage
@@ -408,7 +408,7 @@ export default function ViewNotePage() {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex items-center space-x-3">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                     <Button
                       variant={isLiked ? "default" : "outline"}
                       size="sm"
@@ -478,8 +478,8 @@ export default function ViewNotePage() {
           </Card>
 
           {/* Document Preview */}
-          <div className="space-y-8 flex flex-row justify-between gap-8 ">
-            <Card className="mb-8 w-3/4">
+          <div className="space-y-8 flex flex-col lg:flex-row justify-between gap-6 lg:gap-8">
+            <Card className="mb-8 w-full lg:w-3/4">
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <FileText className="w-5 h-5 mr-2" />
@@ -495,8 +495,7 @@ export default function ViewNotePage() {
                   // />
                   <iframe
                     src={note.file_url} // from Supabase
-                    width="100%"
-                    height="800px"
+                    className="w-full h-[400px] sm:h-[600px] lg:h-[800px]"
                   />
                 ) : (
                   <div className="bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
@@ -524,7 +523,7 @@ export default function ViewNotePage() {
             </Card>
 
             {/* Comments Section */}
-            <Card className="mb-8 w-1/4">
+            <Card className="mb-8 w-full lg:w-1/4">
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <MessageCircle className="w-5 h-5 mr-2" />

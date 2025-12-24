@@ -35,6 +35,7 @@ export default function Header() {
 
   const handleSignOut = async () => {
     await logout();
+    router.push("/");
   };
 
   return (

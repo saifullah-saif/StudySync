@@ -16,7 +16,7 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { buddyAPI, chatAPI } from "@/lib/api";
 import { pusherManager } from "@/lib/socket";
-
+import { useIsMobile } from "@/hooks/use-mobile";
 interface Connection {
   id: number;
   user_id: number;
@@ -68,6 +68,7 @@ export function FloatingChat() {
   const [sending, setSending] = useState(false);
   const [chatLoading, setChatLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const isMobile = useIsMobile();
 
   // Load connections when modal opens
   useEffect(() => {
@@ -89,7 +90,7 @@ export function FloatingChat() {
         setMessages((prev) => {
           const message = data.message || data;
           // Check if message already exists to prevent duplicates
-          const exists = prev.find(msg => msg.id === message.id);
+          const exists = prev.find((msg) => msg.id === message.id);
           if (!exists) {
             return [...prev, message];
           }
@@ -271,7 +272,11 @@ export function FloatingChat() {
       {/* Floating Chat Button */}
       <button
         onClick={() => setChatModalOpen(true)}
-        className="fixed bottom-8 right-8 h-16 w-16 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-2xl hover:shadow-3xl hover:scale-110 transition-all duration-300 flex items-center justify-center z-50 group"
+        className={`fixed ${
+          isMobile
+            ? "bottom-20 right-4 h-16 w-16"
+            : "bottom-8 right-8 h-16 w-16"
+        } rounded-full bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-2xl hover:shadow-3xl hover:scale-110 transition-all duration-300 flex items-center justify-center z-50 group`}
         aria-label="Open chat"
       >
         <MessageCircle className="h-7 w-7 group-hover:scale-110 transition-transform" />
@@ -462,7 +467,9 @@ export function FloatingChat() {
                             </p>
                             <p
                               className={`text-xs mt-1 ${
-                                isOwnMessage ? "text-blue-100" : "text-slate-500"
+                                isOwnMessage
+                                  ? "text-blue-100"
+                                  : "text-slate-500"
                               }`}
                             >
                               {formatTime(message.timestamp)}

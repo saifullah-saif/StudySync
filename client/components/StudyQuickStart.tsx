@@ -141,7 +141,7 @@ export function StudyQuickStart() {
         )}
 
         <div className="flex space-x-2">
-          <Link href="/library" className="flex-1">
+          <Link href="/assistant/files" className="flex-1">
             <Button variant="outline" className="w-full" size="sm">
               Browse All Decks
             </Button>

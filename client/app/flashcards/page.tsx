@@ -206,7 +206,7 @@ export default function FlashcardsPage() {
                 <Filter className="w-4 h-4 mr-2" />
                 <SelectValue placeholder="Filter by type" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-white">
                 <SelectItem value="all">All Decks</SelectItem>
                 <SelectItem value="ai_generated">AI Generated</SelectItem>
                 <SelectItem value="manual">Manual</SelectItem>
@@ -218,7 +218,7 @@ export default function FlashcardsPage() {
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Sort by" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-white">
                 <SelectItem value="created_at">Date Created</SelectItem>
                 <SelectItem value="title">Title</SelectItem>
                 <SelectItem value="card_count">Card Count</SelectItem>

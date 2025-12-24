@@ -36,7 +36,9 @@ export default function LibraryPage() {
   const [selectedRoom, setSelectedRoom] = useState<any | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
-  const [selectedRoomForBooking, setSelectedRoomForBooking] = useState<number | undefined>(undefined);
+  const [selectedRoomForBooking, setSelectedRoomForBooking] = useState<
+    number | undefined
+  >(undefined);
   const [bookingStatusOpen, setBookingStatusOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [mounted, setMounted] = useState(false);
@@ -111,7 +113,8 @@ export default function LibraryPage() {
     } catch (e: any) {
       console.error("Cancel error:", e);
       toast.error("Cancellation failed", {
-        description: e.response?.data?.message || "Failed to cancel reservation.",
+        description:
+          e.response?.data?.message || "Failed to cancel reservation.",
       });
     }
   };
@@ -232,8 +235,9 @@ export default function LibraryPage() {
         (Array.isArray(room.features) &&
           room.features.includes(selectedFeature));
 
-
-      return matchesSearch && matchesCapacity && matchesRoomType && matchesFacility;
+      return (
+        matchesSearch && matchesCapacity && matchesRoomType && matchesFacility
+      );
     })
     .sort((a: any, b: any) => {
       if (!a || !b) return 0;
@@ -257,12 +261,12 @@ export default function LibraryPage() {
           </div>
 
           {/* Content Overlay */}
-          <div className="relative z-10 px-8 py-10 md:py-14 text-center text-white">
-            <h1 className="text-3xl md:text-5xl font-bold mb-4 leading-tight">
-              Welcome to the Library Seat &<br />
-              Study Room Reservation System
+          <div className="relative z-10 px-4 sm:px-8 py-8 sm:py-10 md:py-14 text-center text-white">
+            <h1 className="text-2xl sm:text-3xl md:text-5xl font-bold mb-3 sm:mb-4 leading-tight">
+              Welcome to the Library Seat &<br className="hidden sm:block" />
+              <span className="sm:hidden"> </span>Study Room Reservation System
             </h1>
-            <p className="text-lg md:text-xl mb-8 max-w-4xl mx-auto leading-relaxed">
+            <p className="text-base sm:text-lg md:text-xl mb-6 sm:mb-8 max-w-4xl mx-auto leading-relaxed px-2">
               Find your perfect study space with ease. Browse available rooms,
               check real-time seat availability, and book your slot: all in one
               place.
@@ -273,9 +277,9 @@ export default function LibraryPage() {
         {/* Search and Filter Controls */}
         <Card className="mb-8 bg-white/40 backdrop-blur-xl border border-white/50 shadow-xl hover:shadow-[0_0_30px_rgba(59,130,246,0.3)] transition-all duration-500">
           <CardContent className="pt-6 relative z-10">
-            <div className="flex items-center gap-4">
+            <div className="flex flex-col lg:flex-row flex-wrap items-stretch lg:items-center gap-3 lg:gap-4">
               {/* Search (larger) */}
-              <div className="relative flex items-center flex-1 min-w-[280px] max-w-[520px] h-11 bg-white/40 backdrop-blur-xl border border-white/50 rounded-lg px-3 hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all duration-300">
+              <div className="relative flex items-center w-full lg:flex-1 lg:min-w-[280px] lg:max-w-[520px] h-11 bg-white/40 backdrop-blur-xl border border-white/50 rounded-lg px-3 hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all duration-300">
                 <Search className="w-4 h-4 text-gray-400 mr-2" />
                 <Input
                   placeholder="Search rooms..."
@@ -287,7 +291,7 @@ export default function LibraryPage() {
 
               {/* Room Type (dropdown) */}
               <Select value={roomTypeFilter} onValueChange={setRoomTypeFilter}>
-                <SelectTrigger className="bg-white/40 backdrop-blur-xl border border-white/50 h-11 min-w-[160px] hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all duration-300">
+                <SelectTrigger className="bg-white/40 backdrop-blur-xl border border-white/50 h-11 w-full sm:w-[48%] lg:min-w-[160px] lg:w-auto hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all duration-300">
                   <SelectValue placeholder="Room Type" />
                 </SelectTrigger>
                 <SelectContent className="bg-white/95 backdrop-blur-xl border border-white/50 shadow-2xl">
@@ -301,15 +305,20 @@ export default function LibraryPage() {
               </Select>
 
               {/* Room Features (dropdown) */}
-              <Select value={selectedFeature} onValueChange={setSelectedFeature}>
-                <SelectTrigger className="bg-white/40 backdrop-blur-xl border border-white/50 h-11 min-w-[170px] hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all duration-300">
+              <Select
+                value={selectedFeature}
+                onValueChange={setSelectedFeature}
+              >
+                <SelectTrigger className="bg-white/40 backdrop-blur-xl border border-white/50 h-11 w-full sm:w-[48%] lg:min-w-[170px] lg:w-auto hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all duration-300">
                   <SelectValue placeholder="Room Features" />
                 </SelectTrigger>
                 <SelectContent className="bg-white/95 backdrop-blur-xl border border-white/50 shadow-2xl">
                   <SelectItem value="all">All Features</SelectItem>
                   <SelectItem value="wifi">WiFi</SelectItem>
                   <SelectItem value="projector">Projector</SelectItem>
-                  <SelectItem value="air_conditioning">Air Conditioning</SelectItem>
+                  <SelectItem value="air_conditioning">
+                    Air Conditioning
+                  </SelectItem>
                   <SelectItem value="whiteboard">Whiteboard</SelectItem>
                   <SelectItem value="computer">Computer</SelectItem>
                   <SelectItem value="power_outlets">Power Outlets</SelectItem>
@@ -317,7 +326,7 @@ export default function LibraryPage() {
               </Select>
 
               {/* Capacity (slider 1-12) */}
-              <div className="flex items-center gap-3 h-11 min-w-[220px] bg-white/40 backdrop-blur-xl border border-white/50 rounded-lg px-3 hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all duration-300">
+              <div className="flex items-center gap-3 h-11 w-full lg:min-w-[220px] lg:w-auto bg-white/40 backdrop-blur-xl border border-white/50 rounded-lg px-3 hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all duration-300">
                 <span className="text-sm font-medium text-slate-700 whitespace-nowrap">
                   Capacity
                 </span>
@@ -340,7 +349,7 @@ export default function LibraryPage() {
               <Button
                 size="sm"
                 onClick={() => setBookingStatusOpen(true)}
-                className="h-11 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-md hover:shadow-xl transition-all duration-300 whitespace-nowrap"
+                className="h-11 px-4 w-full lg:w-auto bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-md hover:shadow-xl transition-all duration-300 whitespace-nowrap"
               >
                 Booking Status ({userBookings.length}/5)
               </Button>
@@ -349,7 +358,9 @@ export default function LibraryPage() {
             {/* Results Count */}
             <div className="mt-3">
               <span className="text-sm text-gray-600 dark:text-gray-400">
-                {mounted ? `${filteredAndSortedRooms.length} rooms found` : "Loading..."}
+                {mounted
+                  ? `${filteredAndSortedRooms.length} rooms found`
+                  : "Loading..."}
               </span>
             </div>
           </CardContent>
@@ -370,7 +381,7 @@ export default function LibraryPage() {
             </p>
           </div>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {filteredAndSortedRooms.map((room: any) => (
               <Card
                 key={room.id}
@@ -446,14 +457,14 @@ export default function LibraryPage() {
 
         {/* Details Modal */}
         <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-          <DialogContent className="sm:max-w-7xl max-h-[95vh] bg-white/95 backdrop-blur-xl border border-white/50 shadow-2xl transition-all duration-200 rounded-2xl px-8">
-            <DialogHeader className="pb-6 relative z-10">
-              <div className="flex items-start justify-between">
+          <DialogContent className="w-[95vw] max-w-7xl max-h-[90vh] bg-white/95 backdrop-blur-xl border border-white/50 shadow-2xl transition-all duration-200 rounded-2xl px-4 sm:px-8 overflow-y-auto">
+            <DialogHeader className="pb-4 sm:pb-6 relative z-10">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                 <div>
-                  <DialogTitle className="text-3xl font-bold text-slate-900 drop-shadow-sm">
+                  <DialogTitle className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900 drop-shadow-sm">
                     {selectedRoom?.name}
                   </DialogTitle>
-                  <p className="text-xl text-slate-600 font-mono mt-1">
+                  <p className="text-base sm:text-lg lg:text-xl text-slate-600 font-mono mt-1">
                     ({selectedRoom ? formatRoomNumber(selectedRoom) : ""}) •
                     Floor {selectedRoom?.floor_number || "N/A"}
                   </p>
@@ -465,7 +476,7 @@ export default function LibraryPage() {
             {selectedRoom ? (
               <div className="space-y-8 relative z-10">
                 {/* Room Image */}
-                <div className="w-full h-64 bg-white/60 backdrop-blur-sm border border-white/50 rounded-2xl overflow-hidden shadow-inner">
+                <div className="w-full h-40 sm:h-56 lg:h-64 bg-white/60 backdrop-blur-sm border border-white/50 rounded-2xl overflow-hidden shadow-inner">
                   {selectedRoom?.image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -481,7 +492,7 @@ export default function LibraryPage() {
                   )}
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 lg:gap-8">
                   <div className="space-y-6">
                     <div>
                       <h3 className="text-xl font-semibold text-slate-900 mb-4">
@@ -550,9 +561,7 @@ export default function LibraryPage() {
               </div>
             ) : (
               <div className="flex items-center justify-center h-64">
-                <p className="text-slate-600">
-                  Loading room details...
-                </p>
+                <p className="text-slate-600">Loading room details...</p>
               </div>
             )}
           </DialogContent>
@@ -560,9 +569,9 @@ export default function LibraryPage() {
 
         {/* Booking Status Modal */}
         <Dialog open={bookingStatusOpen} onOpenChange={setBookingStatusOpen}>
-          <DialogContent className="sm:max-w-4xl bg-white/95 backdrop-blur-xl border border-white/50 shadow-2xl transition-all duration-200 rounded-2xl">
+          <DialogContent className="w-[95vw] max-w-4xl max-h-[90vh] overflow-y-auto bg-white/95 backdrop-blur-xl border border-white/50 shadow-2xl transition-all duration-200 rounded-2xl px-4 sm:px-6">
             <DialogHeader className="pb-4 relative z-10">
-              <DialogTitle className="text-2xl font-bold text-slate-900">
+              <DialogTitle className="text-xl sm:text-2xl font-bold text-slate-900">
                 My Bookings ({userBookings.length}/5)
               </DialogTitle>
             </DialogHeader>
@@ -570,9 +579,7 @@ export default function LibraryPage() {
             <div className="space-y-4 relative z-10">
               {userBookings.length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-slate-600">
-                    No bookings found.
-                  </p>
+                  <p className="text-slate-600">No bookings found.</p>
                 </div>
               ) : (
                 <div className="space-y-4">

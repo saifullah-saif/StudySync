@@ -324,7 +324,7 @@ function AuthPageContent() {
                         <SelectTrigger>
                           <SelectValue placeholder="Select your department" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-white">
                           <SelectItem value="Computer Science">
                             Computer Science
                           </SelectItem>
@@ -356,7 +356,7 @@ function AuthPageContent() {
                         <SelectTrigger>
                           <SelectValue placeholder="Select semester" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-white">
                           {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
                             <SelectItem key={sem} value={sem.toString()}>
                               Semester {sem}

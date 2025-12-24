@@ -1,24 +1,36 @@
-"use client"
+"use client";
 
-import type React from "react"
+import type React from "react";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Eye, EyeOff, Upload } from "lucide-react"
-import { useAuth, type User } from "@/contexts/auth-context"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Eye, EyeOff, Upload } from "lucide-react";
+import { useAuth, type User } from "@/contexts/auth-context";
 
 interface AuthModalsProps {
-  isSignInOpen: boolean
-  setIsSignInOpen: (open: boolean) => void
-  isSignUpOpen: boolean
-  setIsSignUpOpen: (open: boolean) => void
+  isSignInOpen: boolean;
+  setIsSignInOpen: (open: boolean) => void;
+  isSignUpOpen: boolean;
+  setIsSignUpOpen: (open: boolean) => void;
 }
 
 export function AuthModals({
@@ -27,19 +39,19 @@ export function AuthModals({
   isSignUpOpen,
   setIsSignUpOpen,
 }: AuthModalsProps) {
-  const router = useRouter()
-  const { login, register, loading: authLoading } = useAuth()
-  const [showPassword, setShowPassword] = useState(false)
-  const [signUpStep, setSignUpStep] = useState(1)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState("")
-  
+  const router = useRouter();
+  const { login, register, loading: authLoading } = useAuth();
+  const [showPassword, setShowPassword] = useState(false);
+  const [signUpStep, setSignUpStep] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
   // Sign in form data
   const [signInData, setSignInData] = useState({
     email: "",
     password: "",
-  })
-  
+  });
+
   // Sign up form data - aligned with users table schema
   const [signUpData, setSignUpData] = useState({
     firstName: "",
@@ -50,25 +62,25 @@ export function AuthModals({
     semester: "",
     bio: "",
     profilePicture: null as File | null,
-  })
+  });
 
   const handleSignUpNext = () => {
     if (signUpStep < 5) {
-      setSignUpStep(signUpStep + 1)
+      setSignUpStep(signUpStep + 1);
     }
-  }
+  };
 
   const handleSignUpBack = () => {
     if (signUpStep > 1) {
-      setSignUpStep(signUpStep - 1)
+      setSignUpStep(signUpStep - 1);
     }
-  }
+  };
 
   const handleSignUpComplete = async () => {
     try {
-      setLoading(true)
-      setError("")
-      
+      setLoading(true);
+      setError("");
+
       const userData = {
         name: `${signUpData.firstName} ${signUpData.lastName}`.trim(),
         email: signUpData.email,
@@ -76,12 +88,12 @@ export function AuthModals({
         department: signUpData.department,
         semester: signUpData.semester ? parseInt(signUpData.semester) : null,
         bio: signUpData.bio || null,
-      }
+      };
 
-      const result = await register(userData)
-      
+      const result = await register(userData);
+
       if (result.success && result.user) {
-        setSignUpStep(1)
+        setSignUpStep(1);
         setSignUpData({
           firstName: "",
           lastName: "",
@@ -91,67 +103,67 @@ export function AuthModals({
           semester: "",
           bio: "",
           profilePicture: null,
-        })
-        setIsSignUpOpen(false)
+        });
+        setIsSignUpOpen(false);
         // Redirect to dashboard after successful registration
-        router.push("/dashboard")
+        router.push("/dashboard");
       } else {
-        setError(result.message || "Registration failed")
+        setError(result.message || "Registration failed");
       }
     } catch (error: any) {
-      setError("Registration failed")
+      setError("Registration failed");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleSignInSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     try {
-      setLoading(true)
-      setError("")
-      
-      const result = await login(signInData)
-      
+      setLoading(true);
+      setError("");
+
+      const result = await login(signInData);
+
       if (result.success && result.user) {
-        setSignInData({ email: "", password: "" })
-        setIsSignInOpen(false)
+        setSignInData({ email: "", password: "" });
+        setIsSignInOpen(false);
         // Redirect to dashboard after successful sign-in
-        router.push("/dashboard")
+        router.push("/dashboard");
       } else {
-        setError(result.message || "Login failed")
+        setError(result.message || "Login failed");
       }
     } catch (error: any) {
-      setError("Login failed")
+      setError("Login failed");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
+    const file = event.target.files?.[0];
     if (file) {
-      setSignUpData({ ...signUpData, profilePicture: file })
+      setSignUpData({ ...signUpData, profilePicture: file });
     }
-  }
+  };
 
   // Reset form states when modals close
   const handleSignInClose = (open: boolean) => {
-    setIsSignInOpen(open)
+    setIsSignInOpen(open);
     if (!open) {
-      setLoading(false)
-      setError("")
+      setLoading(false);
+      setError("");
     }
-  }
+  };
 
   const handleSignUpClose = (open: boolean) => {
-    setIsSignUpOpen(open)
+    setIsSignUpOpen(open);
     if (!open) {
-      setLoading(false)
-      setError("")
-      setSignUpStep(1)
+      setLoading(false);
+      setError("");
+      setSignUpStep(1);
     }
-  }
+  };
 
   return (
     <>
@@ -163,7 +175,8 @@ export function AuthModals({
               Welcome back
             </DialogTitle>
             <DialogDescription className="text-center text-gray-600 dark:text-gray-400">
-              Sign in to your StudySync account to continue your learning journey
+              Sign in to your StudySync account to continue your learning
+              journey
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSignInSubmit} className="space-y-4">
@@ -173,21 +186,29 @@ export function AuthModals({
               </div>
             )}
             <div className="space-y-2">
-              <Label htmlFor="signin-email" className="text-gray-700 dark:text-gray-300">
+              <Label
+                htmlFor="signin-email"
+                className="text-gray-700 dark:text-gray-300"
+              >
                 Email
               </Label>
               <Input
                 id="signin-email"
                 type="email"
                 value={signInData.email}
-                onChange={(e) => setSignInData({ ...signInData, email: e.target.value })}
+                onChange={(e) =>
+                  setSignInData({ ...signInData, email: e.target.value })
+                }
                 placeholder="Enter your email"
                 className="bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600"
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="signin-password" className="text-gray-700 dark:text-gray-300">
+              <Label
+                htmlFor="signin-password"
+                className="text-gray-700 dark:text-gray-300"
+              >
                 Password
               </Label>
               <div className="relative">
@@ -195,7 +216,9 @@ export function AuthModals({
                   id="signin-password"
                   type={showPassword ? "text" : "password"}
                   value={signInData.password}
-                  onChange={(e) => setSignInData({ ...signInData, password: e.target.value })}
+                  onChange={(e) =>
+                    setSignInData({ ...signInData, password: e.target.value })
+                  }
                   placeholder="Enter your password"
                   className="pr-10 bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600"
                   required
@@ -207,12 +230,16 @@ export function AuthModals({
                   className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                   onClick={() => setShowPassword(!showPassword)}
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
             </div>
-            <Button 
-              type="submit" 
+            <Button
+              type="submit"
               className="w-full bg-blue-600 hover:bg-blue-700"
               disabled={loading}
             >
@@ -224,9 +251,9 @@ export function AuthModals({
                 <button
                   type="button"
                   onClick={() => {
-                    setIsSignInOpen(false)
-                    setIsSignUpOpen(true)
-                    setError("")
+                    setIsSignInOpen(false);
+                    setIsSignUpOpen(true);
+                    setError("");
                   }}
                   className="text-blue-600 hover:underline font-medium"
                 >
@@ -260,31 +287,44 @@ export function AuthModals({
                 {error}
               </div>
             )}
-            
+
             {/* Step 1: Name */}
             {signUpStep === 1 && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="firstName" className="text-gray-700 dark:text-gray-300">
+                  <Label
+                    htmlFor="firstName"
+                    className="text-gray-700 dark:text-gray-300"
+                  >
                     First Name
                   </Label>
                   <Input
                     id="firstName"
                     value={signUpData.firstName}
-                    onChange={(e) => setSignUpData({ ...signUpData, firstName: e.target.value })}
+                    onChange={(e) =>
+                      setSignUpData({
+                        ...signUpData,
+                        firstName: e.target.value,
+                      })
+                    }
                     placeholder="Enter your first name"
                     className="bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600"
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="lastName" className="text-gray-700 dark:text-gray-300">
+                  <Label
+                    htmlFor="lastName"
+                    className="text-gray-700 dark:text-gray-300"
+                  >
                     Last Name
                   </Label>
                   <Input
                     id="lastName"
                     value={signUpData.lastName}
-                    onChange={(e) => setSignUpData({ ...signUpData, lastName: e.target.value })}
+                    onChange={(e) =>
+                      setSignUpData({ ...signUpData, lastName: e.target.value })
+                    }
                     placeholder="Enter your last name"
                     className="bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600"
                     required
@@ -297,21 +337,34 @@ export function AuthModals({
             {signUpStep === 2 && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="department" className="text-gray-700 dark:text-gray-300">
+                  <Label
+                    htmlFor="department"
+                    className="text-gray-700 dark:text-gray-300"
+                  >
                     Department
                   </Label>
                   <Select
                     value={signUpData.department}
-                    onValueChange={(value) => setSignUpData({ ...signUpData, department: value })}
+                    onValueChange={(value) =>
+                      setSignUpData({ ...signUpData, department: value })
+                    }
                   >
                     <SelectTrigger className="bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600">
                       <SelectValue placeholder="Select your department" />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Computer Science">Computer Science</SelectItem>
-                      <SelectItem value="Electrical Engineering">Electrical Engineering</SelectItem>
-                      <SelectItem value="Mechanical Engineering">Mechanical Engineering</SelectItem>
-                      <SelectItem value="Civil Engineering">Civil Engineering</SelectItem>
+                    <SelectContent className="bg-white">
+                      <SelectItem value="Computer Science">
+                        Computer Science
+                      </SelectItem>
+                      <SelectItem value="Electrical Engineering">
+                        Electrical Engineering
+                      </SelectItem>
+                      <SelectItem value="Mechanical Engineering">
+                        Mechanical Engineering
+                      </SelectItem>
+                      <SelectItem value="Civil Engineering">
+                        Civil Engineering
+                      </SelectItem>
                       <SelectItem value="Mathematics">Mathematics</SelectItem>
                       <SelectItem value="Physics">Physics</SelectItem>
                       <SelectItem value="Chemistry">Chemistry</SelectItem>
@@ -320,21 +373,33 @@ export function AuthModals({
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="semester" className="text-gray-700 dark:text-gray-300">
+                  <Label
+                    htmlFor="semester"
+                    className="text-gray-700 dark:text-gray-300"
+                  >
                     Current Semester
                   </Label>
                   <Select
                     value={signUpData.semester}
-                    onValueChange={(value) => setSignUpData({ ...signUpData, semester: value })}
+                    onValueChange={(value) =>
+                      setSignUpData({ ...signUpData, semester: value })
+                    }
                   >
                     <SelectTrigger className="bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600">
                       <SelectValue placeholder="Select your semester" />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-white">
                       {[1, 2, 3, 4, 5, 6, 7, 8].map((sem) => (
                         <SelectItem key={sem} value={sem.toString()}>
                           {sem}
-                          {sem === 1 ? "st" : sem === 2 ? "nd" : sem === 3 ? "rd" : "th"} Semester
+                          {sem === 1
+                            ? "st"
+                            : sem === 2
+                            ? "nd"
+                            : sem === 3
+                            ? "rd"
+                            : "th"}{" "}
+                          Semester
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -347,21 +412,29 @@ export function AuthModals({
             {signUpStep === 3 && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="signup-email" className="text-gray-700 dark:text-gray-300">
+                  <Label
+                    htmlFor="signup-email"
+                    className="text-gray-700 dark:text-gray-300"
+                  >
                     Email
                   </Label>
                   <Input
                     id="signup-email"
                     type="email"
                     value={signUpData.email}
-                    onChange={(e) => setSignUpData({ ...signUpData, email: e.target.value })}
+                    onChange={(e) =>
+                      setSignUpData({ ...signUpData, email: e.target.value })
+                    }
                     placeholder="Enter your email"
                     className="bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600"
                     required
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="signup-password" className="text-gray-700 dark:text-gray-300">
+                  <Label
+                    htmlFor="signup-password"
+                    className="text-gray-700 dark:text-gray-300"
+                  >
                     Password
                   </Label>
                   <div className="relative">
@@ -369,7 +442,12 @@ export function AuthModals({
                       id="signup-password"
                       type={showPassword ? "text" : "password"}
                       value={signUpData.password}
-                      onChange={(e) => setSignUpData({ ...signUpData, password: e.target.value })}
+                      onChange={(e) =>
+                        setSignUpData({
+                          ...signUpData,
+                          password: e.target.value,
+                        })
+                      }
                       placeholder="Create a password"
                       className="pr-10 bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600"
                       required
@@ -381,7 +459,11 @@ export function AuthModals({
                       className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
                       onClick={() => setShowPassword(!showPassword)}
                     >
-                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -391,17 +473,24 @@ export function AuthModals({
             {/* Step 4: Bio */}
             {signUpStep === 4 && (
               <div className="space-y-2">
-                <Label htmlFor="bio" className="text-gray-700 dark:text-gray-300">
+                <Label
+                  htmlFor="bio"
+                  className="text-gray-700 dark:text-gray-300"
+                >
                   Bio
                 </Label>
                 <Textarea
                   id="bio"
                   value={signUpData.bio}
-                  onChange={(e) => setSignUpData({ ...signUpData, bio: e.target.value })}
+                  onChange={(e) =>
+                    setSignUpData({ ...signUpData, bio: e.target.value })
+                  }
                   placeholder="Tell others about yourself, your interests, and study goals..."
                   className="min-h-[120px] bg-gray-50 dark:bg-gray-700 border-gray-300 dark:border-gray-600"
                 />
-                <p className="text-xs text-gray-500 dark:text-gray-400">Optional - you can skip this step</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Optional - you can skip this step
+                </p>
               </div>
             )}
 
@@ -411,7 +500,11 @@ export function AuthModals({
                 <div className="flex flex-col items-center space-y-4">
                   <Avatar className="w-24 h-24">
                     <AvatarImage
-                      src={signUpData.profilePicture ? URL.createObjectURL(signUpData.profilePicture) : undefined}
+                      src={
+                        signUpData.profilePicture
+                          ? URL.createObjectURL(signUpData.profilePicture)
+                          : undefined
+                      }
                     />
                     <AvatarFallback className="text-2xl">
                       {signUpData.firstName[0]}
@@ -420,7 +513,10 @@ export function AuthModals({
                   </Avatar>
                   <div className="text-center">
                     <Label htmlFor="profile-picture" className="cursor-pointer">
-                      <Button variant="outline" className="w-full bg-transparent">
+                      <Button
+                        variant="outline"
+                        className="w-full bg-transparent"
+                      >
                         <Upload className="w-4 h-4 mr-2" />
                         Upload Profile Picture
                       </Button>
@@ -432,7 +528,9 @@ export function AuthModals({
                         onChange={handleFileUpload}
                       />
                     </Label>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">Optional - you can skip this step</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                      Optional - you can skip this step
+                    </p>
                   </div>
                 </div>
               </div>
@@ -441,26 +539,32 @@ export function AuthModals({
             {/* Navigation Buttons */}
             <div className="flex justify-between pt-4">
               {signUpStep > 1 && (
-                <Button variant="outline" onClick={handleSignUpBack} disabled={loading || authLoading}>
+                <Button
+                  variant="outline"
+                  onClick={handleSignUpBack}
+                  disabled={loading || authLoading}
+                >
                   Back
                 </Button>
               )}
               <div className="ml-auto">
                 {signUpStep < 5 ? (
-                  <Button 
-                    onClick={handleSignUpNext} 
+                  <Button
+                    onClick={handleSignUpNext}
                     className="bg-blue-600 hover:bg-blue-700"
                     disabled={loading || authLoading}
                   >
                     Next
                   </Button>
                 ) : (
-                  <Button 
-                    onClick={handleSignUpComplete} 
+                  <Button
+                    onClick={handleSignUpComplete}
                     className="bg-blue-600 hover:bg-blue-700"
                     disabled={loading || authLoading}
                   >
-                    {loading || authLoading ? "Creating Account..." : "Complete Sign Up"}
+                    {loading || authLoading
+                      ? "Creating Account..."
+                      : "Complete Sign Up"}
                   </Button>
                 )}
               </div>
@@ -473,9 +577,9 @@ export function AuthModals({
                   <button
                     type="button"
                     onClick={() => {
-                      setIsSignUpOpen(false)
-                      setIsSignInOpen(true)
-                      setError("")
+                      setIsSignUpOpen(false);
+                      setIsSignInOpen(true);
+                      setError("");
                     }}
                     className="text-blue-600 hover:underline font-medium"
                   >
@@ -488,5 +592,5 @@ export function AuthModals({
         </DialogContent>
       </Dialog>
     </>
-  )
+  );
 }

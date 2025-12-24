@@ -1116,7 +1116,7 @@ export default function FilesPage() {
                 <SelectTrigger className="w-full md:w-56 h-12 border-gray-200">
                   <SelectValue placeholder="All File Types" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white">
                   <SelectItem value="all">All File Types</SelectItem>
                   <SelectItem value="pdf">📄 PDF Documents</SelectItem>
                   <SelectItem value="docx">📝 Word Documents</SelectItem>
@@ -1135,7 +1135,7 @@ export default function FilesPage() {
                 <SelectTrigger className="w-full md:w-56 h-12 border-gray-200">
                   <SelectValue placeholder="Sort By" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-white">
                   <SelectItem value="upload_date-desc">
                     📅 Newest First
                   </SelectItem>
@@ -1618,7 +1618,7 @@ export default function FilesPage() {
                     <SelectTrigger className="mt-1">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-white">
                       <SelectItem value="basic">
                         Basic (Question & Answer)
                       </SelectItem>
@@ -1643,7 +1643,7 @@ export default function FilesPage() {
                     <SelectTrigger className="mt-1">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-white">
                       <SelectItem value="1">1 - Very Easy</SelectItem>
                       <SelectItem value="2">2 - Easy</SelectItem>
                       <SelectItem value="3">3 - Medium</SelectItem>

@@ -47,7 +47,9 @@ export function BookingModal({
   const [selectedSeats, setSelectedSeats] = useState<string[]>([]);
   const [isBooking, setIsBooking] = useState(false);
 
-  const [userBookingsCount, setUserBookingsCount] = useState<number | null>(null);
+  const [userBookingsCount, setUserBookingsCount] = useState<number | null>(
+    null
+  );
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState("");
@@ -343,7 +345,8 @@ export function BookingModal({
   const handleConfirmBooking = async () => {
     if (!isBookingValid()) {
       toast.error("Missing details", {
-        description: "Please select date, time, and a room (and seats for large rooms).",
+        description:
+          "Please select date, time, and a room (and seats for large rooms).",
       });
       return;
     }
@@ -393,7 +396,9 @@ export function BookingModal({
 
       if (response.data.success) {
         toast.success("Reservation confirmed", {
-          description: `${selectedRoom?.name || "Room"} booked for ${selectedDate} ${selectedStartTime}–${selectedEndTime}.`,
+          description: `${
+            selectedRoom?.name || "Room"
+          } booked for ${selectedDate} ${selectedStartTime}–${selectedEndTime}.`,
         });
         onOpenChangeAction(false);
         if (onBookingSuccessAction) {
@@ -408,7 +413,8 @@ export function BookingModal({
         setSelectedRoom(null);
       } else {
         toast.error("Booking failed", {
-          description: response.data.message || "Failed to book room. Please try again.",
+          description:
+            response.data.message || "Failed to book room. Please try again.",
         });
       }
     } catch (error: any) {
@@ -443,17 +449,17 @@ export function BookingModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChangeAction}>
-      <DialogContent className="max-w-7xl max-h-[92vh] bg-white/95 backdrop-blur-xl border border-white/50 shadow-2xl overflow-hidden p-0">
-        <div className="overflow-y-auto max-h-[92vh] px-8 py-6">
+      <DialogContent className="w-[95vw] max-w-7xl max-h-[95vh] sm:max-h-[92vh] bg-white/95 backdrop-blur-xl border border-white/50 shadow-2xl overflow-hidden p-0">
+        <div className="overflow-y-auto max-h-[95vh] sm:max-h-[92vh] px-4 sm:px-6 lg:px-8 py-4 sm:py-6">
           <DialogHeader className="sticky top-0 bg-white/95 backdrop-blur-xl z-10 pb-3 mb-4 border-b border-slate-200">
-            <DialogTitle className="text-3xl font-bold text-slate-900">
+            <DialogTitle className="text-xl sm:text-2xl lg:text-3xl font-bold text-slate-900">
               Book a Room
             </DialogTitle>
           </DialogHeader>
 
           <div className="space-y-6">
             {/* Time Selection and Filter Section - Compact Side by Side */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-4 sm:gap-6">
               {/* Time Selection Section */}
               <Card className="bg-white/60 backdrop-blur-sm border border-white/50">
                 <CardHeader className="pb-2">
@@ -468,7 +474,10 @@ export function BookingModal({
                     <label className="block text-sm font-medium text-slate-700 mb-1">
                       Date
                     </label>
-                    <Select value={selectedDate} onValueChange={setSelectedDate}>
+                    <Select
+                      value={selectedDate}
+                      onValueChange={setSelectedDate}
+                    >
                       <SelectTrigger className="bg-white/40 backdrop-blur-xl border border-white/50 hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all duration-200 h-10 text-base">
                         <SelectValue placeholder="Select date" />
                       </SelectTrigger>
@@ -557,7 +566,10 @@ export function BookingModal({
                     <label className="block text-sm font-medium text-slate-700 mb-1">
                       Capacity
                     </label>
-                    <Select value={capacityFilter} onValueChange={setCapacityFilter}>
+                    <Select
+                      value={capacityFilter}
+                      onValueChange={setCapacityFilter}
+                    >
                       <SelectTrigger className="bg-white/40 backdrop-blur-xl border border-white/50 hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all duration-200 h-10 text-base">
                         <SelectValue placeholder="All Capacities" />
                       </SelectTrigger>
@@ -576,7 +588,10 @@ export function BookingModal({
                     <label className="block text-sm font-medium text-slate-700 mb-1">
                       Features
                     </label>
-                    <Select value={featureFilter} onValueChange={setFeatureFilter}>
+                    <Select
+                      value={featureFilter}
+                      onValueChange={setFeatureFilter}
+                    >
                       <SelectTrigger className="bg-white/40 backdrop-blur-xl border border-white/50 hover:shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-all duration-200 h-10 text-base">
                         <SelectValue placeholder="All Features" />
                       </SelectTrigger>
@@ -584,8 +599,12 @@ export function BookingModal({
                         <SelectItem value="all">All Features</SelectItem>
                         <SelectItem value="projector">Projector</SelectItem>
                         <SelectItem value="whiteboard">Whiteboard</SelectItem>
-                        <SelectItem value="air_conditioning">Air Conditioning</SelectItem>
-                        <SelectItem value="power_outlets">Power Outlets</SelectItem>
+                        <SelectItem value="air_conditioning">
+                          Air Conditioning
+                        </SelectItem>
+                        <SelectItem value="power_outlets">
+                          Power Outlets
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -595,7 +614,7 @@ export function BookingModal({
 
             {/* Main Content - Only show when times are selected */}
             {selectedDate && selectedStartTime && selectedEndTime && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-4 sm:gap-6">
                 {/* Left Side - Room Selection */}
                 <Card className="bg-white/60 backdrop-blur-sm border border-white/50">
                   <CardHeader className="pb-2">
@@ -605,7 +624,7 @@ export function BookingModal({
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-3 gap-3 max-h-72 overflow-y-auto">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 max-h-60 sm:max-h-72 overflow-y-auto">
                       {filteredRooms.map((room) => (
                         <div
                           key={room.id}
@@ -617,11 +636,15 @@ export function BookingModal({
                           }`}
                         >
                           <div className="text-center">
-                            <div className="text-sm font-semibold text-slate-700">Room</div>
-                            <div className="text-2xl font-bold text-blue-600">
+                            <div className="text-xs sm:text-sm font-semibold text-slate-700">
+                              Room
+                            </div>
+                            <div className="text-xl sm:text-2xl font-bold text-blue-600">
                               {formatRoomNumber(room)}
                             </div>
-                            <div className="text-sm text-slate-600">{room.capacity} seats</div>
+                            <div className="text-xs sm:text-sm text-slate-600">
+                              {room.capacity} seats
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -641,26 +664,37 @@ export function BookingModal({
                     <CardContent className="space-y-3">
                       {/* Room Info */}
                       <div className="bg-white/40 backdrop-blur-sm rounded-lg p-3 text-sm">
-                        <h4 className="font-semibold text-slate-900 mb-1">Room Details</h4>
+                        <h4 className="font-semibold text-slate-900 mb-1">
+                          Room Details
+                        </h4>
                         <div className="space-y-1 text-slate-600">
                           <p>Room: {formatRoomNumber(selectedRoom)}</p>
                           <p>Capacity: {selectedRoom.capacity} people</p>
                           <p>Floor: {selectedRoom.floor_number}</p>
-                          {selectedRoom.features && selectedRoom.features.length > 0 && (
-                            <div className="mt-1">
-                              <p className="font-medium text-slate-700">Features:</p>
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {selectedRoom.features.map((feature: string, index: number) => (
-                                  <span
-                                    key={index}
-                                    className="px-2 py-0.5 bg-white/60 backdrop-blur-sm text-blue-700 border border-blue-200/50 rounded text-sm"
-                                  >
-                                    {feature.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
-                                  </span>
-                                ))}
+                          {selectedRoom.features &&
+                            selectedRoom.features.length > 0 && (
+                              <div className="mt-1">
+                                <p className="font-medium text-slate-700">
+                                  Features:
+                                </p>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {selectedRoom.features.map(
+                                    (feature: string, index: number) => (
+                                      <span
+                                        key={index}
+                                        className="px-2 py-0.5 bg-white/60 backdrop-blur-sm text-blue-700 border border-blue-200/50 rounded text-sm"
+                                      >
+                                        {feature
+                                          .replace(/_/g, " ")
+                                          .replace(/\b\w/g, (l) =>
+                                            l.toUpperCase()
+                                          )}
+                                      </span>
+                                    )
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          )}
+                            )}
                         </div>
                       </div>
 
@@ -673,13 +707,19 @@ export function BookingModal({
                         </h4>
                         <div className="bg-white/40 backdrop-blur-sm rounded-lg p-2">
                           <RoomLayout
-                            mode={(selectedRoom.capacity || 0) >= 10 ? "book" : "view"}
+                            mode={
+                              (selectedRoom.capacity || 0) >= 10
+                                ? "book"
+                                : "view"
+                            }
                             capacity={selectedRoom.capacity || 12}
                             roomCode={formatRoomNumber(selectedRoom) || "ROOM"}
                             roomId={selectedRoom.id}
                             selectedSeats={selectedSeats}
                             onSeatClick={
-                              (selectedRoom.capacity || 0) >= 10 ? handleSeatSelection : undefined
+                              (selectedRoom.capacity || 0) >= 10
+                                ? handleSeatSelection
+                                : undefined
                             }
                             interactive={(selectedRoom.capacity || 0) >= 10}
                             startTime={
@@ -694,15 +734,22 @@ export function BookingModal({
                             }
                           />
                         </div>
-                        {(selectedRoom.capacity || 0) >= 10 && selectedSeats.length > 0 && (
-                          <p className="text-sm text-slate-600 mt-1">
-                            Selected: {selectedSeats.map((seat) => seat.split("-").slice(1).join("-")).join(", ")}
-                          </p>
-                        )}
+                        {(selectedRoom.capacity || 0) >= 10 &&
+                          selectedSeats.length > 0 && (
+                            <p className="text-sm text-slate-600 mt-1">
+                              Selected:{" "}
+                              {selectedSeats
+                                .map((seat) =>
+                                  seat.split("-").slice(1).join("-")
+                                )
+                                .join(", ")}
+                            </p>
+                          )}
                         {(selectedRoom.capacity || 0) < 10 && (
                           <div className="mt-2 bg-blue-50/60 backdrop-blur-sm rounded-lg p-2 border border-blue-200/50">
                             <p className="text-blue-800 text-sm">
-                              <strong>Small Room:</strong> Entire room reserved for you.
+                              <strong>Small Room:</strong> Entire room reserved
+                              for you.
                             </p>
                           </div>
                         )}
@@ -728,21 +775,28 @@ export function BookingModal({
             )}
 
             {/* Confirm Button */}
-            {selectedRoom && selectedDate && selectedStartTime && selectedEndTime && (
-              <div className="flex justify-center pt-2 pb-2">
-                <Button
-                  onClick={handleConfirmBooking}
-                  disabled={!isBookingValid() || isBooking || wouldExceedLimit}
-                  className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold text-base shadow-lg hover:shadow-xl"
-                >
-                  {isBooking
-                    ? "Confirming..."
-                    : wouldExceedLimit
-                      ? `Limit reached (${userBookingsCount ?? "—"}/${MAX_RESERVATIONS})`
+            {selectedRoom &&
+              selectedDate &&
+              selectedStartTime &&
+              selectedEndTime && (
+                <div className="flex justify-center pt-2 pb-2">
+                  <Button
+                    onClick={handleConfirmBooking}
+                    disabled={
+                      !isBookingValid() || isBooking || wouldExceedLimit
+                    }
+                    className="w-full sm:w-auto px-6 sm:px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white font-semibold text-sm sm:text-base shadow-lg hover:shadow-xl"
+                  >
+                    {isBooking
+                      ? "Confirming..."
+                      : wouldExceedLimit
+                      ? `Limit reached (${
+                          userBookingsCount ?? "—"
+                        }/${MAX_RESERVATIONS})`
                       : "Confirm Reservation"}
-                </Button>
-              </div>
-            )}
+                  </Button>
+                </div>
+              )}
           </div>
         </div>
       </DialogContent>

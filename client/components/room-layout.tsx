@@ -221,7 +221,7 @@ export function RoomLayout({
   };
 
   return (
-    <div className="w-full h-64 bg-gray-50 rounded-lg border-2 border-gray-200 relative overflow-hidden">
+    <div className="w-full h-48 sm:h-56 lg:h-64 bg-gray-50 rounded-lg border-2 border-gray-200 relative overflow-hidden">
       <svg
         width="100%"
         height="100%"
@@ -268,7 +268,7 @@ export function RoomLayout({
                 ((mode === "book" &&
                   (seat.status === "available" ||
                     selectedSeats.includes(seat.id))) ||
-                (mode === "view" && seat.status === "available"))
+                  (mode === "view" && seat.status === "available"))
                   ? "cursor-pointer hover:opacity-80"
                   : ""
               }
@@ -280,8 +280,8 @@ export function RoomLayout({
               x={seat.x}
               y={seat.y + 3}
               textAnchor="middle"
-              className="text-sm font-bold fill-white pointer-events-none"
-              style={{ fontSize: "12px" }}
+              className="text-[10px] sm:text-sm font-bold fill-white pointer-events-none"
+              style={{ fontSize: "10px" }}
             >
               {seat.seatNumber}
             </text>
@@ -359,7 +359,7 @@ export function RoomLayout({
       </svg>
 
       {/* Layout label */}
-      <div className="absolute top-2 right-2 text-xs text-gray-500 bg-white px-2 py-1 rounded">
+      <div className="absolute top-1 sm:top-2 right-1 sm:right-2 text-[10px] sm:text-xs text-gray-500 bg-white px-1.5 sm:px-2 py-0.5 sm:py-1 rounded">
         Layout
       </div>
     </div>
