@@ -243,5 +243,7 @@ storybook-static/
 .bundle-analyzer/
 
 
+
 #Ignore vscode AI rules
 .github\instructions\codacy.instructions.md
+
