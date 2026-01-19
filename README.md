@@ -58,15 +58,21 @@ Visit [StudySync](https://study-sync-client.vercel.app/)
 - **Like System**: Community engagement and content curation
 
 ### 🎧 **PDF-to-Podcast Conversion**
-- **Text-to-Speech**: High-quality audio generation using Google TTS
-- **Smart Chunking**: Sentence-aware text splitting for natural flow
-- **Chapter Navigation**: Interactive audio player with bookmarks
-- **Download & Stream**: Offline access to generated podcasts
-- **Content Caching**: Efficient re-generation prevention
+- **Text-to-Speech**: High-quality audio generation using Edge-TTS (100% free)
+- **Real Audio Files**: Actual MP3 files with native playback, not Web Speech API
+- **Smart Content Limits**: Auto-reduction for long texts (8000 chars max, 1500 words)
+- **Persistent Storage**: Supabase-hosted audio files with proper state management
+- **Native Playback**: HTML5 audio player with variable speed, seeking, and timeline
+- **Content Caching**: Hash-based duplicate prevention with one-time generation
+- **Background Processing**: Async generation with pending/ready/failed states
 
 ### 👥 **Study Community Features**
 - **Study Buddy Matching**: Connect with compatible study partners
-- **Chat System**: Real-time messaging with Socket.io
+- **Persistent Floating Chat**: Global chat accessible across all pages
+- **Real-time Messaging**: Instant messaging with Pusher integration
+- **Connection Management**: View and manage study buddy connections
+- **Chat State Persistence**: Conversations persist across page navigation
+- **Read Receipts**: Message read status tracking
 - **Group Formation**: Create and join study groups
 - **Activity Tracking**: Monitor study sessions and progress
 
@@ -100,9 +106,9 @@ Visit [StudySync](https://study-sync-client.vercel.app/)
 - **Database**: PostgreSQL with Prisma ORM
 - **Authentication**: JWT with HTTP-only cookies
 - **File Storage**: Supabase Storage
-- **Real-time**: Socket.io
+- **Real-time**: Socket.io + Pusher
 - **File Processing**: Multer, PDF-lib, Mammoth
-- **Audio Generation**: Google TTS API + FFmpeg
+- **Audio Generation**: Edge-TTS (free) + FFmpeg for metadata extraction
 
 ### **AI & Machine Learning**
 - **LangChain**: Document processing and AI integration
@@ -149,6 +155,8 @@ Visit `https://study-sync-client.vercel.app/` to see StudySync in action! 🎉
 - **PostgreSQL** 13+
 - **Git**
 - **Supabase Account** (for file storage)
+- **Pusher Account** (for real-time chat)
+- **Python 3.7+** (for Edge-TTS)
 
 ### Detailed Setup
 
@@ -213,8 +221,15 @@ CLIENT_URL="http://localhost:3000"
 SERVER_URL="http://localhost:5000"
 NODE_ENV="development"
 
+# Real-time Communication
+PUSHER_APP_ID="your-pusher-app-id"
+PUSHER_KEY="your-pusher-key"
+PUSHER_SECRET="your-pusher-secret"
+PUSHER_CLUSTER="your-pusher-cluster"
+
 # AI Services (Optional)
 OPENAI_API_KEY="your-openai-api-key"
+ANTHROPIC_API_KEY="your-anthropic-api-key"
 ```
 
 #### **Client (.env.local)**
@@ -266,9 +281,18 @@ USING (bucket_id = 'study-sync-documents');
 - **Collaborate**: Like, comment, and share valuable resources
 
 #### **Generate Podcasts**
-- **Convert**: Transform any PDF into audio format
-- **Listen**: Use built-in player with chapter navigation
-- **Download**: Save for offline listening
+- **Convert**: Transform any PDF into MP3 audio format
+- **Auto-Process**: Automatic text reduction for long content
+- **Listen**: Use native HTML5 audio player with playback speed control
+- **Download**: Save generated MP3 files for offline listening
+- **Track Progress**: View generation status (pending/ready/failed)
+
+#### **Use Persistent Chat**
+- **Access**: Click the floating chat button (bottom-right corner)
+- **Navigate**: View all your study buddy connections
+- **Message**: Send and receive instant messages
+- **Persist**: Chat remains accessible across all pages
+- **Real-time**: Automatic message updates without refresh
 
 ### **For Administrators**
 
@@ -323,9 +347,11 @@ USING (bucket_id = 'study-sync-documents');
 
 | Method | Endpoint | Description | Auth Required |
 |--------|----------|-------------|---------------|
-| `POST` | `/api/podcasts/generate` | Generate podcast from text | ✅ |
-| `GET` | `/api/podcasts/download/:id` | Download MP3 file | ❌ |
-| `GET` | `/api/podcasts/metadata/:id` | Get podcast metadata | ❌ |
+| `POST` | `/api/server/podcasts` | Create new podcast (starts generation) | ✅ |
+| `GET` | `/api/server/podcasts` | List user's podcasts | ✅ |
+| `GET` | `/api/server/podcasts/:id` | Get podcast with status | ✅ |
+| `POST` | `/api/server/podcasts/:id/retry` | Retry failed podcast generation | ✅ |
+| `DELETE` | `/api/server/podcasts/:id` | Delete podcast and audio file | ✅ |
 
 ### **Request Examples**
 
